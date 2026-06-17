@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+  *{ box-sizing:border-box; }
+  body{ margin:0; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#E7E1D4; font-family:'Plus Jakarta Sans',system-ui,sans-serif; padding:60px 56px 120px; color:#16231C;">
+
+  <div style="max-width:1500px; margin:0 auto 72px;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="width:40px; height:40px; border-radius:12px; background:#0F3D2C; position:relative; display:flex; align-items:center; justify-content:center;">
+        <div style="width:13px; height:13px; border-radius:50%; background:#EFA63C; position:absolute; top:8px; right:8px;"></div>
+        <div style="width:16px; height:16px; border-radius:0 12px 0 12px; background:#27A36A; position:absolute; bottom:9px; left:9px;"></div>
+      </div>
+      <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:26px; color:#0F3D2C; letter-spacing:-0.5px;">SaveBite</span>
+    </div>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:46px; color:#16231C; margin:24px 0 12px; max-width:820px; line-height:1.04; letter-spacing:-1px;">Selamatkan makanan, hemat lebih banyak.</h1>
+    <p style="margin:0; font-size:17px; color:#4A574F; max-width:720px; line-height:1.55;">Mockup aplikasi SaveBite — marketplace <em>Surprise Bag</em> yang mempertemukan merchant berstok berlebih dengan konsumen yang ingin makan enak berharga miring. Satu aplikasi, dua ekosistem: alur lengkap dari onboarding sampai pencairan dana.</p>
+  </div>
+
+  <div style="max-width:1640px; margin:0 auto; display:flex; flex-direction:column; gap:88px;">
+
+    <section data-screen-label="Bagian A — Onboarding & Akun">
+      <div style="display:flex; align-items:center; gap:16px; margin-bottom:34px;">
+        <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:13px; letter-spacing:2px; color:#1E8456;">BAGIAN 01</span>
+        <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:30px; color:#0F3D2C; letter-spacing:-0.5px;">Onboarding &amp; Akun</h2>
+        <div style="flex:1; height:1px; background:#D2CABA;"></div>
+        <span style="font-size:14px; color:#8A958C; font-weight:600;">Global · sebelum login</span>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:56px;">
+
+        <!-- A1 SPLASH -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">A1</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Splash</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Pembuka</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#0F3D2C; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; position:relative;">
+              <div style="position:absolute; inset:0; background:radial-gradient(circle at 50% 38%, rgba(39,163,106,0.35), transparent 60%);"></div>
+              <div style="width:88px; height:88px; border-radius:26px; background:#16442F; position:relative; box-shadow:0 14px 40px rgba(0,0,0,0.3);">
+                <div style="width:28px; height:28px; border-radius:50%; background:#EFA63C; position:absolute; top:18px; right:17px;"></div>
+                <div style="width:34px; height:34px; border-radius:0 26px 0 26px; background:#27A36A; position:absolute; bottom:19px; left:18px;"></div>
+              </div>
+              <div style="text-align:center; position:relative;">
+                <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:38px; color:#FBF7EF; letter-spacing:-1px;">SaveBite</div>
+                <div style="font-size:15px; color:#9FC9B2; margin-top:6px; font-weight:500;">Selamatkan makanan, hemat lebih.</div>
+              </div>
+              <div style="position:absolute; bottom:78px; display:flex; gap:7px;">
+                <div style="width:7px; height:7px; border-radius:50%; background:#EFA63C;"></div>
+                <div style="width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.3);"></div>
+                <div style="width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.3);"></div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- A2 ONBOARDING -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">A2</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Onboarding</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Carousel perkenalan</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column; padding:62px 24px 32px;">
+              <div style="display:flex; justify-content:flex-end;">
+                <span style="font-size:15px; font-weight:600; color:#8A958C;">Lewati</span>
+              </div>
+              <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+                <div style="width:100%; height:300px; border-radius:28px; background:#E7DDC8 url('assets/food5.jpg') center/cover; border:1px solid #E3D9C5; box-shadow:inset 0 -60px 60px -30px rgba(15,61,44,0.45);"></div>
+              </div>
+              <div style="display:flex; gap:7px; justify-content:center; margin:8px 0 22px;">
+                <div style="width:22px; height:7px; border-radius:4px; background:#0F3D2C;"></div>
+                <div style="width:7px; height:7px; border-radius:50%; background:#D7CFBE;"></div>
+                <div style="width:7px; height:7px; border-radius:50%; background:#D7CFBE;"></div>
+              </div>
+              <h2 style="margin:0 0 10px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; color:#16231C; line-height:1.12; letter-spacing:-0.5px;">Makanan enak, harga miring.</h2>
+              <p style="margin:0 0 22px; font-size:15px; color:#5C685F; line-height:1.55;">Tiap sore, toko favoritmu mengemas stok berlebih jadi Surprise Bag dengan diskon 50–70%. Tinggal pesan, ambil sendiri, hemat banyak.</p>
+              <button style="width:100%; height:54px; border:none; border-radius:16px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Lanjut</button>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- A3 FORK -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">A3</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Fork peran</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Mau beli / jual</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column; padding:74px 24px 32px;">
+              <div style="display:flex; align-items:center; gap:9px; margin-bottom:36px;">
+                <div style="width:30px; height:30px; border-radius:9px; background:#0F3D2C; position:relative;">
+                  <div style="width:9px; height:9px; border-radius:50%; background:#EFA63C; position:absolute; top:6px; right:6px;"></div>
+                  <div style="width:11px; height:11px; border-radius:0 9px 0 9px; background:#27A36A; position:absolute; bottom:6px; left:6px;"></div>
+                </div>
+                <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:19px; color:#0F3D2C;">SaveBite</span>
+              </div>
+              <h2 style="margin:0 0 6px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:27px; color:#16231C; letter-spacing:-0.5px;">Mau mulai dari mana?</h2>
+              <p style="margin:0 0 26px; font-size:14px; color:#5C685F; line-height:1.5;">Pilih peranmu. Tenang, bisa diganti kapan saja lewat Profil.</p>
+              <div style="display:flex; flex-direction:column; gap:16px; flex:1;">
+                <div style="border-radius:22px; background:#E8F3EC; border:1.5px solid #C9E3D2; padding:22px; position:relative;">
+                  <div style="width:44px; height:44px; border-radius:14px; background:#27A36A; display:flex; align-items:center; justify-content:center; margin-bottom:14px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+                  </div>
+                  <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:20px; color:#0F3D2C; margin-bottom:5px;">Saya mau beli</div>
+                  <div style="font-size:13.5px; color:#4F6157; line-height:1.5;">Temukan Surprise Bag murah dari toko di sekitarmu.</div>
+                  <div style="position:absolute; top:24px; right:22px; color:#27A36A; font-size:20px;">→</div>
+                </div>
+                <div style="border-radius:22px; background:#FBEFDD; border:1.5px solid #F0DDB9; padding:22px; position:relative;">
+                  <div style="width:44px; height:44px; border-radius:14px; background:#E2592B; display:flex; align-items:center; justify-content:center; margin-bottom:14px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 9h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 9l2-4h12l2 4" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  </div>
+                  <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:20px; color:#8A3A14; margin-bottom:5px;">Saya mau jual</div>
+                  <div style="font-size:13.5px; color:#7A5536; line-height:1.5;">Ubah stok berlebih jadi cuan, kurangi makanan terbuang.</div>
+                  <div style="position:absolute; top:24px; right:22px; color:#E2592B; font-size:20px;">→</div>
+                </div>
+              </div>
+              <p style="margin:22px 0 0; text-align:center; font-size:13px; color:#9B8E72;">Satu akun bisa jadi pembeli sekaligus penjual.</p>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- A4 LOGIN -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">A4</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Login Google</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Satu langkah</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column; padding:74px 24px 32px;">
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+                <div style="width:72px; height:72px; border-radius:22px; background:#0F3D2C; position:relative; margin-bottom:26px;">
+                  <div style="width:22px; height:22px; border-radius:50%; background:#EFA63C; position:absolute; top:14px; right:13px;"></div>
+                  <div style="width:27px; height:27px; border-radius:0 22px 0 22px; background:#27A36A; position:absolute; bottom:15px; left:14px;"></div>
+                </div>
+                <h2 style="margin:0 0 8px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:26px; color:#16231C;">Tinggal selangkah lagi</h2>
+                <p style="margin:0; font-size:15px; color:#5C685F; line-height:1.5; max-width:280px;">Masuk dengan akun Google untuk mulai berbelanja Surprise Bag.</p>
+              </div>
+              <button style="width:100%; height:56px; border:1.5px solid #E3D9C5; border-radius:16px; background:#fff; display:flex; align-items:center; justify-content:center; gap:12px; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px; color:#16231C; margin-bottom:16px;">
+                <span style="width:26px; height:26px; border-radius:50%; background:conic-gradient(#EA4335 0 25%,#FBBC05 0 50%,#34A853 0 75%,#4285F4 0); display:flex; align-items:center; justify-content:center;"><span style="width:11px; height:11px; border-radius:50%; background:#fff;"></span></span>
+                Lanjutkan dengan Google
+              </button>
+              <p style="margin:0; text-align:center; font-size:12px; color:#9B8E72; line-height:1.6;">Dengan masuk, kamu menyetujui Ketentuan Layanan<br>dan Kebijakan Privasi SaveBite.</p>
+            </div>
+          </x-import>
+        </div>
+
+      </div>
+    </section>
+    <section data-screen-label="Bagian B — Ekosistem Konsumen">
+      <div style="display:flex; align-items:center; gap:16px; margin-bottom:34px;">
+        <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:13px; letter-spacing:2px; color:#1E8456;">BAGIAN 02</span>
+        <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:30px; color:#0F3D2C; letter-spacing:-0.5px;">Ekosistem Konsumen</h2>
+        <div style="flex:1; height:1px; background:#D2CABA;"></div>
+        <span style="font-size:14px; color:#8A958C; font-weight:600;">Browse · beli · pickup · rating</span>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:56px;">
+
+        <!-- B1 HOME -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B1</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Beranda</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Bag di sekitarmu</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 16px; background:#0F3D2C;">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <div>
+                    <div style="font-size:12px; color:#9FC9B2; font-weight:600;">Lokasi kamu</div>
+                    <div style="display:flex; align-items:center; gap:5px; color:#FBF7EF; font-weight:700; font-size:16px;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z" stroke="#EFA63C" stroke-width="2"/><circle cx="12" cy="11" r="2" fill="#EFA63C"/></svg>
+                      Margonda, Depok ▾
+                    </div>
+                  </div>
+                  <div style="width:38px; height:38px; border-radius:50%; background:#16442F; display:flex; align-items:center; justify-content:center;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#EFA63C" stroke-width="1.8"/><path d="M10 18a2 2 0 0 0 4 0" stroke="#EFA63C" stroke-width="1.8"/></svg>
+                  </div>
+                </div>
+                <div style="margin-top:14px; height:46px; border-radius:14px; background:#fff; display:flex; align-items:center; gap:10px; padding:0 14px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8A958C" stroke-width="2"/><path d="M20 20l-4-4" stroke="#8A958C" stroke-width="2" stroke-linecap="round"/></svg>
+                  <span style="font-size:14.5px; color:#9BA39B;">Cari toko atau makanan…</span>
+                </div>
+              </div>
+
+              <div style="flex:1; overflow:auto; padding:16px 20px 12px;">
+                <div style="display:flex; gap:8px; margin-bottom:18px;">
+                  <span style="padding:8px 14px; border-radius:20px; background:#0F3D2C; color:#fff; font-size:13px; font-weight:700;">Semua</span>
+                  <span style="padding:8px 14px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">Bakery</span>
+                  <span style="padding:8px 14px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">Kafe</span>
+                  <span style="padding:8px 14px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">Resto</span>
+                </div>
+
+                <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px;">
+                  <h3 style="margin:0; display:flex; align-items:center; gap:7px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:18px; color:#16231C;">Segera tutup <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3c1 3-1 4-1 6a3 3 0 0 0 6 .5c1 1.5 2 3.2 2 5.5a7 7 0 1 1-14 0c0-3 2-5 3-6 .5 2 2 2 2 2 .5-3-1-5 1-7.5z" fill="#E2592B"/></svg></h3>
+                  <span style="font-size:13px; color:#27A36A; font-weight:700;">Lihat semua</span>
+                </div>
+
+                <div style="border-radius:22px; background:#fff; overflow:hidden; border:1px solid #ECE4D3; margin-bottom:14px; box-shadow:0 12px 28px -18px rgba(40,30,12,0.5);">
+                  <div style="height:174px; background:#E7DDC8 url('assets/food1.jpg') center/cover; position:relative; display:flex; align-items:flex-end; padding:11px;">
+                    <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(20,12,4,0.5), transparent 52%);"></div>
+                    <div style="position:absolute; top:15px; right:-36px; transform:rotate(45deg); background:#E2592B; color:#fff; font-weight:800; font-size:11px; letter-spacing:0.6px; padding:5px 40px; box-shadow:0 3px 8px rgba(0,0,0,0.25);">HEMAT 67%</div>
+                    <span style="position:relative; background:rgba(255,255,255,0.95); color:#C2410C; font-size:11px; font-weight:800; padding:5px 11px; border-radius:20px;">Sisa 3 lagi</span>
+                    <span style="position:relative; background:rgba(15,61,44,0.86); color:#EFC07A; font-size:11px; font-weight:700; padding:5px 11px; border-radius:20px; margin-left:auto;">Ambil 20.00–21.00</span>
+                  </div>
+                  <div style="padding:14px 15px 16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                      <div style="width:28px; height:28px; border-radius:9px; background:#F2A33C; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; font-family:'Bricolage Grotesque',sans-serif;">R</div>
+                      <span style="font-weight:700; font-size:14px; color:#16231C;">Roti Nyaman Bakery</span>
+                      <span style="margin-left:auto; font-size:12px; color:#5C685F; font-weight:600;">★ 4.8 · 0,4 km</span>
+                    </div>
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:17px; color:#16231C; margin-bottom:10px; letter-spacing:-0.3px;">Surprise Bag Roti &amp; Pastry</div>
+                    <div style="display:flex; align-items:flex-end; gap:9px;">
+                      <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:23px; color:#0F3D2C; line-height:1;">Rp15.000</span>
+                      <span style="font-size:13px; color:#A39B89; text-decoration:line-through; margin-bottom:2px;">Rp45.000</span>
+                      <span style="margin-left:auto; display:flex; align-items:center; gap:5px; color:#1E8456; font-size:12px; font-weight:700;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 13l9-9 9 9M5 11v8h14v-8" stroke="#1E8456" stroke-width="1.8" stroke-linejoin="round"/></svg>Selamatkan</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="border-radius:22px; background:#fff; overflow:hidden; border:1px solid #ECE4D3;">
+                  <div style="height:124px; background:#E7DDC8 url('assets/food8.jpg') center/cover; position:relative; display:flex; align-items:flex-end; padding:11px;">
+                    <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(20,12,4,0.45), transparent 52%);"></div>
+                    <span style="position:relative; background:rgba(255,255,255,0.95); color:#1E8456; font-size:11px; font-weight:800; padding:5px 11px; border-radius:20px;">Sisa 6 lagi</span>
+                    <span style="position:relative; background:rgba(15,61,44,0.86); color:#EFC07A; font-size:11px; font-weight:700; padding:5px 11px; border-radius:20px; margin-left:auto;">Ambil 19.30–20.30</span>
+                  </div>
+                  <div style="padding:14px 15px 16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                      <div style="width:28px; height:28px; border-radius:9px; background:#27A36A; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; font-family:'Bricolage Grotesque',sans-serif;">K</div>
+                      <span style="font-weight:700; font-size:14px; color:#16231C;">Kopi Senja</span>
+                      <span style="margin-left:auto; font-size:12px; color:#5C685F; font-weight:600;">★ 4.6 · 0,9 km</span>
+                    </div>
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:16px; color:#16231C; margin-bottom:10px; letter-spacing:-0.3px;">Surprise Bag Pastry &amp; Kopi</div>
+                    <div style="display:flex; align-items:flex-end; gap:9px;">
+                      <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:21px; color:#0F3D2C; line-height:1;">Rp20.000</span>
+                      <span style="font-size:13px; color:#A39B89; text-decoration:line-through; margin-bottom:2px;">Rp50.000</span>
+                      <span style="margin-left:auto; background:#FBE9DF; color:#C2410C; font-size:11px; font-weight:800; padding:5px 10px; border-radius:20px;">Hemat 60%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; display:flex; justify-content:space-around; padding:10px 8px 24px;">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#0F3D2C;">
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" stroke="#0F3D2C" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  <span style="font-size:10.5px; font-weight:700;">Beranda</span>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#A0A89F;">
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M9 4L4 6v14l5-2 6 2 5-2V4l-5 2-6-2z" stroke="#A0A89F" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  <span style="font-size:10.5px; font-weight:600;">Peta</span>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#A0A89F;">
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="#A0A89F" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="#A0A89F" stroke-width="1.8"/></svg>
+                  <span style="font-size:10.5px; font-weight:600;">Pesanan</span>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#A0A89F;">
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z" stroke="#A0A89F" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  <span style="font-size:10.5px; font-weight:600;">Favorit</span>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#A0A89F;">
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="#A0A89F" stroke-width="1.8"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="#A0A89F" stroke-width="1.8"/></svg>
+                  <span style="font-size:10.5px; font-weight:600;">Profil</span>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B2 FILTER -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B2</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Pencarian &amp; Filter</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Bottom sheet</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:rgba(15,35,28,0.55); display:flex; flex-direction:column; justify-content:flex-end;">
+              <div style="background:#FBF7EF; border-radius:28px 28px 0 0; padding:14px 24px 32px;">
+                <div style="width:42px; height:5px; border-radius:3px; background:#D7CFBE; margin:0 auto 20px;"></div>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+                  <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#16231C;">Filter</h2>
+                  <span style="font-size:14px; font-weight:700; color:#27A36A;">Reset</span>
+                </div>
+
+                <div style="font-weight:700; font-size:14px; color:#16231C; margin-bottom:11px;">Kategori</div>
+                <div style="display:flex; flex-wrap:wrap; gap:9px; margin-bottom:24px;">
+                  <span style="padding:9px 15px; border-radius:20px; background:#0F3D2C; color:#fff; font-size:13px; font-weight:700;">Bakery</span>
+                  <span style="padding:9px 15px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">Kafe</span>
+                  <span style="padding:9px 15px; border-radius:20px; background:#0F3D2C; color:#fff; font-size:13px; font-weight:700;">Resto</span>
+                  <span style="padding:9px 15px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">Supermarket</span>
+                  <span style="padding:9px 15px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">Sehat</span>
+                </div>
+
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:11px;">
+                  <span style="font-weight:700; font-size:14px; color:#16231C;">Jarak maksimal</span>
+                  <span style="font-weight:700; font-size:14px; color:#27A36A;">2 km</span>
+                </div>
+                <div style="height:6px; border-radius:4px; background:#E7DDC8; position:relative; margin-bottom:26px;">
+                  <div style="position:absolute; left:0; top:0; height:6px; width:42%; border-radius:4px; background:#27A36A;"></div>
+                  <div style="position:absolute; left:42%; top:-6px; width:18px; height:18px; border-radius:50%; background:#fff; border:3px solid #27A36A;"></div>
+                </div>
+
+                <div style="font-weight:700; font-size:14px; color:#16231C; margin-bottom:11px;">Rentang harga</div>
+                <div style="display:flex; gap:9px; margin-bottom:24px;">
+                  <span style="padding:9px 15px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">&lt; 15rb</span>
+                  <span style="padding:9px 15px; border-radius:20px; background:#0F3D2C; color:#fff; font-size:13px; font-weight:700;">15–30rb</span>
+                  <span style="padding:9px 15px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">&gt; 30rb</span>
+                </div>
+
+                <div style="font-weight:700; font-size:14px; color:#16231C; margin-bottom:11px;">Jam pickup</div>
+                <div style="display:flex; gap:9px; margin-bottom:28px;">
+                  <span style="padding:9px 15px; border-radius:20px; background:#0F3D2C; color:#fff; font-size:13px; font-weight:700;">Sore</span>
+                  <span style="padding:9px 15px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">Malam</span>
+                </div>
+
+                <button style="width:100%; height:54px; border:none; border-radius:16px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Terapkan · 12 hasil</button>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B3 MAP -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B3</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Peta</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Bag di-plot di map</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; position:relative; background:#E6E9E0;">
+              <div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg,#DCE2D6,#DCE2D6 1px,transparent 1px,transparent 46px),repeating-linear-gradient(90deg,#DCE2D6,#DCE2D6 1px,transparent 1px,transparent 46px),#E9ECE3;"></div>
+              <div style="position:absolute; top:30%; left:18%; width:90px; height:14px; background:#CFD8C6; border-radius:7px; transform:rotate(20deg);"></div>
+              <div style="position:absolute; top:55%; left:50%; width:140px; height:14px; background:#CFD8C6; border-radius:7px; transform:rotate(-12deg);"></div>
+
+              <div style="position:absolute; top:58px; left:20px; right:20px; height:46px; border-radius:14px; background:#fff; box-shadow:0 4px 16px rgba(0,0,0,0.1); display:flex; align-items:center; gap:10px; padding:0 14px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8A958C" stroke-width="2"/><path d="M20 20l-4-4" stroke="#8A958C" stroke-width="2" stroke-linecap="round"/></svg>
+                <span style="font-size:14.5px; color:#9BA39B;">Cari di area ini…</span>
+              </div>
+
+              <div style="position:absolute; top:36%; left:28%; display:flex; flex-direction:column; align-items:center;">
+                <div style="background:#0F3D2C; color:#EFA63C; font-weight:800; font-size:12px; padding:6px 10px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">Rp15rb</div>
+                <div style="width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:8px solid #0F3D2C;"></div>
+              </div>
+              <div style="position:absolute; top:50%; left:58%; display:flex; flex-direction:column; align-items:center;">
+                <div style="background:#27A36A; color:#fff; font-weight:800; font-size:12px; padding:6px 10px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">Rp20rb</div>
+                <div style="width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:8px solid #27A36A;"></div>
+              </div>
+              <div style="position:absolute; top:28%; left:64%; display:flex; flex-direction:column; align-items:center;">
+                <div style="background:#E2592B; color:#fff; font-weight:800; font-size:12px; padding:6px 10px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">Rp18rb</div>
+                <div style="width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:8px solid #E2592B;"></div>
+              </div>
+              <div style="position:absolute; top:70%; left:38%; width:16px; height:16px; border-radius:50%; background:#2D7BE5; border:3px solid #fff; box-shadow:0 0 0 6px rgba(45,123,229,0.2);"></div>
+
+              <div style="position:absolute; left:16px; right:16px; bottom:34px; background:#fff; border-radius:22px; box-shadow:0 8px 30px rgba(0,0,0,0.15); overflow:hidden;">
+                <div style="display:flex; gap:12px; padding:14px;">
+                  <div style="width:78px; height:78px; border-radius:14px; background:#E7DDC8 url('assets/food1.jpg') center/cover; flex-shrink:0;"></div>
+                  <div style="flex:1;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span style="font-weight:700; font-size:14px; color:#16231C;">Roti Nyaman Bakery</span>
+                      <span style="margin-left:auto; font-size:12px; color:#5C685F; font-weight:600;">★ 4.8</span>
+                    </div>
+                    <div style="font-size:12.5px; color:#5C685F; margin:3px 0 8px;">0,4 km · ambil 20.00–21.00</div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="font-size:12px; color:#A39B89; text-decoration:line-through;">Rp45rb</span>
+                      <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px; color:#27A36A;">Rp15.000</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B4 DETAIL -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B4</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Detail Bag</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Info & pesan</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="flex:1; overflow:auto;">
+                <div style="height:248px; background:#E7DDC8 url('assets/food4.jpg') center/cover; position:relative; display:flex; flex-direction:column; justify-content:flex-end;">
+                  <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(18,10,3,0.62), transparent 46%);"></div>
+                  <div style="position:absolute; top:58px; left:18px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.92); display:flex; align-items:center; justify-content:center;">
+                    <svg width="14" height="20" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#16231C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                  <div style="position:absolute; top:58px; right:18px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.92); display:flex; align-items:center; justify-content:center;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z" stroke="#E2592B" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  </div>
+                  <div style="position:absolute; top:18px; right:-38px; transform:rotate(45deg); background:#E2592B; color:#fff; font-weight:800; font-size:12px; letter-spacing:0.6px; padding:6px 44px; box-shadow:0 3px 8px rgba(0,0,0,0.25);">HEMAT 67%</div>
+                  <div style="position:relative; padding:16px 18px; display:flex; align-items:center; gap:9px;">
+                    <span style="background:rgba(255,255,255,0.95); color:#C2410C; font-size:12px; font-weight:800; padding:6px 12px; border-radius:20px;">Sisa 3 lagi</span>
+                    <span style="background:rgba(15,61,44,0.82); color:#EFC07A; font-size:12px; font-weight:700; padding:6px 12px; border-radius:20px;">Isi senilai Rp45rb+</span>
+                  </div>
+                </div>
+                <div style="padding:18px 20px 0;">
+                  <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                    <div style="width:42px; height:42px; border-radius:12px; background:#F2A33C;"></div>
+                    <div>
+                      <div style="font-weight:700; font-size:15px; color:#16231C;">Roti Nyaman Bakery</div>
+                      <div style="font-size:12.5px; color:#5C685F;">★ 4.8 (212) · Bakery · 0,4 km</div>
+                    </div>
+                    <span style="margin-left:auto; font-size:13px; font-weight:700; color:#27A36A;">Lihat toko</span>
+                  </div>
+                  <h2 style="margin:0 0 6px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C; letter-spacing:-0.5px;">Surprise Bag Roti &amp; Pastry</h2>
+                  <p style="margin:0 0 18px; font-size:14px; color:#5C685F; line-height:1.55;">Campuran roti manis, pastry, dan donat hari ini yang masih fresh. Isi kejutan senilai minimal Rp45.000.</p>
+
+                  <div style="display:flex; gap:10px; margin-bottom:18px;">
+                    <div style="flex:1; background:#fff; border:1px solid #F0EADB; border-radius:14px; padding:12px;">
+                      <div style="font-size:11.5px; color:#8A958C; font-weight:600;">Window pickup</div>
+                      <div style="font-weight:700; font-size:14px; color:#16231C; margin-top:3px;">Hari ini 20.00–21.00</div>
+                    </div>
+                    <div style="flex:1; background:#fff; border:1px solid #F0EADB; border-radius:14px; padding:12px;">
+                      <div style="font-size:11.5px; color:#8A958C; font-weight:600;">Tersisa</div>
+                      <div style="font-weight:700; font-size:14px; color:#E2592B; margin-top:3px;">3 bag lagi</div>
+                    </div>
+                  </div>
+
+                  <div style="font-weight:700; font-size:14px; color:#16231C; margin-bottom:9px;">Mungkin ada di dalamnya</div>
+                  <div style="display:flex; flex-wrap:wrap; gap:8px; padding-bottom:18px;">
+                    <span style="padding:7px 12px; border-radius:18px; background:#F1ECE0; color:#4F6157; font-size:12.5px; font-weight:600;">Roti manis</span>
+                    <span style="padding:7px 12px; border-radius:18px; background:#F1ECE0; color:#4F6157; font-size:12.5px; font-weight:600;">Croissant</span>
+                    <span style="padding:7px 12px; border-radius:18px; background:#F1ECE0; color:#4F6157; font-size:12.5px; font-weight:600;">Donat</span>
+                    <span style="padding:7px 12px; border-radius:18px; background:#F1ECE0; color:#4F6157; font-size:12.5px; font-weight:600;">Roti tawar</span>
+                  </div>
+                </div>
+              </div>
+              <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; padding:14px 20px 30px; display:flex; align-items:center; gap:14px;">
+                <div>
+                  <div style="display:flex; align-items:baseline; gap:7px;"><div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:23px; color:#0F3D2C;">Rp15.000</div><div style="font-size:12px; color:#A39B89; text-decoration:line-through;">Rp45.000</div></div>
+                  <div style="font-size:11.5px; color:#1E8456; font-weight:700;">Kamu hemat Rp30.000</div>
+                </div>
+                <button style="flex:1; height:54px; border:none; border-radius:16px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Pesan sekarang</button>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B5 CHECKOUT -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B5</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Checkout &amp; Bayar</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Prepaid in-app</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 14px; display:flex; align-items:center; gap:14px; background:#fff; border-bottom:1px solid #F0EADB;">
+                <svg width="13" height="20" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#16231C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; color:#16231C;">Checkout</span>
+              </div>
+              <div style="flex:1; overflow:auto; padding:18px 20px;">
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:14px; display:flex; gap:12px; margin-bottom:16px;">
+                  <div style="width:58px; height:58px; border-radius:12px; background:#E7DDC8 url('assets/food1.jpg') center/cover; flex-shrink:0;"></div>
+                  <div style="flex:1;">
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Surprise Bag Roti &amp; Pastry</div>
+                    <div style="font-size:12.5px; color:#5C685F; margin-top:2px;">Roti Nyaman Bakery</div>
+                    <div style="font-size:12.5px; color:#27A36A; margin-top:5px; font-weight:700;">Ambil 20.00–21.00 hari ini</div>
+                  </div>
+                </div>
+
+                <div style="display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid #F0EADB; border-radius:16px; padding:12px 16px; margin-bottom:20px;">
+                  <span style="font-weight:700; font-size:14px; color:#16231C;">Jumlah bag</span>
+                  <div style="display:flex; align-items:center; gap:16px;">
+                    <span style="width:30px; height:30px; border-radius:50%; border:1.5px solid #E3D9C5; display:flex; align-items:center; justify-content:center; color:#8A958C; font-size:18px;">−</span>
+                    <span style="font-weight:700; font-size:16px; color:#16231C;">1</span>
+                    <span style="width:30px; height:30px; border-radius:50%; background:#0F3D2C; color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px;">+</span>
+                  </div>
+                </div>
+
+                <div style="font-weight:700; font-size:14px; color:#16231C; margin-bottom:11px;">Metode pembayaran</div>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; overflow:hidden; margin-bottom:20px;">
+                  <div style="display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #F4EEE0;">
+                    <div style="width:34px; height:34px; border-radius:9px; background:#00AA13;"></div>
+                    <span style="font-weight:600; font-size:14px; color:#16231C;">GoPay</span>
+                    <span style="margin-left:auto; width:20px; height:20px; border-radius:50%; border:6px solid #27A36A;"></span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #F4EEE0;">
+                    <div style="width:34px; height:34px; border-radius:9px; background:#4C2A86;"></div>
+                    <span style="font-weight:600; font-size:14px; color:#16231C;">OVO</span>
+                    <span style="margin-left:auto; width:20px; height:20px; border-radius:50%; border:2px solid #DDD5C4;"></span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px; padding:14px 16px;">
+                    <div style="width:34px; height:34px; border-radius:9px; background:#005BAA;"></div>
+                    <span style="font-weight:600; font-size:14px; color:#16231C;">Virtual Account BCA</span>
+                    <span style="margin-left:auto; width:20px; height:20px; border-radius:50%; border:2px solid #DDD5C4;"></span>
+                  </div>
+                </div>
+
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:16px;">
+                  <div style="display:flex; justify-content:space-between; font-size:13.5px; color:#5C685F; margin-bottom:9px;"><span>Subtotal</span><span>Rp15.000</span></div>
+                  <div style="display:flex; justify-content:space-between; font-size:13.5px; color:#5C685F; margin-bottom:9px;"><span>Biaya layanan</span><span>Rp1.000</span></div>
+                  <div style="height:1px; background:#F0EADB; margin:6px 0 11px;"></div>
+                  <div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:700; font-size:15px; color:#16231C;">Total</span><span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:20px; color:#0F3D2C;">Rp16.000</span></div>
+                </div>
+              </div>
+              <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; padding:14px 20px 30px;">
+                <button style="width:100%; height:54px; border:none; border-radius:16px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Bayar Rp16.000</button>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+      </div>
+        <!-- B5a MEMPROSES -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B5a</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Memproses Bayar</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Loading state</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#0F3D2C; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 36px; position:relative;">
+              <div style="position:absolute; inset:0; background:radial-gradient(circle at 50% 42%, rgba(39,163,106,0.3), transparent 62%);"></div>
+              <div style="position:relative; width:84px; height:84px; margin-bottom:28px;">
+                <div style="position:absolute; inset:0; border-radius:50%; border:5px solid #16442F;"></div>
+                <div style="position:absolute; inset:0; border-radius:50%; border:5px solid transparent; border-top-color:#EFA63C; border-right-color:#EFA63C; transform:rotate(45deg);"></div>
+                <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><rect x="4" y="9" width="16" height="11" rx="2" stroke="#9FC9B2" stroke-width="1.8"/><path d="M4 9l2-4h12l2 4" stroke="#9FC9B2" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                </div>
+              </div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#FBF7EF; position:relative; text-align:center;">Memproses pembayaran…</div>
+              <p style="margin:8px 0 0; font-size:14px; color:#9FC9B2; position:relative; text-align:center; line-height:1.5;">Menghubungkan ke GoPay. Jangan tutup halaman ini.</p>
+              <div style="position:absolute; bottom:36px; left:36px; right:36px; display:flex; align-items:center; gap:9px; justify-content:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="4" y="9" width="16" height="11" rx="2" stroke="#5C7E6C" stroke-width="1.8"/><path d="M8 9V7a4 4 0 0 1 8 0v2" stroke="#5C7E6C" stroke-width="1.8"/></svg>
+                <span style="font-size:12.5px; color:#5C7E6C;">Pembayaran aman &amp; terenkripsi</span>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B5b GAGAL -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B5b</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Pembayaran Gagal</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Error state</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column; padding:58px 24px 32px;">
+              <div style="display:flex; align-items:center; gap:14px; margin-bottom:8px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#16231C" stroke-width="2" stroke-linecap="round"/></svg>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+                <div style="width:96px; height:96px; border-radius:50%; background:#FBE4DB; display:flex; align-items:center; justify-content:center; margin-bottom:22px;">
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none"><path d="M12 8v5" stroke="#C24420" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="16.5" r="1.3" fill="#C24420"/><circle cx="12" cy="12" r="9" stroke="#C24420" stroke-width="2"/></svg>
+                </div>
+                <h2 style="margin:0 0 8px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:23px; color:#16231C;">Pembayaran gagal</h2>
+                <p style="margin:0; font-size:14px; color:#5C685F; line-height:1.55; max-width:290px;">Saldo GoPay-mu tidak mencukupi. Bag belum dipesan dan kamu <b>tidak dikenai biaya</b>. Coba metode lain, ya.</p>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:16px; padding:13px 16px; margin-top:24px; width:100%; display:flex; align-items:center; gap:12px;">
+                  <div style="width:46px; height:46px; border-radius:11px; background:#E7DDC8 url('assets/food1.jpg') center/cover; flex-shrink:0;"></div>
+                  <div style="flex:1; text-align:left;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Surprise Bag Roti &amp; Pastry</div><div style="font-size:12px; color:#5C685F;">Masih tersisa 3 — buruan sebelum habis</div></div>
+                </div>
+              </div>
+              <button style="width:100%; height:54px; border:none; border-radius:16px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px; margin-bottom:12px;">Coba metode lain</button>
+              <button style="width:100%; height:50px; border:none; border-radius:16px; background:transparent; color:#5C685F; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:15px;">Batalkan pesanan</button>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B6 VOUCHER QR -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B6</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Voucher &amp; QR</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Tunjukkan saat pickup</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#0F3D2C; display:flex; flex-direction:column; padding:58px 24px 32px; align-items:center;">
+              <div style="width:64px; height:64px; border-radius:50%; background:#27A36A; display:flex; align-items:center; justify-content:center; margin-bottom:14px;">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:23px; color:#FBF7EF; margin-bottom:4px;">Pembayaran berhasil!</div>
+              <div style="font-size:13.5px; color:#9FC9B2; margin-bottom:24px; text-align:center;">Tunjukkan QR ini ke kasir saat ambil bag.</div>
+
+              <div style="background:#fff; border-radius:24px; padding:24px; width:100%; text-align:center;">
+                <div style="width:190px; height:190px; margin:0 auto 16px; background:#fff; position:relative; background-image:radial-gradient(#16231C 42%, transparent 44%); background-size:13px 13px;">
+                  <div style="position:absolute; top:0; left:0; width:48px; height:48px; background:#fff; border:7px solid #16231C; border-radius:4px;"></div>
+                  <div style="position:absolute; top:14px; left:14px; width:20px; height:20px; background:#16231C; border-radius:2px;"></div>
+                  <div style="position:absolute; top:0; right:0; width:48px; height:48px; background:#fff; border:7px solid #16231C; border-radius:4px;"></div>
+                  <div style="position:absolute; top:14px; right:14px; width:20px; height:20px; background:#16231C; border-radius:2px;"></div>
+                  <div style="position:absolute; bottom:0; left:0; width:48px; height:48px; background:#fff; border:7px solid #16231C; border-radius:4px;"></div>
+                  <div style="position:absolute; bottom:14px; left:14px; width:20px; height:20px; background:#16231C; border-radius:2px;"></div>
+                </div>
+                <div style="font-size:12px; color:#8A958C; font-weight:600;">Kode pickup</div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:26px; letter-spacing:4px; color:#16231C;">SB-7K2Q9</div>
+                <div style="height:1px; background:#F0EADB; margin:16px 0;"></div>
+                <div style="display:flex; align-items:center; gap:10px; text-align:left;">
+                  <div style="width:38px; height:38px; border-radius:11px; background:#E7DDC8 url('assets/food1.jpg') center/cover;"></div>
+                  <div style="flex:1;">
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Roti Nyaman Bakery</div>
+                    <div style="font-size:12.5px; color:#5C685F;">1× Surprise Bag Roti &amp; Pastry</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:18px; display:flex; align-items:center; gap:8px; background:#16442F; padding:11px 16px; border-radius:14px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#EFA63C" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#EFA63C" stroke-width="2" stroke-linecap="round"/></svg>
+                <span style="color:#EFA63C; font-weight:700; font-size:13.5px;">Ambil sebelum 21.00 — sisa 1j 12m</span>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B7 RIWAYAT -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B7</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Pesanan</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Aktif & riwayat</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 12px; background:#fff; border-bottom:1px solid #F0EADB;">
+                <h2 style="margin:0 0 14px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C;">Pesanan</h2>
+                <div style="display:flex; gap:24px;">
+                  <span style="font-weight:700; font-size:14.5px; color:#0F3D2C; border-bottom:2.5px solid #0F3D2C; padding-bottom:9px;">Aktif</span>
+                  <span style="font-weight:600; font-size:14.5px; color:#A0A89F; padding-bottom:9px;">Riwayat</span>
+                </div>
+              </div>
+              <div style="flex:1; overflow:auto; padding:16px 20px;">
+                <div style="background:#fff; border:1.5px solid #C9E3D2; border-radius:18px; padding:14px; margin-bottom:14px;">
+                  <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <div style="width:40px; height:40px; border-radius:11px; background:#F2A33C;"></div>
+                    <div style="flex:1;">
+                      <div style="font-weight:700; font-size:14px; color:#16231C;">Roti Nyaman Bakery</div>
+                      <div style="font-size:12px; color:#5C685F;">SB-7K2Q9 · 1 bag</div>
+                    </div>
+                    <span style="background:#E8F3EC; color:#1E8456; font-size:11px; font-weight:800; padding:5px 10px; border-radius:20px;">Siap diambil</span>
+                  </div>
+                  <button style="width:100%; height:44px; border:none; border-radius:13px; background:#0F3D2C; color:#fff; font-weight:700; font-size:14px;">Lihat QR pickup</button>
+                </div>
+
+                <div style="font-size:12.5px; font-weight:700; color:#8A958C; text-transform:uppercase; letter-spacing:0.5px; margin:10px 2px 12px;">Riwayat</div>
+
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:14px; display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                  <div style="width:46px; height:46px; border-radius:12px; background:#E7DDC8 url('assets/food8.jpg') center/cover;"></div>
+                  <div style="flex:1;">
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Kopi Senja</div>
+                    <div style="font-size:12px; color:#5C685F; margin-top:2px;">14 Jun · Rp20.000</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <span style="background:#EEF0EC; color:#5C685F; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">Selesai</span>
+                    <div style="font-size:12px; color:#EFA63C; font-weight:700; margin-top:6px;">★ Beri rating</div>
+                  </div>
+                </div>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:14px; display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                  <div style="width:46px; height:46px; border-radius:12px; background:#E7DDC8 url('assets/food1.jpg') center/cover;"></div>
+                  <div style="flex:1;">
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Roti Nyaman Bakery</div>
+                    <div style="font-size:12px; color:#5C685F; margin-top:2px;">11 Jun · Rp15.000</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <span style="background:#EEF0EC; color:#5C685F; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">Selesai</span>
+                    <div style="font-size:12px; color:#8A958C; font-weight:600; margin-top:6px;">★ 5 · diulas</div>
+                  </div>
+                </div>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:14px; display:flex; align-items:center; gap:12px; opacity:0.75;">
+                  <div style="width:46px; height:46px; border-radius:12px; background:#E7DDC8 url('assets/food3.jpg') center/cover; filter:grayscale(0.4);"></div>
+                  <div style="flex:1;">
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Toko Sehat Depok</div>
+                    <div style="font-size:12px; color:#5C685F; margin-top:2px;">8 Jun · Rp22.000</div>
+                  </div>
+                  <span style="background:#FBE8E2; color:#C24420; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">Hangus</span>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B8 RATING -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B8</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Rating &amp; Ulasan</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Setelah pickup</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column; padding:58px 24px 0;">
+              <div style="display:flex; align-items:center; gap:14px; margin-bottom:26px;">
+                <svg width="13" height="20" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#16231C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; color:#16231C;">Beri ulasan</span>
+              </div>
+              <div style="text-align:center; margin-bottom:26px;">
+                <div style="width:64px; height:64px; border-radius:18px; background:#27A36A; margin:0 auto 14px;"></div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:18px; color:#16231C;">Bagaimana Surprise Bag-nya?</div>
+                <div style="font-size:13.5px; color:#5C685F; margin-top:4px;">Kopi Senja · 14 Jun 2026</div>
+              </div>
+              <div style="display:flex; justify-content:center; gap:12px; margin-bottom:28px;">
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="#EFA63C"><path d="M12 2l2.9 6 6.6.6-5 4.3 1.5 6.5L12 16l-5.9 3.4 1.5-6.5-5-4.3 6.6-.6z"/></svg>
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="#EFA63C"><path d="M12 2l2.9 6 6.6.6-5 4.3 1.5 6.5L12 16l-5.9 3.4 1.5-6.5-5-4.3 6.6-.6z"/></svg>
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="#EFA63C"><path d="M12 2l2.9 6 6.6.6-5 4.3 1.5 6.5L12 16l-5.9 3.4 1.5-6.5-5-4.3 6.6-.6z"/></svg>
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="#EFA63C"><path d="M12 2l2.9 6 6.6.6-5 4.3 1.5 6.5L12 16l-5.9 3.4 1.5-6.5-5-4.3 6.6-.6z"/></svg>
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.9 6 6.6.6-5 4.3 1.5 6.5L12 16l-5.9 3.4 1.5-6.5-5-4.3 6.6-.6z" stroke="#D7CFBE" stroke-width="1.5"/></svg>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; justify-content:center;">
+                <span style="padding:8px 13px; border-radius:18px; background:#0F3D2C; color:#fff; font-size:12.5px; font-weight:700;">Porsi banyak</span>
+                <span style="padding:8px 13px; border-radius:18px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:12.5px; font-weight:600;">Masih fresh</span>
+                <span style="padding:8px 13px; border-radius:18px; background:#0F3D2C; color:#fff; font-size:12.5px; font-weight:700;">Pelayanan ramah</span>
+              </div>
+              <div style="background:#fff; border:1px solid #F0EADB; border-radius:16px; padding:14px; min-height:90px; font-size:14px; color:#16231C;">Pastry-nya masih hangat, dapat banyak banget. Worth it!<span style="color:#27A36A;">|</span></div>
+              <div style="margin-top:auto;"></div>
+              <button style="width:100%; height:54px; border:none; border-radius:16px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px; margin-bottom:14px;">Kirim ulasan</button>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B9 PROFIL / SWITCH MODE -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B9</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Profil</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Beralih mode</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column; overflow:auto;">
+              <div style="padding:58px 20px 22px; background:#0F3D2C;">
+                <div style="display:flex; align-items:center; gap:14px;">
+                  <div style="width:58px; height:58px; border-radius:50%; background:#EFA63C; display:flex; align-items:center; justify-content:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#0F3D2C;">IH</div>
+                  <div>
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; color:#FBF7EF;">Ilham Hidayat</div>
+                    <div style="font-size:13px; color:#9FC9B2;">ilham@gmail.com</div>
+                  </div>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:18px;">
+                  <div style="flex:1; background:#16442F; border-radius:14px; padding:11px 13px;">
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px; color:#EFA63C;">23</div>
+                    <div style="font-size:11.5px; color:#9FC9B2;">Bag diselamatkan</div>
+                  </div>
+                  <div style="flex:1; background:#16442F; border-radius:14px; padding:11px 13px;">
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px; color:#EFA63C;">Rp612rb</div>
+                    <div style="font-size:11.5px; color:#9FC9B2;">Total hemat</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="padding:18px 20px;">
+                <div style="background:#FBEFDD; border:1.5px solid #F0DDB9; border-radius:18px; padding:16px; display:flex; align-items:center; gap:13px; margin-bottom:20px;">
+                  <div style="width:42px; height:42px; border-radius:12px; background:#E2592B; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 9h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9z" stroke="#fff" stroke-width="1.8"/><path d="M4 9l2-4h12l2 4" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  </div>
+                  <div style="flex:1;">
+                    <div style="font-weight:700; font-size:14.5px; color:#8A3A14;">Beralih ke Mode Merchant</div>
+                    <div style="font-size:12.5px; color:#7A5536; margin-top:2px;">Punya toko? Jual stok berlebihmu.</div>
+                  </div>
+                  <span style="color:#E2592B; font-size:20px;">→</span>
+                </div>
+
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; overflow:hidden;">
+                  <div style="display:flex; align-items:center; gap:12px; padding:15px 16px; border-bottom:1px solid #F4EEE0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z" stroke="#5C685F" stroke-width="1.8"/></svg><span style="flex:1; font-size:14.5px; color:#16231C;">Toko favorit</span><span style="color:#C8C0AE;">›</span></div>
+                  <div style="display:flex; align-items:center; gap:12px; padding:15px 16px; border-bottom:1px solid #F4EEE0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke="#5C685F" stroke-width="1.8"/><path d="M8 3v4M16 3v4" stroke="#5C685F" stroke-width="1.8" stroke-linecap="round"/></svg><span style="flex:1; font-size:14.5px; color:#16231C;">Metode pembayaran</span><span style="color:#C8C0AE;">›</span></div>
+                  <div style="display:flex; align-items:center; gap:12px; padding:15px 16px; border-bottom:1px solid #F4EEE0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#5C685F" stroke-width="1.8"/><path d="M10 18a2 2 0 0 0 4 0" stroke="#5C685F" stroke-width="1.8"/></svg><span style="flex:1; font-size:14.5px; color:#16231C;">Notifikasi</span><span style="color:#C8C0AE;">›</span></div>
+                  <div style="display:flex; align-items:center; gap:12px; padding:15px 16px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#5C685F" stroke-width="1.8"/><path d="M12 16v.01M12 8a2 2 0 0 1 1 3.7c-.6.4-1 .8-1 1.3" stroke="#5C685F" stroke-width="1.8" stroke-linecap="round"/></svg><span style="flex:1; font-size:14.5px; color:#16231C;">Bantuan</span><span style="color:#C8C0AE;">›</span></div>
+                </div>
+                <div style="text-align:center; padding:22px 0;"><span style="font-size:14px; font-weight:700; color:#C24420;">Keluar</span></div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B10 PROFIL TOKO -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B10</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Profil Toko</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Halaman publik merchant</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column; overflow:auto;">
+              <div style="height:170px; background:#E7DDC8 url('assets/food2.jpg') center/cover; position:relative;">
+                <div style="position:absolute; top:58px; left:18px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.92); display:flex; align-items:center; justify-content:center;">
+                  <svg width="13" height="20" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#16231C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div style="position:absolute; top:58px; right:18px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.92); display:flex; align-items:center; justify-content:center;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#E2592B"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z"/></svg>
+                </div>
+              </div>
+              <div style="padding:0 20px; margin-top:-34px; position:relative;">
+                <div style="width:72px; height:72px; border-radius:20px; background:#F2A33C; border:4px solid #FBF7EF; display:flex; align-items:center; justify-content:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#fff;">R</div>
+                <h2 style="margin:12px 0 5px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#16231C;">Roti Nyaman Bakery</h2>
+                <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:#5C685F; flex-wrap:wrap;">
+                  <span style="color:#EFA63C; font-weight:700;">★ 4.8</span><span>(212 ulasan)</span><span>·</span><span>Bakery</span><span>·</span><span>0,4 km</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:7px; margin-top:10px; font-size:13px; color:#5C685F;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z" stroke="#27A36A" stroke-width="2"/></svg>
+                  Jl. Margonda Raya No. 88, Depok · Buka 08.00–21.00
+                </div>
+              </div>
+              <div style="padding:18px 20px 0;">
+                <div style="background:#E8F3EC; border-radius:16px; padding:13px 15px; display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 13l9-9 9 9M5 11v8h14v-8" stroke="#1E8456" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  <span style="font-size:13px; color:#1E8456; font-weight:600;">Toko ini sudah menyelamatkan <b>184 bag</b> makanan.</span>
+                </div>
+                <h3 style="margin:0 0 12px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:17px; color:#16231C;">Surprise Bag tersedia</h3>
+                <div style="border-radius:18px; background:#fff; overflow:hidden; border:1px solid #F0EADB; display:flex; margin-bottom:24px;">
+                  <div style="width:104px; background:#E7DDC8 url('assets/food1.jpg') center/cover;"></div>
+                  <div style="flex:1; padding:13px;">
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Surprise Bag Roti &amp; Pastry</div>
+                    <div style="font-size:12px; color:#5C685F; margin:3px 0 8px;">Ambil 20.00–21.00 · sisa 3</div>
+                    <div style="display:flex; align-items:center; gap:7px;">
+                      <span style="font-size:12px; color:#A39B89; text-decoration:line-through;">Rp45rb</span>
+                      <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px; color:#27A36A;">Rp15.000</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B11 FAVORIT -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B11</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Favorit</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Toko tersimpan</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 14px; background:#fff; border-bottom:1px solid #F0EADB;">
+                <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C;">Favorit</h2>
+                <div style="font-size:13px; color:#5C685F; margin-top:3px;">Kami kabari kalau ada bag baru dari toko ini.</div>
+              </div>
+              <div style="flex:1; overflow:auto; padding:16px 20px;">
+                <div style="border-radius:18px; background:#fff; overflow:hidden; border:1px solid #F0EADB; display:flex; margin-bottom:14px;">
+                  <div style="width:96px; background:#E7DDC8 url('assets/food1.jpg') center/cover;"></div>
+                  <div style="flex:1; padding:13px; position:relative;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#E2592B" style="position:absolute; top:12px; right:12px;"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z"/></svg>
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Roti Nyaman Bakery</div>
+                    <div style="font-size:12px; color:#5C685F; margin:3px 0 8px;">★ 4.8 · 0,4 km</div>
+                    <span style="background:#E8F3EC; color:#1E8456; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">3 bag tersedia</span>
+                  </div>
+                </div>
+                <div style="border-radius:18px; background:#fff; overflow:hidden; border:1px solid #F0EADB; display:flex; margin-bottom:14px;">
+                  <div style="width:96px; background:#E7DDC8 url('assets/food8.jpg') center/cover;"></div>
+                  <div style="flex:1; padding:13px; position:relative;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#E2592B" style="position:absolute; top:12px; right:12px;"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z"/></svg>
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Kopi Senja</div>
+                    <div style="font-size:12px; color:#5C685F; margin:3px 0 8px;">★ 4.6 · 0,9 km</div>
+                    <span style="background:#E8F3EC; color:#1E8456; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">6 bag tersedia</span>
+                  </div>
+                </div>
+                <div style="border-radius:18px; background:#fff; overflow:hidden; border:1px solid #F0EADB; display:flex;">
+                  <div style="width:96px; background:#E7DDC8 url('assets/food7.jpg') center/cover;"></div>
+                  <div style="flex:1; padding:13px; position:relative;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#E2592B" style="position:absolute; top:12px; right:12px;"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z"/></svg>
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Donat Manis Margonda</div>
+                    <div style="font-size:12px; color:#5C685F; margin:3px 0 8px;">★ 4.7 · 1,2 km</div>
+                    <span style="background:#F1ECE0; color:#8A958C; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">Habis hari ini</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B12 NOTIFIKASI -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B12</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Notifikasi</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Push &amp; status</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 14px; background:#fff; border-bottom:1px solid #F0EADB; display:flex; align-items:center;">
+                <h2 style="margin:0; flex:1; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C;">Notifikasi</h2>
+                <span style="font-size:13px; font-weight:700; color:#27A36A;">Tandai dibaca</span>
+              </div>
+              <div style="flex:1; overflow:auto; padding:12px 16px;">
+                <div style="font-size:12px; font-weight:700; color:#8A958C; text-transform:uppercase; letter-spacing:0.5px; margin:8px 6px 8px;">Hari ini</div>
+                <div style="background:#E8F3EC; border:1px solid #C9E3D2; border-radius:16px; padding:13px; display:flex; gap:12px; margin-bottom:10px;">
+                  <div style="width:40px; height:40px; border-radius:12px; background:#27A36A; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                  <div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Pesananmu siap diambil</div><div style="font-size:12.5px; color:#5C685F; line-height:1.45; margin-top:2px;">Roti Nyaman Bakery menunggu sampai 21.00. Tunjukkan QR-mu.</div><div style="font-size:11.5px; color:#8A958C; margin-top:5px;">5 menit lalu</div></div>
+                </div>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:16px; padding:13px; display:flex; gap:12px; margin-bottom:10px;">
+                  <div style="width:40px; height:40px; border-radius:12px; background:#FBEFDD; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="#E2592B" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="#E2592B" stroke-width="1.8"/></svg></div>
+                  <div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Bag baru di dekatmu</div><div style="font-size:12.5px; color:#5C685F; line-height:1.45; margin-top:2px;">Kopi Senja baru rilis 6 Surprise Bag, mulai Rp20.000.</div><div style="font-size:11.5px; color:#8A958C; margin-top:5px;">1 jam lalu</div></div>
+                </div>
+                <div style="font-size:12px; font-weight:700; color:#8A958C; text-transform:uppercase; letter-spacing:0.5px; margin:14px 6px 8px;">Kemarin</div>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:16px; padding:13px; display:flex; gap:12px; margin-bottom:10px; opacity:0.85;">
+                  <div style="width:40px; height:40px; border-radius:12px; background:#FCEFE9; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#EFA63C"><path d="M12 2l2.9 6 6.6.6-5 4.3 1.5 6.5L12 16l-5.9 3.4 1.5-6.5-5-4.3 6.6-.6z"/></svg></div>
+                  <div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Sudah ambil bag-nya? Beri rating</div><div style="font-size:12.5px; color:#5C685F; line-height:1.45; margin-top:2px;">Bantu pembeli lain dengan ulasanmu untuk Kopi Senja.</div><div style="font-size:11.5px; color:#8A958C; margin-top:5px;">Kemarin · 20.40</div></div>
+                </div>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:16px; padding:13px; display:flex; gap:12px; opacity:0.85;">
+                  <div style="width:40px; height:40px; border-radius:12px; background:#E8F3EC; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#1E8456" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5 5-5" stroke="#1E8456" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                  <div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Pembayaran berhasil</div><div style="font-size:12.5px; color:#5C685F; line-height:1.45; margin-top:2px;">Order SB-7K2Q9 · Rp16.000 lunas.</div><div style="font-size:11.5px; color:#8A958C; margin-top:5px;">Kemarin · 18.42</div></div>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- B13 EMPTY STATE -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#0F3D2C;">B13</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Empty State</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Belum ada bag</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 16px; background:#0F3D2C;">
+                <div style="font-size:12px; color:#9FC9B2; font-weight:600;">Lokasi kamu</div>
+                <div style="display:flex; align-items:center; gap:5px; color:#FBF7EF; font-weight:700; font-size:16px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z" stroke="#EFA63C" stroke-width="2"/><circle cx="12" cy="11" r="2" fill="#EFA63C"/></svg>
+                  Cibinong, Bogor ▾
+                </div>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 36px;">
+                <div style="width:104px; height:104px; border-radius:50%; background:#EEEAE0; display:flex; align-items:center; justify-content:center; margin-bottom:22px;">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="#B7AE9B" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="#B7AE9B" stroke-width="1.6"/><path d="M9.5 13.5l5 4M14.5 13.5l-5 4" stroke="#B7AE9B" stroke-width="1.4" stroke-linecap="round"/></svg>
+                </div>
+                <h2 style="margin:0 0 8px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#16231C;">Belum ada bag di sini</h2>
+                <p style="margin:0 0 24px; font-size:14px; color:#5C685F; line-height:1.55;">Toko di sekitarmu belum merilis Surprise Bag hari ini. Coba ubah lokasi atau aktifkan notifikasi biar tak ketinggalan.</p>
+                <button style="height:50px; padding:0 24px; border:none; border-radius:15px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:15px; margin-bottom:12px;">Beri tahu saat ada bag</button>
+                <span style="font-size:14px; font-weight:700; color:#27A36A;">Ubah lokasi</span>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+      <!--SECTION_B_END-->
+    </section>
+    <section data-screen-label="Bagian C — Ekosistem Merchant">
+      <div style="display:flex; align-items:center; gap:16px; margin-bottom:34px;">
+        <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:13px; letter-spacing:2px; color:#E2592B;">BAGIAN 03</span>
+        <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:30px; color:#8A3A14; letter-spacing:-0.5px;">Ekosistem Merchant</h2>
+        <div style="flex:1; height:1px; background:#D2CABA;"></div>
+        <span style="font-size:14px; color:#8A958C; font-weight:600;">Kelola bag · order · earnings</span>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:56px;">
+
+        <!-- C1 SETUP TOKO -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#8A3A14;">C1</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Setup Toko</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Sekali saat masuk mode jual</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 14px; background:#fff; border-bottom:1px solid #F0EADB;">
+                <h2 style="margin:0 0 3px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:21px; color:#16231C;">Siapkan tokomu</h2>
+                <div style="font-size:13px; color:#5C685F;">Langkah 1 dari 1 · agar bag tampil ke pembeli</div>
+              </div>
+              <div style="flex:1; overflow:auto; padding:18px 20px;">
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:20px;">
+                  <div style="width:68px; height:68px; border-radius:18px; background:repeating-linear-gradient(135deg,#EFE7D6,#EFE7D6 8px,#E7DDC8 8px,#E7DDC8 16px); display:flex; align-items:center; justify-content:center;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#9B8E72" stroke-width="2" stroke-linecap="round"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-weight:700; font-size:14px; color:#16231C;">Logo / foto toko</div>
+                    <div style="font-size:12.5px; color:#8A958C;">PNG atau JPG, maks 2MB</div>
+                  </div>
+                </div>
+
+                <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Nama toko</label>
+                <div style="background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:14px; font-size:14.5px; color:#16231C; margin-bottom:16px;">Roti Nyaman Bakery</div>
+
+                <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Kategori</label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+                  <span style="padding:9px 14px; border-radius:20px; background:#0F3D2C; color:#fff; font-size:13px; font-weight:700;">Bakery</span>
+                  <span style="padding:9px 14px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">Kafe</span>
+                  <span style="padding:9px 14px; border-radius:20px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:13px; font-weight:600;">Resto</span>
+                </div>
+
+                <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Alamat</label>
+                <div style="background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:14px; font-size:14.5px; color:#16231C; margin-bottom:16px;">Jl. Margonda Raya No. 88, Depok</div>
+
+                <div style="display:flex; gap:12px;">
+                  <div style="flex:1;">
+                    <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Jam buka</label>
+                    <div style="background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:14px; font-size:14.5px; color:#16231C;">08.00</div>
+                  </div>
+                  <div style="flex:1;">
+                    <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Jam tutup</label>
+                    <div style="background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:14px; font-size:14.5px; color:#16231C;">21.00</div>
+                  </div>
+                </div>
+              </div>
+              <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; padding:14px 20px 30px;">
+                <button style="width:100%; height:54px; border:none; border-radius:16px; background:#E2592B; color:#fff; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Simpan &amp; lanjut</button>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- C2 DASHBOARD -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#8A3A14;">C2</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Dashboard</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Ringkasan hari ini</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 24px; background:#8A3A14;">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <div>
+                    <div style="font-size:13px; color:#F0C9A8;">Halo,</div>
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:20px; color:#FBF7EF;">Roti Nyaman Bakery</div>
+                  </div>
+                  <span style="background:#27A36A; color:#fff; font-size:11px; font-weight:800; padding:6px 11px; border-radius:20px;">● Buka</span>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:18px;">
+                  <div style="flex:1; background:#9C4720; border-radius:16px; padding:13px;">
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#fff;">8</div>
+                    <div style="font-size:11.5px; color:#F0C9A8;">Bag terjual</div>
+                  </div>
+                  <div style="flex:1; background:#9C4720; border-radius:16px; padding:13px;">
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#fff;">Rp120rb</div>
+                    <div style="font-size:11.5px; color:#F0C9A8;">Pendapatan</div>
+                  </div>
+                  <div style="flex:1; background:#9C4720; border-radius:16px; padding:13px;">
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#fff;">2</div>
+                    <div style="font-size:11.5px; color:#F0C9A8;">Bag aktif</div>
+                  </div>
+                </div>
+              </div>
+              <div style="flex:1; overflow:auto; padding:18px 20px;">
+                <button style="width:100%; height:56px; border:none; border-radius:16px; background:#E2592B; color:#fff; font-weight:700; font-size:16px; display:flex; align-items:center; justify-content:center; gap:9px; margin-bottom:20px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
+                  Buat Surprise Bag
+                </button>
+
+                <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:11px;">
+                  <h3 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:17px; color:#16231C;">Bag aktif</h3>
+                  <span style="font-size:13px; color:#E2592B; font-weight:700;">Kelola</span>
+                </div>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:14px; margin-bottom:12px;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="flex:1; font-weight:700; font-size:14px; color:#16231C;">Surprise Bag Roti &amp; Pastry</div>
+                    <span style="background:#E8F3EC; color:#1E8456; font-size:11px; font-weight:800; padding:4px 9px; border-radius:20px;">Aktif</span>
+                  </div>
+                  <div style="font-size:12.5px; color:#5C685F; margin-top:6px;">Ambil 20.00–21.00 · Rp15.000</div>
+                  <div style="height:7px; border-radius:5px; background:#F0EADB; margin-top:11px; position:relative;">
+                    <div style="position:absolute; left:0; top:0; height:7px; width:62%; border-radius:5px; background:#27A36A;"></div>
+                  </div>
+                  <div style="font-size:11.5px; color:#8A958C; margin-top:6px;">5 dari 8 terjual</div>
+                </div>
+
+                <div style="display:flex; align-items:baseline; justify-content:space-between; margin:18px 0 11px;">
+                  <h3 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:17px; color:#16231C;">Order terbaru</h3>
+                </div>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:14px; padding:13px; display:flex; align-items:center; gap:11px;">
+                  <div style="width:38px; height:38px; border-radius:11px; background:#E8F3EC; display:flex; align-items:center; justify-content:center; font-weight:800; color:#1E8456; font-size:13px;">RA</div>
+                  <div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Rani A. · 1 bag</div><div style="font-size:12px; color:#5C685F;">SB-7K2Q9 · belum diambil</div></div>
+                  <span style="background:#FBEFDD; color:#8A3A14; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">Menunggu</span>
+                </div>
+              </div>
+
+              <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; display:flex; justify-content:space-around; padding:10px 6px 24px;">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#8A3A14;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="#8A3A14" stroke-width="1.8"/><rect x="13" y="4" width="7" height="7" rx="1.5" stroke="#8A3A14" stroke-width="1.8"/><rect x="4" y="13" width="7" height="7" rx="1.5" stroke="#8A3A14" stroke-width="1.8"/><rect x="13" y="13" width="7" height="7" rx="1.5" stroke="#8A3A14" stroke-width="1.8"/></svg>
+                  <span style="font-size:10.5px; font-weight:700;">Dashboard</span>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#A0A89F;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="#A0A89F" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="#A0A89F" stroke-width="1.8"/></svg>
+                  <span style="font-size:10.5px; font-weight:600;">Bag</span>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#A0A89F;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 4h14v16l-3-2-2 2-2-2-2 2-2-2-3 2z" stroke="#A0A89F" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  <span style="font-size:10.5px; font-weight:600;">Pesanan</span>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#A0A89F;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2.5" stroke="#A0A89F" stroke-width="1.8"/><path d="M16 12h2" stroke="#A0A89F" stroke-width="1.8" stroke-linecap="round"/></svg>
+                  <span style="font-size:10.5px; font-weight:600;">Saldo</span>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px; color:#A0A89F;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="#A0A89F" stroke-width="1.8"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="#A0A89F" stroke-width="1.8"/></svg>
+                  <span style="font-size:10.5px; font-weight:600;">Profil</span>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- C3 BUAT BAG -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#8A3A14;">C3</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Buat Surprise Bag</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Publish ke pembeli</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 14px; background:#fff; border-bottom:1px solid #F0EADB; display:flex; align-items:center; gap:14px;">
+                <svg width="13" height="20" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#16231C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; color:#16231C;">Buat Surprise Bag</span>
+              </div>
+              <div style="flex:1; overflow:auto; padding:18px 20px;">
+                <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Judul bag</label>
+                <div style="background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:14px; font-size:14.5px; color:#16231C; margin-bottom:16px;">Surprise Bag Roti &amp; Pastry</div>
+
+                <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Deskripsi isi</label>
+                <div style="background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:14px; font-size:14px; color:#16231C; margin-bottom:16px; min-height:64px; line-height:1.5;">Campuran roti manis, pastry, dan donat hari ini yang masih fresh.</div>
+
+                <div style="display:flex; gap:12px; margin-bottom:16px;">
+                  <div style="flex:1;">
+                    <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Harga asli</label>
+                    <div style="background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:14px; font-size:14.5px; color:#16231C;">Rp45.000</div>
+                  </div>
+                  <div style="flex:1;">
+                    <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Harga jual</label>
+                    <div style="background:#fff; border:1.5px solid #27A36A; border-radius:14px; padding:14px; font-size:14.5px; color:#16231C; display:flex; align-items:center;">Rp15.000 <span style="margin-left:auto; background:#E8F3EC; color:#1E8456; font-size:11px; font-weight:800; padding:3px 7px; border-radius:6px;">-67%</span></div>
+                  </div>
+                </div>
+
+                <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Jumlah tersedia</label>
+                <div style="display:flex; align-items:center; justify-content:space-between; background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:11px 16px; margin-bottom:16px;">
+                  <span style="width:30px; height:30px; border-radius:50%; border:1.5px solid #E3D9C5; display:flex; align-items:center; justify-content:center; color:#8A958C; font-size:18px;">−</span>
+                  <span style="font-weight:700; font-size:16px; color:#16231C;">8 bag</span>
+                  <span style="width:30px; height:30px; border-radius:50%; background:#E2592B; color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px;">+</span>
+                </div>
+
+                <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Window pickup</label>
+                <div style="display:flex; gap:12px;">
+                  <div style="flex:1; background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:14px; font-size:14.5px; color:#16231C;">20.00</div>
+                  <div style="flex:1; background:#fff; border:1.5px solid #E3D9C5; border-radius:14px; padding:14px; font-size:14.5px; color:#16231C;">21.00</div>
+                </div>
+              </div>
+              <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; padding:14px 20px 30px;">
+                <button style="width:100%; height:54px; border:none; border-radius:16px; background:#E2592B; color:#fff; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Publikasikan bag</button>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- C4 PESANAN MASUK -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#8A3A14;">C4</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Pesanan Masuk</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Real-time</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 12px; background:#fff; border-bottom:1px solid #F0EADB;">
+                <h2 style="margin:0 0 14px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C;">Pesanan masuk</h2>
+                <div style="display:flex; gap:22px;">
+                  <span style="font-weight:700; font-size:14px; color:#8A3A14; border-bottom:2.5px solid #E2592B; padding-bottom:9px;">Perlu disiapkan <span style="background:#E2592B; color:#fff; font-size:10px; padding:1px 6px; border-radius:10px;">2</span></span>
+                  <span style="font-weight:600; font-size:14px; color:#A0A89F; padding-bottom:9px;">Selesai</span>
+                </div>
+              </div>
+              <div style="flex:1; overflow:auto; padding:16px 20px;">
+                <div style="background:#fff; border:1.5px solid #F0DDB9; border-radius:18px; padding:15px; margin-bottom:14px;">
+                  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                    <div style="width:40px; height:40px; border-radius:11px; background:#FBEFDD; display:flex; align-items:center; justify-content:center; font-weight:800; color:#8A3A14; font-size:14px;">RA</div>
+                    <div style="flex:1;"><div style="font-weight:700; font-size:14.5px; color:#16231C;">Rani Anggraini</div><div style="font-size:12px; color:#5C685F;">Pesan 18.42 · 1 bag</div></div>
+                    <span style="background:#FBEFDD; color:#8A3A14; font-size:11px; font-weight:800; padding:5px 10px; border-radius:20px;">Menunggu</span>
+                  </div>
+                  <div style="background:#FBF7EF; border-radius:12px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; margin-bottom:11px;">
+                    <span style="font-size:13px; color:#5C685F;">Kode pickup</span>
+                    <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16px; letter-spacing:2px; color:#16231C;">SB-7K2Q9</span>
+                  </div>
+                  <button style="width:100%; height:46px; border:none; border-radius:13px; background:#0F3D2C; color:#fff; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="6" height="6" stroke="#fff" stroke-width="1.8"/><rect x="14" y="4" width="6" height="6" stroke="#fff" stroke-width="1.8"/><rect x="4" y="14" width="6" height="6" stroke="#fff" stroke-width="1.8"/><path d="M14 14h6v6" stroke="#fff" stroke-width="1.8"/></svg>
+                    Scan QR untuk redeem
+                  </button>
+                </div>
+
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:15px;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:40px; height:40px; border-radius:11px; background:#E8F3EC; display:flex; align-items:center; justify-content:center; font-weight:800; color:#1E8456; font-size:14px;">BS</div>
+                    <div style="flex:1;"><div style="font-weight:700; font-size:14.5px; color:#16231C;">Budi Santoso</div><div style="font-size:12px; color:#5C685F;">Pesan 18.20 · 2 bag</div></div>
+                    <span style="background:#FBEFDD; color:#8A3A14; font-size:11px; font-weight:800; padding:5px 10px; border-radius:20px;">Menunggu</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- C5 SCAN QR -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#8A3A14;">C5</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Scan &amp; Redeem QR</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Validasi pickup</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#101512; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 14px; display:flex; align-items:center; gap:14px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+                <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:18px; color:#fff;">Scan QR konsumen</span>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 24px;">
+                <div style="width:240px; height:240px; position:relative; background:repeating-linear-gradient(135deg,#1B221D,#1B221D 12px,#222a24 12px,#222a24 24px); border-radius:18px;">
+                  <div style="position:absolute; top:-2px; left:-2px; width:42px; height:42px; border-top:4px solid #EFA63C; border-left:4px solid #EFA63C; border-radius:14px 0 0 0;"></div>
+                  <div style="position:absolute; top:-2px; right:-2px; width:42px; height:42px; border-top:4px solid #EFA63C; border-right:4px solid #EFA63C; border-radius:0 14px 0 0;"></div>
+                  <div style="position:absolute; bottom:-2px; left:-2px; width:42px; height:42px; border-bottom:4px solid #EFA63C; border-left:4px solid #EFA63C; border-radius:0 0 0 14px;"></div>
+                  <div style="position:absolute; bottom:-2px; right:-2px; width:42px; height:42px; border-bottom:4px solid #EFA63C; border-right:4px solid #EFA63C; border-radius:0 0 14px 0;"></div>
+                  <div style="position:absolute; left:14px; right:14px; top:50%; height:2.5px; background:#27A36A; box-shadow:0 0 12px #27A36A;"></div>
+                </div>
+                <p style="margin:26px 0 0; color:#9FB3A6; font-size:14px; text-align:center;">Arahkan kamera ke QR di layar pembeli.</p>
+              </div>
+              <div style="flex-shrink:0; padding:20px 24px 34px;">
+                <div style="background:#1B221D; border:1px solid #2A332C; border-radius:16px; padding:14px; display:flex; align-items:center; gap:12px;">
+                  <div style="width:42px; height:42px; border-radius:50%; background:#27A36A; display:flex; align-items:center; justify-content:center;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                  <div style="flex:1;"><div style="font-weight:700; font-size:14px; color:#fff;">SB-3M8X1 berhasil di-redeem</div><div style="font-size:12px; color:#9FB3A6;">Budi S. · baru saja · Rp20.000 masuk saldo</div></div>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- C6 SALDO -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#8A3A14;">C6</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Saldo &amp; Penarikan</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Earnings & settlement</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 14px; background:#fff; border-bottom:1px solid #F0EADB;">
+                <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C;">Saldo</h2>
+              </div>
+              <div style="flex:1; overflow:auto; padding:18px 20px;">
+                <div style="background:#0F3D2C; border-radius:22px; padding:22px; margin-bottom:18px; position:relative; overflow:hidden;">
+                  <div style="position:absolute; top:-30px; right:-20px; width:120px; height:120px; border-radius:50%; background:rgba(39,163,106,0.25);"></div>
+                  <div style="font-size:13px; color:#9FC9B2; position:relative;">Saldo tersedia</div>
+                  <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:36px; color:#FBF7EF; margin:4px 0 16px; position:relative;">Rp1.245.000</div>
+                  <button style="width:100%; height:50px; border:none; border-radius:14px; background:#EFA63C; color:#0F3D2C; font-weight:800; font-size:15px; position:relative;">Tarik dana</button>
+                </div>
+
+                <div style="display:flex; gap:12px; margin-bottom:20px;">
+                  <div style="flex:1; background:#fff; border:1px solid #F0EADB; border-radius:16px; padding:14px;">
+                    <div style="font-size:11.5px; color:#8A958C; font-weight:600;">Pendapatan bulan ini</div>
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px; color:#16231C; margin-top:3px;">Rp3,2jt</div>
+                  </div>
+                  <div style="flex:1; background:#fff; border:1px solid #F0EADB; border-radius:16px; padding:14px;">
+                    <div style="font-size:11.5px; color:#8A958C; font-weight:600;">Bag terselamatkan</div>
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px; color:#27A36A; margin-top:3px;">184</div>
+                  </div>
+                </div>
+
+                <div style="font-size:12.5px; font-weight:700; color:#8A958C; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Riwayat transaksi</div>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; overflow:hidden;">
+                  <div style="display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #F4EEE0;">
+                    <div style="width:36px; height:36px; border-radius:10px; background:#E8F3EC; display:flex; align-items:center; justify-content:center;"><span style="color:#1E8456; font-size:18px;">↓</span></div>
+                    <div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Order SB-7K2Q9</div><div style="font-size:12px; color:#8A958C;">17 Jun · komisi Rp1.500</div></div>
+                    <span style="font-weight:800; font-size:14px; color:#1E8456;">+Rp13.500</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #F4EEE0;">
+                    <div style="width:36px; height:36px; border-radius:10px; background:#E8F3EC; display:flex; align-items:center; justify-content:center;"><span style="color:#1E8456; font-size:18px;">↓</span></div>
+                    <div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Order SB-3M8X1</div><div style="font-size:12px; color:#8A958C;">17 Jun · komisi Rp2.000</div></div>
+                    <span style="font-weight:800; font-size:14px; color:#1E8456;">+Rp18.000</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px; padding:14px 16px;">
+                    <div style="width:36px; height:36px; border-radius:10px; background:#FBEDE6; display:flex; align-items:center; justify-content:center;"><span style="color:#C24420; font-size:18px;">↑</span></div>
+                    <div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Penarikan ke BCA</div><div style="font-size:12px; color:#8A958C;">15 Jun · ••6789</div></div>
+                    <span style="font-weight:800; font-size:14px; color:#16231C;">−Rp1.500.000</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- C7 KELOLA BAG -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#8A3A14;">C7</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Kelola Bag</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Edit · nonaktif · duplikat</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:#FBF7EF; display:flex; flex-direction:column;">
+              <div style="padding:58px 20px 12px; background:#fff; border-bottom:1px solid #F0EADB;">
+                <h2 style="margin:0 0 14px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C;">Bag saya</h2>
+                <div style="display:flex; gap:22px;">
+                  <span style="font-weight:700; font-size:14px; color:#8A3A14; border-bottom:2.5px solid #E2592B; padding-bottom:9px;">Aktif</span>
+                  <span style="font-weight:600; font-size:14px; color:#A0A89F; padding-bottom:9px;">Nonaktif</span>
+                </div>
+              </div>
+              <div style="flex:1; overflow:auto; padding:16px 20px;">
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; overflow:hidden; margin-bottom:14px;">
+                  <div style="display:flex; gap:12px; padding:14px;">
+                    <div style="width:64px; height:64px; border-radius:13px; background:#E7DDC8 url('assets/food1.jpg') center/cover; flex-shrink:0;"></div>
+                    <div style="flex:1;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-weight:700; font-size:14px; color:#16231C;">Surprise Bag Roti &amp; Pastry</span>
+                        <span style="margin-left:auto; width:40px; height:23px; border-radius:12px; background:#27A36A; position:relative;"><span style="position:absolute; top:2.5px; right:2.5px; width:18px; height:18px; border-radius:50%; background:#fff;"></span></span>
+                      </div>
+                      <div style="font-size:12px; color:#5C685F; margin:5px 0 8px;">Rp15.000 · ambil 20.00–21.00</div>
+                      <div style="height:6px; border-radius:4px; background:#F0EADB; position:relative;"><div style="position:absolute; left:0; top:0; height:6px; width:62%; border-radius:4px; background:#27A36A;"></div></div>
+                      <div style="font-size:11.5px; color:#8A958C; margin-top:5px;">5 dari 8 terjual</div>
+                    </div>
+                  </div>
+                  <div style="display:flex; border-top:1px solid #F4EEE0;">
+                    <div style="flex:1; padding:12px; text-align:center; font-size:13px; font-weight:700; color:#5C685F; border-right:1px solid #F4EEE0;">Edit</div>
+                    <div style="flex:1; padding:12px; text-align:center; font-size:13px; font-weight:700; color:#E2592B; display:flex; align-items:center; justify-content:center; gap:6px;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M8 7V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-2" stroke="#E2592B" stroke-width="1.8"/><rect x="4" y="8" width="12" height="12" rx="1.5" stroke="#E2592B" stroke-width="1.8"/></svg>
+                      Duplikat besok
+                    </div>
+                  </div>
+                </div>
+
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; overflow:hidden; opacity:0.92;">
+                  <div style="display:flex; gap:12px; padding:14px;">
+                    <div style="width:64px; height:64px; border-radius:13px; background:#E7DDC8 url('assets/food5.jpg') center/cover; flex-shrink:0; filter:grayscale(0.5);"></div>
+                    <div style="flex:1;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-weight:700; font-size:14px; color:#16231C;">Surprise Bag Pastry Sore</span>
+                        <span style="margin-left:auto; width:40px; height:23px; border-radius:12px; background:#DDD5C4; position:relative;"><span style="position:absolute; top:2.5px; left:2.5px; width:18px; height:18px; border-radius:50%; background:#fff;"></span></span>
+                      </div>
+                      <div style="font-size:12px; color:#5C685F; margin:5px 0 6px;">Rp18.000 · nonaktif</div>
+                      <span style="background:#F1ECE0; color:#8A958C; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;">Habis terjual kemarin</span>
+                    </div>
+                  </div>
+                  <div style="display:flex; border-top:1px solid #F4EEE0;">
+                    <div style="flex:1; padding:12px; text-align:center; font-size:13px; font-weight:700; color:#5C685F; border-right:1px solid #F4EEE0;">Aktifkan</div>
+                    <div style="flex:1; padding:12px; text-align:center; font-size:13px; font-weight:700; color:#E2592B; display:flex; align-items:center; justify-content:center; gap:6px;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M8 7V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-2" stroke="#E2592B" stroke-width="1.8"/><rect x="4" y="8" width="12" height="12" rx="1.5" stroke="#E2592B" stroke-width="1.8"/></svg>
+                      Duplikat besok
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; padding:14px 20px 30px;">
+                <button style="width:100%; height:54px; border:none; border-radius:16px; background:#E2592B; color:#fff; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px; display:flex; align-items:center; justify-content:center; gap:9px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
+                  Buat Surprise Bag
+                </button>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+        <!-- C8 TARIK DANA -->
+        <div style="display:flex; flex-direction:column; gap:14px; width:402px;">
+          <div style="display:flex; align-items:baseline; gap:9px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; color:#8A3A14;">C8</span>
+            <span style="font-weight:700; font-size:15px; color:#16231C;">Tarik Dana</span>
+            <span style="font-weight:500; font-size:13px; color:#8A958C;">Settlement ke rekening</span>
+          </div>
+          <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+            <div style="height:100%; background:rgba(15,35,28,0.55); display:flex; flex-direction:column; justify-content:flex-end;">
+              <div style="background:#FBF7EF; border-radius:28px 28px 0 0; padding:14px 24px 32px;">
+                <div style="width:42px; height:5px; border-radius:3px; background:#D7CFBE; margin:0 auto 20px;"></div>
+                <h2 style="margin:0 0 20px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#16231C;">Tarik dana</h2>
+
+                <div style="background:#0F3D2C; border-radius:18px; padding:16px 18px; margin-bottom:20px;">
+                  <div style="font-size:12.5px; color:#9FC9B2;">Saldo tersedia</div>
+                  <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; color:#FBF7EF;">Rp1.245.000</div>
+                </div>
+
+                <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Jumlah penarikan</label>
+                <div style="background:#fff; border:1.5px solid #27A36A; border-radius:14px; padding:14px 16px; display:flex; align-items:center; margin-bottom:8px;">
+                  <span style="font-size:16px; color:#8A958C; font-weight:700; margin-right:6px;">Rp</span>
+                  <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:20px; color:#16231C;">1.000.000</span>
+                </div>
+                <div style="display:flex; gap:8px; margin-bottom:20px;">
+                  <span style="padding:7px 13px; border-radius:18px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:12.5px; font-weight:600;">Rp500rb</span>
+                  <span style="padding:7px 13px; border-radius:18px; background:#0F3D2C; color:#fff; font-size:12.5px; font-weight:700;">Rp1jt</span>
+                  <span style="padding:7px 13px; border-radius:18px; background:#fff; border:1px solid #E7DDC8; color:#4F6157; font-size:12.5px; font-weight:600;">Semua saldo</span>
+                </div>
+
+                <label style="font-size:12.5px; font-weight:700; color:#5C685F; display:block; margin-bottom:7px;">Rekening tujuan</label>
+                <div style="background:#fff; border:1px solid #F0EADB; border-radius:14px; padding:13px 15px; display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+                  <div style="width:38px; height:38px; border-radius:9px; background:#005BAA;"></div>
+                  <div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">BCA · ••6789</div><div style="font-size:12px; color:#8A958C;">a.n. Ilham Hidayat</div></div>
+                  <span style="color:#27A36A; font-size:13px; font-weight:700;">Ubah</span>
+                </div>
+
+                <div style="background:#F1ECE0; border-radius:13px; padding:12px 14px; display:flex; justify-content:space-between; font-size:13px; color:#5C685F; margin-bottom:22px;">
+                  <span>Biaya admin transfer</span><span style="font-weight:700; color:#16231C;">Rp2.500</span>
+                </div>
+
+                <button style="width:100%; height:54px; border:none; border-radius:16px; background:#E2592B; color:#fff; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Tarik Rp997.500</button>
+                <p style="margin:12px 0 0; text-align:center; font-size:12px; color:#9B8E72;">Dana masuk 1–2 hari kerja.</p>
+              </div>
+            </div>
+          </x-import>
+        </div>
+
+      </div>
+    </section>
+    <!--SECTIONS_END-->
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

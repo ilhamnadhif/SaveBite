@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+  *{ box-sizing:border-box; }
+  body{ margin:0; }
+  @keyframes sb-spin { to { transform:rotate(360deg); } }
+  @keyframes sb-fade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .sb-screen{ position:absolute; inset:0; animation:sb-fade .28s ease; }
+  .sb-tap{ cursor:pointer; user-select:none; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#E7E1D4; font-family:'Plus Jakarta Sans',system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; padding:48px 24px 80px; color:#16231C;">
+
+  <div style="display:flex; align-items:center; gap:11px; margin-bottom:6px;">
+    <div style="width:34px; height:34px; border-radius:10px; background:#0F3D2C; position:relative;">
+      <div style="width:11px; height:11px; border-radius:50%; background:#EFA63C; position:absolute; top:7px; right:7px;"></div>
+      <div style="width:13px; height:13px; border-radius:0 10px 0 10px; background:#27A36A; position:absolute; bottom:7px; left:7px;"></div>
+    </div>
+    <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#0F3D2C; letter-spacing:-0.5px;">SaveBite</span>
+    <span style="font-weight:700; font-size:13px; color:#fff; background:#E2592B; padding:4px 10px; border-radius:20px; margin-left:4px;">Prototipe</span>
+  </div>
+  <p style="margin:0 0 26px; font-size:14px; color:#5C685F; text-align:center;">Klik tombol & kartu untuk menjelajah alur. Tombol <b>Reset</b> kembali ke Splash.</p>
+
+  <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+    <div style="height:100%; position:relative; background:#FBF7EF; overflow:hidden;">
+
+      <!-- SPLASH -->
+      <sc-if value="{{ isSplash }}" hint-placeholder-val="{{ true }}">
+        <div class="sb-screen sb-tap" onClick="{{ goOnb }}" style="background:#0F3D2C; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;">
+          <div style="position:absolute; inset:0; background:radial-gradient(circle at 50% 38%, rgba(39,163,106,0.35), transparent 60%);"></div>
+          <div style="width:84px; height:84px; border-radius:25px; background:#16442F; position:relative; box-shadow:0 14px 40px rgba(0,0,0,0.3);">
+            <div style="width:27px; height:27px; border-radius:50%; background:#EFA63C; position:absolute; top:17px; right:16px;"></div>
+            <div style="width:32px; height:32px; border-radius:0 25px 0 25px; background:#27A36A; position:absolute; bottom:18px; left:17px;"></div>
+          </div>
+          <div style="text-align:center; position:relative;">
+            <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:36px; color:#FBF7EF; letter-spacing:-1px;">SaveBite</div>
+            <div style="font-size:14px; color:#9FC9B2; margin-top:6px;">Selamatkan makanan, hemat lebih.</div>
+          </div>
+          <div style="position:absolute; bottom:60px; font-size:13px; color:#6E9580;">Ketuk untuk mulai →</div>
+        </div>
+      </sc-if>
+
+      <!-- ONBOARDING -->
+      <sc-if value="{{ isOnboarding }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column; padding:62px 24px 32px;">
+          <div style="display:flex; justify-content:flex-end;"><span class="sb-tap" onClick="{{ goFork }}" style="font-size:15px; font-weight:600; color:#8A958C;">Lewati</span></div>
+          <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+            <div style="width:100%; height:300px; border-radius:28px; background:#E7DDC8 url('assets/food5.jpg') center/cover; box-shadow:inset 0 -60px 60px -30px rgba(15,61,44,0.45);"></div>
+          </div>
+          <div style="display:flex; gap:7px; justify-content:center; margin:16px 0 22px;">
+            <div style="width:22px; height:7px; border-radius:4px; background:#0F3D2C;"></div>
+            <div style="width:7px; height:7px; border-radius:50%; background:#D7CFBE;"></div>
+            <div style="width:7px; height:7px; border-radius:50%; background:#D7CFBE;"></div>
+          </div>
+          <h2 style="margin:0 0 10px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; color:#16231C; line-height:1.12;">Makanan enak, harga miring.</h2>
+          <p style="margin:0 0 22px; font-size:15px; color:#5C685F; line-height:1.55;">Tiap sore, toko favoritmu mengemas stok berlebih jadi Surprise Bag diskon 50–70%. Pesan, ambil sendiri, hemat banyak.</p>
+          <button class="sb-tap" onClick="{{ goFork }}" style="width:100%; height:54px; border:none; border-radius:16px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Lanjut</button>
+        </div>
+      </sc-if>
+
+      <!-- FORK -->
+      <sc-if value="{{ isFork }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column; padding:74px 24px 32px;">
+          <h2 style="margin:0 0 6px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:27px; color:#16231C;">Mau mulai dari mana?</h2>
+          <p style="margin:0 0 26px; font-size:14px; color:#5C685F;">Pilih peranmu — bisa diganti kapan saja lewat Profil.</p>
+          <div style="display:flex; flex-direction:column; gap:16px; flex:1;">
+            <div class="sb-tap" onClick="{{ goLoginBuyer }}" style="border-radius:22px; background:#E8F3EC; border:1.5px solid #C9E3D2; padding:22px; position:relative;">
+              <div style="width:44px; height:44px; border-radius:14px; background:#27A36A; display:flex; align-items:center; justify-content:center; margin-bottom:14px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="#fff" stroke-width="1.8"/></svg></div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:20px; color:#0F3D2C; margin-bottom:5px;">Saya mau beli</div>
+              <div style="font-size:13.5px; color:#4F6157;">Temukan Surprise Bag murah di sekitarmu.</div>
+              <div style="position:absolute; top:24px; right:22px; color:#27A36A; font-size:20px;">→</div>
+            </div>
+            <div class="sb-tap" onClick="{{ goLoginSeller }}" style="border-radius:22px; background:#FBEFDD; border:1.5px solid #F0DDB9; padding:22px; position:relative;">
+              <div style="width:44px; height:44px; border-radius:14px; background:#E2592B; display:flex; align-items:center; justify-content:center; margin-bottom:14px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 9h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9z" stroke="#fff" stroke-width="1.8"/><path d="M4 9l2-4h12l2 4" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:20px; color:#8A3A14; margin-bottom:5px;">Saya mau jual</div>
+              <div style="font-size:13.5px; color:#7A5536;">Ubah stok berlebih jadi cuan.</div>
+              <div style="position:absolute; top:24px; right:22px; color:#E2592B; font-size:20px;">→</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- LOGIN -->
+      <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column; padding:74px 24px 32px;">
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+            <div style="width:72px; height:72px; border-radius:22px; background:#0F3D2C; position:relative; margin-bottom:26px;">
+              <div style="width:22px; height:22px; border-radius:50%; background:#EFA63C; position:absolute; top:14px; right:13px;"></div>
+              <div style="width:27px; height:27px; border-radius:0 22px 0 22px; background:#27A36A; position:absolute; bottom:15px; left:14px;"></div>
+            </div>
+            <h2 style="margin:0 0 8px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:26px; color:#16231C;">Tinggal selangkah lagi</h2>
+            <p style="margin:0; font-size:15px; color:#5C685F; line-height:1.5; max-width:280px;">Masuk dengan akun Google untuk lanjut.</p>
+          </div>
+          <button class="sb-tap" onClick="{{ doLogin }}" style="width:100%; height:56px; border:1.5px solid #E3D9C5; border-radius:16px; background:#fff; display:flex; align-items:center; justify-content:center; gap:12px; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px; color:#16231C; margin-bottom:16px;">
+            <span style="width:26px; height:26px; border-radius:50%; background:conic-gradient(#EA4335 0 25%,#FBBC05 0 50%,#34A853 0 75%,#4285F4 0); display:flex; align-items:center; justify-content:center;"><span style="width:11px; height:11px; border-radius:50%; background:#fff;"></span></span>
+            Lanjutkan dengan Google
+          </button>
+          <p style="margin:0; text-align:center; font-size:12px; color:#9B8E72;">Dengan masuk, kamu menyetujui Ketentuan &amp; Privasi.</p>
+        </div>
+      </sc-if>
+
+      <!-- HOME -->
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column;">
+          <div style="padding:58px 20px 16px; background:#0F3D2C;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <div style="font-size:12px; color:#9FC9B2; font-weight:600;">Lokasi kamu</div>
+                <div style="display:flex; align-items:center; gap:5px; color:#FBF7EF; font-weight:700; font-size:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z" stroke="#EFA63C" stroke-width="2"/><circle cx="12" cy="11" r="2" fill="#EFA63C"/></svg>Margonda, Depok ▾</div>
+              </div>
+              <div class="sb-tap" onClick="{{ goNotif }}" style="width:38px; height:38px; border-radius:50%; background:#16442F; display:flex; align-items:center; justify-content:center; position:relative;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="#EFA63C" stroke-width="1.8"/><path d="M10 18a2 2 0 0 0 4 0" stroke="#EFA63C" stroke-width="1.8"/></svg><span style="position:absolute; top:8px; right:9px; width:8px; height:8px; border-radius:50%; background:#E2592B; border:1.5px solid #16442F;"></span></div>
+            </div>
+            <div style="margin-top:14px; height:46px; border-radius:14px; background:#fff; display:flex; align-items:center; gap:10px; padding:0 14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8A958C" stroke-width="2"/><path d="M20 20l-4-4" stroke="#8A958C" stroke-width="2" stroke-linecap="round"/></svg><span style="font-size:14.5px; color:#9BA39B;">Cari toko atau makanan…</span></div>
+          </div>
+          <div style="flex:1; overflow:auto; padding:16px 20px 12px;">
+            <h3 style="margin:0 0 12px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:18px; color:#16231C;">Segera tutup</h3>
+            <div class="sb-tap" onClick="{{ goDetail }}" style="border-radius:22px; background:#fff; overflow:hidden; border:1px solid #ECE4D3; margin-bottom:14px; box-shadow:0 12px 28px -18px rgba(40,30,12,0.5);">
+              <div style="height:172px; background:#E7DDC8 url('assets/food1.jpg') center/cover; position:relative; display:flex; align-items:flex-end; padding:11px;"><div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(20,12,4,0.5), transparent 52%);"></div><div style="position:absolute; top:15px; right:-36px; transform:rotate(45deg); background:#E2592B; color:#fff; font-weight:800; font-size:11px; letter-spacing:0.6px; padding:5px 40px; box-shadow:0 3px 8px rgba(0,0,0,0.25);">HEMAT 67%</div><span style="position:relative; background:rgba(255,255,255,0.95); color:#C2410C; font-size:11px; font-weight:800; padding:5px 11px; border-radius:20px;">Sisa 3 lagi</span><span style="position:relative; background:rgba(15,61,44,0.86); color:#EFC07A; font-size:11px; font-weight:700; padding:5px 11px; border-radius:20px; margin-left:auto;">Ambil 20.00–21.00</span></div>
+              <div style="padding:14px 15px 16px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><div style="width:28px; height:28px; border-radius:9px; background:#F2A33C; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; font-family:'Bricolage Grotesque',sans-serif;">R</div><span style="font-weight:700; font-size:14px; color:#16231C;">Roti Nyaman Bakery</span><span style="margin-left:auto; font-size:12px; color:#5C685F; font-weight:600;">★ 4.8 · 0,4 km</span></div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:17px; color:#16231C; margin-bottom:10px; letter-spacing:-0.3px;">Surprise Bag Roti &amp; Pastry</div>
+                <div style="display:flex; align-items:flex-end; gap:9px;"><span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:23px; color:#0F3D2C; line-height:1;">Rp15.000</span><span style="font-size:13px; color:#A39B89; text-decoration:line-through; margin-bottom:2px;">Rp45.000</span><span style="margin-left:auto; display:flex; align-items:center; gap:5px; color:#1E8456; font-size:12px; font-weight:700;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 13l9-9 9 9M5 11v8h14v-8" stroke="#1E8456" stroke-width="1.8" stroke-linejoin="round"/></svg>Selamatkan</span></div>
+              </div>
+            </div>
+            <div class="sb-tap" onClick="{{ goDetail }}" style="border-radius:22px; background:#fff; overflow:hidden; border:1px solid #ECE4D3;">
+              <div style="height:124px; background:#E7DDC8 url('assets/food8.jpg') center/cover; position:relative; display:flex; align-items:flex-end; padding:11px;"><div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(20,12,4,0.45), transparent 52%);"></div><span style="position:relative; background:rgba(255,255,255,0.95); color:#1E8456; font-size:11px; font-weight:800; padding:5px 11px; border-radius:20px;">Sisa 6 lagi</span></div>
+              <div style="padding:14px 15px 16px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><div style="width:28px; height:28px; border-radius:9px; background:#27A36A; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; font-family:'Bricolage Grotesque',sans-serif;">K</div><span style="font-weight:700; font-size:14px; color:#16231C;">Kopi Senja</span><span style="margin-left:auto; font-size:12px; color:#5C685F; font-weight:600;">★ 4.6 · 0,9 km</span></div>
+                <div style="display:flex; align-items:flex-end; gap:9px;"><span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:21px; color:#0F3D2C; line-height:1;">Rp20.000</span><span style="font-size:13px; color:#A39B89; text-decoration:line-through; margin-bottom:2px;">Rp50.000</span><span style="margin-left:auto; background:#FBE9DF; color:#C2410C; font-size:11px; font-weight:800; padding:5px 10px; border-radius:20px;">Hemat 60%</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; display:flex; justify-content:space-around; padding:10px 8px 24px;">
+            <div class="sb-tap" onClick="{{ tabHome }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cHome }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span style="font-size:10.5px; font-weight:700;">Beranda</span></div>
+            <div class="sb-tap" onClick="{{ tabPesanan }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cPesanan }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.8"/></svg><span style="font-size:10.5px; font-weight:600;">Pesanan</span></div>
+            <div class="sb-tap" onClick="{{ tabFavorit }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cFavorit }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span style="font-size:10.5px; font-weight:600;">Favorit</span></div>
+            <div class="sb-tap" onClick="{{ tabProfil }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cProfil }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.8"/></svg><span style="font-size:10.5px; font-weight:600;">Profil</span></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- DETAIL -->
+      <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column;">
+          <div style="flex:1; overflow:auto;">
+            <div style="height:238px; background:#E7DDC8 url('assets/food4.jpg') center/cover; position:relative; display:flex; align-items:flex-end;">
+              <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(18,10,3,0.6), transparent 46%);"></div>
+              <div class="sb-tap" onClick="{{ goHome }}" style="position:absolute; top:58px; left:18px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.92); display:flex; align-items:center; justify-content:center;"><svg width="14" height="20" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#16231C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div style="position:absolute; top:18px; right:-38px; transform:rotate(45deg); background:#E2592B; color:#fff; font-weight:800; font-size:12px; letter-spacing:0.6px; padding:6px 44px; box-shadow:0 3px 8px rgba(0,0,0,0.25);">HEMAT 67%</div>
+              <div style="position:relative; padding:16px 18px; display:flex; align-items:center; gap:9px;"><span style="background:rgba(255,255,255,0.95); color:#C2410C; font-size:12px; font-weight:800; padding:6px 12px; border-radius:20px;">Sisa 3 lagi</span><span style="background:rgba(15,61,44,0.82); color:#EFC07A; font-size:12px; font-weight:700; padding:6px 12px; border-radius:20px;">Isi senilai Rp45rb+</span></div>
+            </div>
+            <div style="padding:18px 20px 0;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;"><div style="width:42px; height:42px; border-radius:12px; background:#F2A33C;"></div><div><div style="font-weight:700; font-size:15px; color:#16231C;">Roti Nyaman Bakery</div><div style="font-size:12.5px; color:#5C685F;">★ 4.8 (212) · Bakery · 0,4 km</div></div></div>
+              <h2 style="margin:0 0 6px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C;">Surprise Bag Roti &amp; Pastry</h2>
+              <p style="margin:0 0 18px; font-size:14px; color:#5C685F; line-height:1.55;">Campuran roti manis, pastry, dan donat hari ini yang masih fresh. Isi kejutan senilai minimal Rp45.000.</p>
+              <div style="display:flex; gap:10px;"><div style="flex:1; background:#fff; border:1px solid #F0EADB; border-radius:14px; padding:12px;"><div style="font-size:11.5px; color:#8A958C; font-weight:600;">Window pickup</div><div style="font-weight:700; font-size:14px; color:#16231C; margin-top:3px;">20.00–21.00</div></div><div style="flex:1; background:#fff; border:1px solid #F0EADB; border-radius:14px; padding:12px;"><div style="font-size:11.5px; color:#8A958C; font-weight:600;">Tersisa</div><div style="font-weight:700; font-size:14px; color:#E2592B; margin-top:3px;">3 bag lagi</div></div></div>
+            </div>
+          </div>
+          <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; padding:14px 20px 30px; display:flex; align-items:center; gap:14px;">
+            <div><div style="font-size:12px; color:#A39B89; text-decoration:line-through;">Rp45.000</div><div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#27A36A;">Rp15.000</div></div>
+            <button class="sb-tap" onClick="{{ goCheckout }}" style="flex:1; height:54px; border:none; border-radius:16px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Pesan sekarang</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- CHECKOUT -->
+      <sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column;">
+          <div style="padding:58px 20px 14px; display:flex; align-items:center; gap:14px; background:#fff; border-bottom:1px solid #F0EADB;"><span class="sb-tap" onClick="{{ goDetail }}"><svg width="13" height="20" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#16231C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; color:#16231C;">Checkout</span></div>
+          <div style="flex:1; overflow:auto; padding:18px 20px;">
+            <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:14px; display:flex; gap:12px; margin-bottom:20px;"><div style="width:58px; height:58px; border-radius:12px; background:#E7DDC8 url('assets/food1.jpg') center/cover; flex-shrink:0;"></div><div style="flex:1;"><div style="font-weight:700; font-size:14px; color:#16231C;">Surprise Bag Roti &amp; Pastry</div><div style="font-size:12.5px; color:#5C685F; margin-top:2px;">Roti Nyaman Bakery</div><div style="font-size:12.5px; color:#27A36A; margin-top:5px; font-weight:700;">Ambil 20.00–21.00 hari ini</div></div></div>
+            <div style="font-weight:700; font-size:14px; color:#16231C; margin-bottom:11px;">Metode pembayaran</div>
+            <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; overflow:hidden; margin-bottom:20px;">
+              <div style="display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #F4EEE0;"><div style="width:34px; height:34px; border-radius:9px; background:#00AA13;"></div><span style="font-weight:600; font-size:14px; color:#16231C;">GoPay</span><span style="margin-left:auto; width:20px; height:20px; border-radius:50%; border:6px solid #27A36A;"></span></div>
+              <div style="display:flex; align-items:center; gap:12px; padding:14px 16px;"><div style="width:34px; height:34px; border-radius:9px; background:#005BAA;"></div><span style="font-weight:600; font-size:14px; color:#16231C;">Virtual Account BCA</span><span style="margin-left:auto; width:20px; height:20px; border-radius:50%; border:2px solid #DDD5C4;"></span></div>
+            </div>
+            <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:16px;"><div style="display:flex; justify-content:space-between; font-size:13.5px; color:#5C685F; margin-bottom:9px;"><span>Subtotal</span><span>Rp15.000</span></div><div style="display:flex; justify-content:space-between; font-size:13.5px; color:#5C685F; margin-bottom:9px;"><span>Biaya layanan</span><span>Rp1.000</span></div><div style="height:1px; background:#F0EADB; margin:6px 0 11px;"></div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:700; font-size:15px; color:#16231C;">Total</span><span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:20px; color:#0F3D2C;">Rp16.000</span></div></div>
+          </div>
+          <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; padding:14px 20px 30px;"><button class="sb-tap" onClick="{{ pay }}" style="width:100%; height:54px; border:none; border-radius:16px; background:#0F3D2C; color:#FBF7EF; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:16px;">Bayar Rp16.000</button></div>
+        </div>
+      </sc-if>
+
+      <!-- PROCESSING -->
+      <sc-if value="{{ isProcessing }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#0F3D2C; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 36px;">
+          <div style="position:absolute; inset:0; background:radial-gradient(circle at 50% 42%, rgba(39,163,106,0.3), transparent 62%);"></div>
+          <div style="position:relative; width:84px; height:84px; margin-bottom:28px;">
+            <div style="position:absolute; inset:0; border-radius:50%; border:5px solid #16442F;"></div>
+            <div style="position:absolute; inset:0; border-radius:50%; border:5px solid transparent; border-top-color:#EFA63C; border-right-color:#EFA63C; animation:sb-spin .9s linear infinite;"></div>
+            <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none"><rect x="4" y="9" width="16" height="11" rx="2" stroke="#9FC9B2" stroke-width="1.8"/><path d="M4 9l2-4h12l2 4" stroke="#9FC9B2" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+          </div>
+          <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#FBF7EF; position:relative; text-align:center;">Memproses pembayaran…</div>
+          <p style="margin:8px 0 0; font-size:14px; color:#9FC9B2; position:relative; text-align:center;">Menghubungkan ke GoPay.</p>
+        </div>
+      </sc-if>
+
+      <!-- QR SUCCESS -->
+      <sc-if value="{{ isQr }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#0F3D2C; display:flex; flex-direction:column; padding:58px 24px 28px; align-items:center; overflow:auto;">
+          <div style="width:60px; height:60px; border-radius:50%; background:#27A36A; display:flex; align-items:center; justify-content:center; margin-bottom:12px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#FBF7EF;">Pembayaran berhasil!</div>
+          <div style="font-size:13.5px; color:#9FC9B2; margin-bottom:20px; text-align:center;">Tunjukkan QR ini ke kasir saat ambil bag.</div>
+          <div style="background:#fff; border-radius:24px; padding:22px; width:100%; text-align:center;">
+            <div style="width:170px; height:170px; margin:0 auto 14px; background:#fff; position:relative; background-image:radial-gradient(#16231C 42%, transparent 44%); background-size:12px 12px;">
+              <div style="position:absolute; top:0; left:0; width:44px; height:44px; background:#fff; border:6px solid #16231C; border-radius:4px;"></div><div style="position:absolute; top:13px; left:13px; width:18px; height:18px; background:#16231C; border-radius:2px;"></div>
+              <div style="position:absolute; top:0; right:0; width:44px; height:44px; background:#fff; border:6px solid #16231C; border-radius:4px;"></div><div style="position:absolute; top:13px; right:13px; width:18px; height:18px; background:#16231C; border-radius:2px;"></div>
+              <div style="position:absolute; bottom:0; left:0; width:44px; height:44px; background:#fff; border:6px solid #16231C; border-radius:4px;"></div><div style="position:absolute; bottom:13px; left:13px; width:18px; height:18px; background:#16231C; border-radius:2px;"></div>
+            </div>
+            <div style="font-size:12px; color:#8A958C; font-weight:600;">Kode pickup</div>
+            <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; letter-spacing:4px; color:#16231C;">SB-7K2Q9</div>
+          </div>
+          <button class="sb-tap" onClick="{{ tabPesanan }}" style="width:100%; height:52px; border:none; border-radius:16px; background:#EFA63C; color:#0F3D2C; font-family:'Plus Jakarta Sans'; font-weight:800; font-size:15px; margin-top:18px;">Lihat di Pesanan</button>
+        </div>
+      </sc-if>
+
+      <!-- NOTIF -->
+      <sc-if value="{{ isNotif }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column;">
+          <div style="padding:58px 20px 14px; background:#fff; border-bottom:1px solid #F0EADB; display:flex; align-items:center; gap:14px;"><span class="sb-tap" onClick="{{ goHome }}"><svg width="13" height="20" viewBox="0 0 12 20" fill="none"><path d="M10 2L2 10l8 8" stroke="#16231C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:21px; color:#16231C;">Notifikasi</h2></div>
+          <div style="flex:1; overflow:auto; padding:12px 16px;">
+            <div style="background:#E8F3EC; border:1px solid #C9E3D2; border-radius:16px; padding:13px; display:flex; gap:12px; margin-bottom:10px;"><div style="width:40px; height:40px; border-radius:12px; background:#27A36A; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Pesananmu siap diambil</div><div style="font-size:12.5px; color:#5C685F; margin-top:2px;">Roti Nyaman Bakery menunggu sampai 21.00.</div></div></div>
+            <div style="background:#fff; border:1px solid #F0EADB; border-radius:16px; padding:13px; display:flex; gap:12px;"><div style="width:40px; height:40px; border-radius:12px; background:#FBEFDD; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="#E2592B" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="#E2592B" stroke-width="1.8"/></svg></div><div style="flex:1;"><div style="font-weight:700; font-size:13.5px; color:#16231C;">Bag baru di dekatmu</div><div style="font-size:12.5px; color:#5C685F; margin-top:2px;">Kopi Senja rilis 6 Surprise Bag.</div></div></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- PESANAN -->
+      <sc-if value="{{ isPesanan }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column;">
+          <div style="padding:58px 20px 12px; background:#fff; border-bottom:1px solid #F0EADB;"><h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C;">Pesanan</h2></div>
+          <div style="flex:1; overflow:auto; padding:16px 20px;">
+            <div style="background:#fff; border:1.5px solid #C9E3D2; border-radius:18px; padding:14px; margin-bottom:14px;"><div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;"><div style="width:40px; height:40px; border-radius:11px; background:#E7DDC8 url('assets/food1.jpg') center/cover;"></div><div style="flex:1;"><div style="font-weight:700; font-size:14px; color:#16231C;">Roti Nyaman Bakery</div><div style="font-size:12px; color:#5C685F;">SB-7K2Q9 · 1 bag</div></div><span style="background:#E8F3EC; color:#1E8456; font-size:11px; font-weight:800; padding:5px 10px; border-radius:20px;">Siap diambil</span></div><button class="sb-tap" onClick="{{ goQr }}" style="width:100%; height:44px; border:none; border-radius:13px; background:#0F3D2C; color:#fff; font-weight:700; font-size:14px;">Lihat QR pickup</button></div>
+            <div style="font-size:12.5px; font-weight:700; color:#8A958C; text-transform:uppercase; letter-spacing:0.5px; margin:10px 2px 12px;">Riwayat</div>
+            <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; padding:14px; display:flex; align-items:center; gap:12px;"><div style="width:46px; height:46px; border-radius:12px; background:#E7DDC8 url('assets/food8.jpg') center/cover;"></div><div style="flex:1;"><div style="font-weight:700; font-size:14px; color:#16231C;">Kopi Senja</div><div style="font-size:12px; color:#5C685F; margin-top:2px;">14 Jun · Rp20.000</div></div><span style="background:#EEF0EC; color:#5C685F; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">Selesai</span></div>
+          </div>
+          <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; display:flex; justify-content:space-around; padding:10px 8px 24px;">
+            <div class="sb-tap" onClick="{{ tabHome }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cHome }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span style="font-size:10.5px; font-weight:600;">Beranda</span></div>
+            <div class="sb-tap" onClick="{{ tabPesanan }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cPesanan }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.8"/></svg><span style="font-size:10.5px; font-weight:700;">Pesanan</span></div>
+            <div class="sb-tap" onClick="{{ tabFavorit }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cFavorit }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span style="font-size:10.5px; font-weight:600;">Favorit</span></div>
+            <div class="sb-tap" onClick="{{ tabProfil }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cProfil }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.8"/></svg><span style="font-size:10.5px; font-weight:600;">Profil</span></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- FAVORIT -->
+      <sc-if value="{{ isFavorit }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column;">
+          <div style="padding:58px 20px 14px; background:#fff; border-bottom:1px solid #F0EADB;"><h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#16231C;">Favorit</h2></div>
+          <div style="flex:1; overflow:auto; padding:16px 20px;">
+            <div class="sb-tap" onClick="{{ goDetail }}" style="border-radius:18px; background:#fff; overflow:hidden; border:1px solid #F0EADB; display:flex; margin-bottom:14px;"><div style="width:96px; background:#E7DDC8 url('assets/food1.jpg') center/cover;"></div><div style="flex:1; padding:13px;"><div style="font-weight:700; font-size:14px; color:#16231C;">Roti Nyaman Bakery</div><div style="font-size:12px; color:#5C685F; margin:3px 0 8px;">★ 4.8 · 0,4 km</div><span style="background:#E8F3EC; color:#1E8456; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">3 bag tersedia</span></div></div>
+            <div style="border-radius:18px; background:#fff; overflow:hidden; border:1px solid #F0EADB; display:flex;"><div style="width:96px; background:#E7DDC8 url('assets/food8.jpg') center/cover;"></div><div style="flex:1; padding:13px;"><div style="font-weight:700; font-size:14px; color:#16231C;">Kopi Senja</div><div style="font-size:12px; color:#5C685F; margin:3px 0 8px;">★ 4.6 · 0,9 km</div><span style="background:#E8F3EC; color:#1E8456; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;">6 bag tersedia</span></div></div>
+          </div>
+          <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; display:flex; justify-content:space-around; padding:10px 8px 24px;">
+            <div class="sb-tap" onClick="{{ tabHome }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cHome }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span style="font-size:10.5px; font-weight:600;">Beranda</span></div>
+            <div class="sb-tap" onClick="{{ tabPesanan }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cPesanan }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.8"/></svg><span style="font-size:10.5px; font-weight:600;">Pesanan</span></div>
+            <div class="sb-tap" onClick="{{ tabFavorit }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cFavorit }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span style="font-size:10.5px; font-weight:700;">Favorit</span></div>
+            <div class="sb-tap" onClick="{{ tabProfil }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cProfil }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.8"/></svg><span style="font-size:10.5px; font-weight:600;">Profil</span></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- PROFIL -->
+      <sc-if value="{{ isProfil }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column; overflow:auto;">
+          <div style="padding:58px 20px 22px; background:#0F3D2C;">
+            <div style="display:flex; align-items:center; gap:14px;"><div style="width:58px; height:58px; border-radius:50%; background:#EFA63C; display:flex; align-items:center; justify-content:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#0F3D2C;">IH</div><div><div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; color:#FBF7EF;">Ilham Hidayat</div><div style="font-size:13px; color:#9FC9B2;">ilham@gmail.com</div></div></div>
+            <div style="display:flex; gap:10px; margin-top:18px;"><div style="flex:1; background:#16442F; border-radius:14px; padding:11px 13px;"><div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px; color:#EFA63C;">23</div><div style="font-size:11.5px; color:#9FC9B2;">Bag diselamatkan</div></div><div style="flex:1; background:#16442F; border-radius:14px; padding:11px 13px;"><div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px; color:#EFA63C;">Rp612rb</div><div style="font-size:11.5px; color:#9FC9B2;">Total hemat</div></div></div>
+          </div>
+          <div style="padding:18px 20px; flex:1;">
+            <div class="sb-tap" onClick="{{ toMerchant }}" style="background:#FBEFDD; border:1.5px solid #F0DDB9; border-radius:18px; padding:16px; display:flex; align-items:center; gap:13px; margin-bottom:20px;"><div style="width:42px; height:42px; border-radius:12px; background:#E2592B; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 9h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9z" stroke="#fff" stroke-width="1.8"/><path d="M4 9l2-4h12l2 4" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></div><div style="flex:1;"><div style="font-weight:700; font-size:14.5px; color:#8A3A14;">Beralih ke Mode Merchant</div><div style="font-size:12.5px; color:#7A5536; margin-top:2px;">Punya toko? Jual stok berlebihmu.</div></div><span style="color:#E2592B; font-size:20px;">→</span></div>
+            <div style="background:#fff; border:1px solid #F0EADB; border-radius:18px; overflow:hidden;"><div style="display:flex; align-items:center; gap:12px; padding:15px 16px; border-bottom:1px solid #F4EEE0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z" stroke="#5C685F" stroke-width="1.8"/></svg><span style="flex:1; font-size:14.5px; color:#16231C;">Toko favorit</span><span style="color:#C8C0AE;">›</span></div><div style="display:flex; align-items:center; gap:12px; padding:15px 16px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke="#5C685F" stroke-width="1.8"/></svg><span style="flex:1; font-size:14.5px; color:#16231C;">Metode pembayaran</span><span style="color:#C8C0AE;">›</span></div></div>
+          </div>
+          <div style="flex-shrink:0; background:#fff; border-top:1px solid #F0EADB; display:flex; justify-content:space-around; padding:10px 8px 24px;">
+            <div class="sb-tap" onClick="{{ tabHome }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cHome }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span style="font-size:10.5px; font-weight:600;">Beranda</span></div>
+            <div class="sb-tap" onClick="{{ tabPesanan }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cPesanan }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M6 8h12l-1 11H7L6 8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.8"/></svg><span style="font-size:10.5px; font-weight:600;">Pesanan</span></div>
+            <div class="sb-tap" onClick="{{ tabFavorit }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cFavorit }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 1.5C19 15.4 12 20 12 20z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span style="font-size:10.5px; font-weight:600;">Favorit</span></div>
+            <div class="sb-tap" onClick="{{ tabProfil }}" style="display:flex; flex-direction:column; align-items:center; gap:3px; color: {{ cProfil }};"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.8"/></svg><span style="font-size:10.5px; font-weight:700;">Profil</span></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- MERCHANT DASHBOARD -->
+      <sc-if value="{{ isMDash }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column;">
+          <div style="padding:58px 20px 24px; background:#8A3A14;">
+            <div style="display:flex; align-items:center; justify-content:space-between;"><div><div style="font-size:13px; color:#F0C9A8;">Mode Merchant</div><div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:20px; color:#FBF7EF;">Roti Nyaman Bakery</div></div><span class="sb-tap" onClick="{{ toConsumer }}" style="background:#9C4720; color:#F0C9A8; font-size:11px; font-weight:700; padding:7px 11px; border-radius:20px;">↩ Mode Beli</span></div>
+            <div style="display:flex; gap:10px; margin-top:18px;"><div style="flex:1; background:#9C4720; border-radius:16px; padding:13px;"><div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#fff;">8</div><div style="font-size:11.5px; color:#F0C9A8;">Bag terjual</div></div><div style="flex:1; background:#9C4720; border-radius:16px; padding:13px;"><div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; color:#fff;">Rp120rb</div><div style="font-size:11.5px; color:#F0C9A8;">Pendapatan</div></div></div>
+          </div>
+          <div style="flex:1; overflow:auto; padding:18px 20px;">
+            <h3 style="margin:0 0 11px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:17px; color:#16231C;">Order menunggu</h3>
+            <div style="background:#fff; border:1.5px solid #F0DDB9; border-radius:18px; padding:15px;"><div style="display:flex; align-items:center; gap:10px; margin-bottom:11px;"><div style="width:40px; height:40px; border-radius:11px; background:#FBEFDD; display:flex; align-items:center; justify-content:center; font-weight:800; color:#8A3A14; font-size:14px;">RA</div><div style="flex:1;"><div style="font-weight:700; font-size:14.5px; color:#16231C;">Rani Anggraini</div><div style="font-size:12px; color:#5C685F;">SB-7K2Q9 · 1 bag</div></div><span style="background:#FBEFDD; color:#8A3A14; font-size:11px; font-weight:800; padding:5px 10px; border-radius:20px;">Menunggu</span></div><button class="sb-tap" onClick="{{ goScan }}" style="width:100%; height:46px; border:none; border-radius:13px; background:#0F3D2C; color:#fff; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="6" height="6" stroke="#fff" stroke-width="1.8"/><rect x="14" y="4" width="6" height="6" stroke="#fff" stroke-width="1.8"/><rect x="4" y="14" width="6" height="6" stroke="#fff" stroke-width="1.8"/><path d="M14 14h6v6" stroke="#fff" stroke-width="1.8"/></svg>Scan QR untuk redeem</button></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- MERCHANT SCAN -->
+      <sc-if value="{{ isMScan }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#101512; display:flex; flex-direction:column;">
+          <div style="padding:58px 20px 14px; display:flex; align-items:center; gap:14px;"><span class="sb-tap" onClick="{{ goMDash }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span><span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:18px; color:#fff;">Scan QR konsumen</span></div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 24px;">
+            <div style="width:230px; height:230px; position:relative; background:repeating-linear-gradient(135deg,#1B221D,#1B221D 12px,#222a24 12px,#222a24 24px); border-radius:18px;">
+              <div style="position:absolute; top:-2px; left:-2px; width:42px; height:42px; border-top:4px solid #EFA63C; border-left:4px solid #EFA63C; border-radius:14px 0 0 0;"></div><div style="position:absolute; top:-2px; right:-2px; width:42px; height:42px; border-top:4px solid #EFA63C; border-right:4px solid #EFA63C; border-radius:0 14px 0 0;"></div><div style="position:absolute; bottom:-2px; left:-2px; width:42px; height:42px; border-bottom:4px solid #EFA63C; border-left:4px solid #EFA63C; border-radius:0 0 0 14px;"></div><div style="position:absolute; bottom:-2px; right:-2px; width:42px; height:42px; border-bottom:4px solid #EFA63C; border-right:4px solid #EFA63C; border-radius:0 0 14px 0;"></div>
+              <div style="position:absolute; left:14px; right:14px; top:50%; height:2.5px; background:#27A36A; box-shadow:0 0 12px #27A36A;"></div>
+            </div>
+            <button class="sb-tap" onClick="{{ doRedeem }}" style="margin-top:30px; height:50px; padding:0 26px; border:none; border-radius:15px; background:#27A36A; color:#fff; font-weight:700; font-size:15px;">Simulasikan scan berhasil</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- MERCHANT REDEEMED -->
+      <sc-if value="{{ isMRedeemed }}" hint-placeholder-val="{{ false }}">
+        <div class="sb-screen" style="background:#FBF7EF; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 36px;">
+          <div style="width:96px; height:96px; border-radius:50%; background:#E8F3EC; display:flex; align-items:center; justify-content:center; margin-bottom:22px;"><svg width="46" height="46" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#27A36A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h2 style="margin:0 0 8px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:23px; color:#16231C;">Bag diserahkan!</h2>
+          <p style="margin:0 0 6px; font-size:14px; color:#5C685F; line-height:1.55;">Order <b>SB-7K2Q9</b> selesai. Rp13.500 (setelah komisi) masuk ke saldo tokomu.</p>
+          <button class="sb-tap" onClick="{{ goMDash }}" style="margin-top:24px; height:52px; padding:0 28px; border:none; border-radius:16px; background:#E2592B; color:#fff; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:15px;">Kembali ke Dashboard</button>
+        </div>
+      </sc-if>
+
+    </div>
+  </x-import>
+
+  <button class="sb-tap" onClick="{{ reset }}" style="margin-top:26px; height:44px; padding:0 22px; border:1.5px solid #C9C0AD; border-radius:14px; background:transparent; color:#5C685F; font-family:'Plus Jakarta Sans'; font-weight:700; font-size:14px;">↺ Reset ke Splash</button>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen: 'splash', tab: 'home', mode: 'consumer' };
+
+  go(s) { this.setState({ screen: s }); }
+
+  pay() {
+    this.setState({ screen: 'processing' });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ screen: 'qr' }), 1900);
+  }
+
+  tab(t) {
+    const map = { home: 'home', pesanan: 'pesanan', favorit: 'favorit', profil: 'profil' };
+    this.setState({ tab: t, screen: map[t] });
+  }
+
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  renderVals() {
+    const s = this.state.screen;
+    const is = (x) => s === x;
+    const nc = (t) => (this.state.tab === t ? '#0F3D2C' : '#A0A89F');
+    return {
+      isSplash: is('splash'), isOnboarding: is('onboarding'), isFork: is('fork'),
+      isLogin: is('login'), isHome: is('home'), isDetail: is('detail'),
+      isCheckout: is('checkout'), isProcessing: is('processing'), isQr: is('qr'),
+      isNotif: is('notif'), isPesanan: is('pesanan'), isFavorit: is('favorit'),
+      isProfil: is('profil'), isMDash: is('m_dash'), isMScan: is('m_scan'),
+      isMRedeemed: is('m_redeemed'),
+
+      cHome: nc('home'), cPesanan: nc('pesanan'), cFavorit: nc('favorit'), cProfil: nc('profil'),
+
+      goOnb: () => this.go('onboarding'),
+      goFork: () => this.go('fork'),
+      goLoginBuyer: () => this.setState({ mode: 'consumer', screen: 'login' }),
+      goLoginSeller: () => this.setState({ mode: 'merchant', screen: 'login' }),
+      doLogin: () => this.setState({ screen: this.state.mode === 'merchant' ? 'm_dash' : 'home', tab: 'home' }),
+      goHome: () => this.go('home'),
+      goNotif: () => this.go('notif'),
+      goDetail: () => this.go('detail'),
+      goCheckout: () => this.go('checkout'),
+      pay: () => this.pay(),
+      goQr: () => this.go('qr'),
+      tabHome: () => this.tab('home'),
+      tabPesanan: () => this.tab('pesanan'),
+      tabFavorit: () => this.tab('favorit'),
+      tabProfil: () => this.tab('profil'),
+      toMerchant: () => this.setState({ mode: 'merchant', screen: 'm_dash' }),
+      toConsumer: () => this.setState({ mode: 'consumer', tab: 'home', screen: 'home' }),
+      goScan: () => this.go('m_scan'),
+      goMDash: () => this.go('m_dash'),
+      doRedeem: () => this.go('m_redeemed'),
+      reset: () => this.setState({ screen: 'splash', tab: 'home', mode: 'consumer' }),
+    };
+  }
+}
+</script>
+</body>
+</html>
