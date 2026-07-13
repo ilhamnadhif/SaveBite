@@ -12,60 +12,79 @@ class DetailScreen extends StatelessWidget {
     final topInset = MediaQuery.of(context).padding.top;
     return StatusBarStyle.light(
       child: Scaffold(
-      backgroundColor: AppColors.cream,
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _imageHeader(context, topInset),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _merchantRow(context),
-                      const SizedBox(height: 14),
-                      Text(bag.title,
-                          style: AppText.display(24, weight: 800)),
-                      const SizedBox(height: 6),
-                      Text(bag.description,
-                          style: AppText.ui(14, color: AppColors.body, height: 1.55)),
-                      const SizedBox(height: 18),
-                      _infoCards(),
-                      const SizedBox(height: 18),
-                      Text('Mungkin ada di dalamnya',
-                          style: AppText.ui(14, weight: 700)),
-                      const SizedBox(height: 9),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final c in bag.contents)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: AppColors.neutralChip,
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              child: Text(c,
-                                  style: AppText.ui(12.5,
-                                      weight: 600, color: AppColors.body2)),
-                            ),
+        backgroundColor: AppColors.cream,
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _imageHeader(context, topInset),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _merchantRow(context),
+                        const SizedBox(height: 14),
+                        Text(
+                          bag.title,
+                          style: AppText.display(24, weight: 800),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          bag.description,
+                          style: AppText.ui(
+                            14,
+                            color: AppColors.body,
+                            height: 1.55,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _infoCards(),
+                        if (bag.contents.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          Text(
+                            'Mungkin ada di dalamnya',
+                            style: AppText.ui(14, weight: 700),
+                          ),
+                          const SizedBox(height: 9),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final c in bag.contents)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.neutralChip,
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  child: Text(
+                                    c,
+                                    style: AppText.ui(
+                                      12.5,
+                                      weight: 600,
+                                      color: AppColors.body2,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
-                      ),
-                      const SizedBox(height: 18),
-                    ],
+                        const SizedBox(height: 18),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          _bottomBar(context),
-        ],
-      ),
+            _bottomBar(context),
+          ],
+        ),
       ),
     );
   }
@@ -88,8 +107,11 @@ class DetailScreen extends StatelessWidget {
             left: 18,
             child: CircleIconButton(
               onTap: () => Navigator.of(context).maybePop(),
-              child: const Icon(Icons.arrow_back_ios_new,
-                  size: 16, color: AppColors.ink),
+              child: const Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: AppColors.ink,
+              ),
             ),
           ),
           Positioned(
@@ -102,14 +124,23 @@ class DetailScreen extends StatelessWidget {
                 return CircleIconButton(
                   semanticLabel: 'Favorit',
                   onTap: () async {
-                    final added = await appState.toggleFavorite(bag.merchant.id);
+                    final added = await appState.toggleFavorite(
+                      bag.merchant.id,
+                    );
                     if (context.mounted) {
-                      AppFeedback.snack(context,
-                          added ? 'Ditambahkan ke favorit' : 'Dihapus dari favorit');
+                      AppFeedback.snack(
+                        context,
+                        added
+                            ? 'Ditambahkan ke favorit'
+                            : 'Dihapus dari favorit',
+                      );
                     }
                   },
-                  child: Icon(fav ? Icons.favorite : Icons.favorite_border,
-                      size: 18, color: AppColors.terracotta),
+                  child: Icon(
+                    fav ? Icons.favorite : Icons.favorite_border,
+                    size: 18,
+                    color: AppColors.terracotta,
+                  ),
                 );
               },
             ),
@@ -125,8 +156,10 @@ class DetailScreen extends StatelessWidget {
                 ],
                 OverlayBadge('Sisa ${bag.quantityLeft} lagi'),
                 const SizedBox(width: 9),
-                OverlayBadge('Isi senilai Rp${bag.originalPrice ~/ 1000}rb+',
-                    dark: true),
+                OverlayBadge(
+                  'Isi senilai Rp${bag.originalPrice ~/ 1000}rb+',
+                  dark: true,
+                ),
               ],
             ),
           ),
@@ -139,7 +172,12 @@ class DetailScreen extends StatelessWidget {
     final m = bag.merchant;
     return Row(
       children: [
-        StoreAvatar(initial: m.initial, color: m.avatarColor, size: 42, radius: 12),
+        StoreAvatar(
+          initial: m.initial,
+          color: m.avatarColor,
+          size: 42,
+          radius: 12,
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -148,15 +186,18 @@ class DetailScreen extends StatelessWidget {
               Text(m.name, style: AppText.ui(15, weight: 700)),
               const SizedBox(height: 2),
               Text(
-                  '★ ${m.rating.toStringAsFixed(1)} (${m.reviewCount}) · ${m.category} · ${m.distance}',
-                  style: AppText.ui(12.5, color: AppColors.body)),
+                '★ ${m.rating.toStringAsFixed(1)} (${m.reviewCount}) · ${m.category} · ${m.distance}',
+                style: AppText.ui(12.5, color: AppColors.body),
+              ),
             ],
           ),
         ),
         GestureDetector(
           onTap: () => AppNav.toStoreProfile(context, m),
-          child: Text('Lihat toko',
-              style: AppText.ui(13, weight: 700, color: AppColors.greenBright)),
+          child: Text(
+            'Lihat toko',
+            style: AppText.ui(13, weight: 700, color: AppColors.greenBright),
+          ),
         ),
       ],
     );
@@ -167,12 +208,18 @@ class DetailScreen extends StatelessWidget {
       children: [
         Expanded(
           child: _infoCard(
-              'Window pickup', 'Hari ini ${bag.pickupWindow}', AppColors.ink),
+            'Window pickup',
+            'Hari ini ${bag.pickupWindow}',
+            AppColors.ink,
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _infoCard(
-              'Tersisa', '${bag.quantityLeft} bag lagi', AppColors.terracotta),
+            'Tersisa',
+            '${bag.quantityLeft} bag lagi',
+            AppColors.terracotta,
+          ),
         ),
       ],
     );
@@ -189,7 +236,10 @@ class DetailScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppText.ui(11.5, weight: 600, color: AppColors.muted)),
+          Text(
+            label,
+            style: AppText.ui(11.5, weight: 600, color: AppColors.muted),
+          ),
           const SizedBox(height: 3),
           Text(value, style: AppText.ui(14, weight: 700, color: valueColor)),
         ],
@@ -204,7 +254,11 @@ class DetailScreen extends StatelessWidget {
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
       padding: EdgeInsets.fromLTRB(
-          20, 14, 20, 14 + MediaQuery.of(context).padding.bottom),
+        20,
+        14,
+        20,
+        14 + MediaQuery.of(context).padding.bottom,
+      ),
       child: Row(
         children: [
           Column(
@@ -214,18 +268,34 @@ class DetailScreen extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(formatRupiah(bag.salePrice),
-                      style: AppText.display(23, weight: 800, color: AppColors.green)),
+                  Text(
+                    formatRupiah(bag.salePrice),
+                    style: AppText.display(
+                      23,
+                      weight: 800,
+                      color: AppColors.green,
+                    ),
+                  ),
                   const SizedBox(width: 7),
-                  Text(formatRupiah(bag.originalPrice),
-                      style: AppText.ui(12,
-                          color: AppColors.strikethrough,
-                          decoration: TextDecoration.lineThrough,
-                          decorationColor: AppColors.strikethrough)),
+                  Text(
+                    formatRupiah(bag.originalPrice),
+                    style: AppText.ui(
+                      12,
+                      color: AppColors.strikethrough,
+                      decoration: TextDecoration.lineThrough,
+                      decorationColor: AppColors.strikethrough,
+                    ),
+                  ),
                 ],
               ),
-              Text('Kamu hemat ${formatRupiah(bag.savings)}',
-                  style: AppText.ui(11.5, weight: 700, color: AppColors.greenAccent)),
+              Text(
+                'Kamu hemat ${formatRupiah(bag.savings)}',
+                style: AppText.ui(
+                  11.5,
+                  weight: 700,
+                  color: AppColors.greenAccent,
+                ),
+              ),
             ],
           ),
           const SizedBox(width: 14),

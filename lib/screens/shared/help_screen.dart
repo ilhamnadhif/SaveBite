@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../sb.dart';
 
 /// Bantuan / FAQ. Pola: LAYAR PENUH (Scaffold sendiri).
@@ -18,18 +20,48 @@ class HelpScreen extends StatelessWidget {
     ),
     _Faq(
       'Metode pembayaran apa saja?',
-      'GoPay, OVO, dan Virtual Account BCA.',
+      'Integrasi payment gateway belum diaktifkan. GoPay, OVO, dan Virtual '
+          'Account BCA yang tampil saat ini hanya pilihan simulasi pengembangan.',
     ),
     _Faq(
       'Bagaimana kalau saya tidak jadi ambil?',
-      'Pembayaran bersifat prepaid; jika tidak diambil dalam window, '
-          'dana hangus.',
+      'Buka Kebijakan Pembatalan & Pengembalian Dana di Profil. Kebijakan ini '
+          'masih berupa draf sampai alur pembayaran produksi diaktifkan.',
     ),
     _Faq(
       'Bisakah satu akun jadi penjual?',
-      'Bisa — keluar lalu masuk lagi dan pilih “Saya mau jual”.',
+      'Bisa. Pilih “Beralih ke mode penjual” dari Profil. Jika belum memiliki '
+          'toko, kamu akan diminta melengkapi data toko terlebih dahulu.',
     ),
   ];
+
+  Future<void> _openEmail(BuildContext context) async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'halo@savebite.id',
+      queryParameters: {
+        'subject': 'Bantuan aplikasi SaveBite',
+        'body': 'Halo tim SaveBite,\n\nNomor pesanan (jika ada):\nKendala:\n',
+      },
+    );
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && context.mounted) {
+        AppFeedback.snack(
+          context,
+          'Aplikasi email tidak tersedia. Kirim ke halo@savebite.id.',
+          icon: Icons.info_outline,
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      AppFeedback.snack(
+        context,
+        'Tidak dapat membuka email. Kirim ke halo@savebite.id.',
+        icon: Icons.error_outline,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,17 +77,21 @@ class HelpScreen extends StatelessWidget {
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 10),
-                    child: Text('Pertanyaan umum',
-                        style: AppText.ui(12.5,
-                            weight: 700, color: AppColors.body)),
+                    child: Text(
+                      'Pertanyaan umum',
+                      style: AppText.ui(
+                        12.5,
+                        weight: 700,
+                        color: AppColors.body,
+                      ),
+                    ),
                   ),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadius.cardSm),
                     child: Container(
                       decoration: BoxDecoration(
                         color: AppColors.white,
-                        borderRadius:
-                            BorderRadius.circular(AppRadius.cardSm),
+                        borderRadius: BorderRadius.circular(AppRadius.cardSm),
                         border: Border.all(color: AppColors.border),
                       ),
                       child: Theme(
@@ -70,10 +106,8 @@ class HelpScreen extends StatelessWidget {
                             collapsedIconColor: AppColors.greenBright,
                             backgroundColor: AppColors.white,
                             collapsedBackgroundColor: AppColors.white,
-                            tilePadding:
-                                EdgeInsets.symmetric(horizontal: 16),
-                            childrenPadding:
-                                EdgeInsets.fromLTRB(16, 0, 16, 14),
+                            tilePadding: EdgeInsets.symmetric(horizontal: 16),
+                            childrenPadding: EdgeInsets.fromLTRB(16, 0, 16, 14),
                             expandedAlignment: Alignment.centerLeft,
                           ),
                           child: Column(
@@ -81,7 +115,9 @@ class HelpScreen extends StatelessWidget {
                               for (int i = 0; i < _faqs.length; i++) ...[
                                 if (i > 0)
                                   const Divider(
-                                      height: 1, color: AppColors.divider),
+                                    height: 1,
+                                    color: AppColors.divider,
+                                  ),
                                 _FaqTile(faq: _faqs[i]),
                               ],
                             ],
@@ -93,9 +129,14 @@ class HelpScreen extends StatelessWidget {
                   const SizedBox(height: 22),
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 10),
-                    child: Text('Hubungi kami',
-                        style: AppText.ui(12.5,
-                            weight: 700, color: AppColors.body)),
+                    child: Text(
+                      'Hubungi kami',
+                      style: AppText.ui(
+                        12.5,
+                        weight: 700,
+                        color: AppColors.body,
+                      ),
+                    ),
                   ),
                   AppCard(
                     padding: EdgeInsets.zero,
@@ -103,18 +144,25 @@ class HelpScreen extends StatelessWidget {
                       children: [
                         MenuRow(
                           icon: Icons.mail_outline,
-                          label: 'Email: halo@savebite.id',
-                          onTap: () => AppFeedback.snack(
-                              context, 'Membuka email ke halo@savebite.id'),
-                        ),
-                        MenuRow(
-                          icon: Icons.chat_bubble_outline,
-                          label: 'WhatsApp: 0812-0000-0000',
+                          label: 'Kirim email ke dukungan',
                           last: true,
-                          onTap: () => AppFeedback.snack(
-                              context, 'Membuka WhatsApp 0812-0000-0000'),
+                          onTap: () => _openEmail(context),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      'WhatsApp dukungan belum dikonfigurasi. Kami tidak '
+                      'menampilkan nomor placeholder agar pengguna tidak '
+                      'menghubungi pihak yang salah.',
+                      style: AppText.ui(
+                        11.5,
+                        color: AppColors.muted,
+                        height: 1.5,
+                      ),
                     ),
                   ),
                 ],
@@ -140,11 +188,15 @@ class _FaqTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ExpansionTile(
-      title: Text(faq.question,
-          style: AppText.ui(14.5, weight: 700, color: AppColors.ink)),
+      title: Text(
+        faq.question,
+        style: AppText.ui(14.5, weight: 700, color: AppColors.ink),
+      ),
       children: [
-        Text(faq.answer,
-            style: AppText.ui(13.5, color: AppColors.body, height: 1.55)),
+        Text(
+          faq.answer,
+          style: AppText.ui(13.5, color: AppColors.body, height: 1.55),
+        ),
       ],
     );
   }

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../sb.dart';
-import '../../app_nav.dart';
 
-/// C4 Pesanan Masuk. Pola: KONTEN TAB — Column(header + Expanded scroll).
+import '../../app_nav.dart';
+import '../../data/backend/backend.dart';
+import '../../sb.dart';
+
+/// Daftar operasional order merchant. Pickup token tidak pernah ditampilkan;
+/// redeem hanya dilakukan dari scanner QR.
 class IncomingOrdersScreen extends StatefulWidget {
   const IncomingOrdersScreen({super.key});
 
@@ -12,10 +15,11 @@ class IncomingOrdersScreen extends StatefulWidget {
 
 class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
   int _tab = 0;
+  final Set<String> _busyOrderKeys = {};
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
+    final top = MediaQuery.paddingOf(context).top;
     return StatusBarStyle.dark(
       child: Column(
         children: [
@@ -30,28 +34,60 @@ class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Pesanan masuk',
-                      style:
-                          AppText.display(24, weight: 800, color: AppColors.ink)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Pesanan masuk',
+                          style: AppText.display(
+                            24,
+                            weight: 800,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                      if (appState.isLoadingMerchant)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: 'Ulasan pelanggan',
+                        onPressed: () => AppNav.toMerchantReviews(context),
+                        icon: const Icon(Icons.reviews_outlined),
+                        color: AppColors.brown,
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 14),
                   TabSwitch(
-                    tabs: const ['Perlu disiapkan', 'Selesai'],
+                    tabs: const ['Aktif', 'Ditutup'],
                     index: _tab,
-                    onTap: (i) => setState(() => _tab = i),
+                    onTap: (index) => setState(() => _tab = index),
                     activeColor: AppColors.brown,
                     underlineColor: AppColors.terracotta,
                     badges: {
-                      0: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppColors.terracotta,
-                          borderRadius: BorderRadius.circular(10),
+                      if (appState.pendingOrderCount > 0)
+                        0: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.terracotta,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${appState.pendingOrderCount}',
+                            style: AppText.ui(
+                              10,
+                              weight: 700,
+                              color: AppColors.white,
+                            ),
+                          ),
                         ),
-                        child: Text('${appState.pendingOrderCount}',
-                            style: AppText.ui(10,
-                                weight: 700, color: AppColors.white)),
-                      ),
                     },
                   ),
                 ],
@@ -61,10 +97,48 @@ class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
           Expanded(
             child: ListenableBuilder(
               listenable: appState,
-              builder: (context, _) => ListView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                children: _tab == 0 ? _toPrepare() : _completed(),
-              ),
+              builder: (context, _) {
+                final orders = _tab == 0
+                    ? appState.pendingOrders
+                    : appState.completedOrders;
+                if (appState.isLoadingMerchant && orders.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                return RefreshIndicator(
+                  color: AppColors.terracotta,
+                  onRefresh: appState.loadMerchantData,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    children: [
+                      if (appState.errorMessage != null) ...[
+                        _errorCard(appState.errorMessage!),
+                        const SizedBox(height: 14),
+                      ],
+                      if (orders.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 64),
+                          child: EmptyState(
+                            icon: _tab == 0
+                                ? Icons.inbox_outlined
+                                : Icons.check_circle_outline_rounded,
+                            title: _tab == 0
+                                ? 'Tidak ada pesanan aktif'
+                                : 'Belum ada pesanan ditutup',
+                            message: _tab == 0
+                                ? 'Pesanan baru akan muncul otomatis di sini.'
+                                : 'Pesanan selesai, dibatalkan, atau kedaluwarsa akan muncul di sini.',
+                          ),
+                        )
+                      else
+                        for (int i = 0; i < orders.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 12),
+                          _orderCard(context, orders[i]),
+                        ],
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -72,197 +146,300 @@ class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
     );
   }
 
-  // ── Tab "Perlu disiapkan" ────────────────────────────────────────────────
-  List<Widget> _toPrepare() {
-    final orders = appState.pendingOrders;
-    if (orders.isEmpty) {
-      return const [
-        EmptyState(
-          icon: Icons.inbox_outlined,
-          title: 'Tidak ada pesanan',
-          message: 'Pesanan masuk akan muncul di sini.',
-        ),
-      ];
-    }
-    final widgets = <Widget>[];
-    for (var i = 0; i < orders.length; i++) {
-      final order = orders[i];
-      final terracotta = i.isEven;
-      if (i > 0) widgets.add(const SizedBox(height: 14));
-      if (i == 0) {
-        widgets.add(
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => AppNav.toOrderDetail(context, order),
-            child: Container(
+  Widget _orderCard(BuildContext context, IncomingOrder order) {
+    final key = _orderKey(order);
+    final busy = _busyOrderKeys.contains(key);
+    final actionable =
+        order.status == IncomingOrderStatus.paid ||
+        order.status == IncomingOrderStatus.preparing;
+    final ready = order.status == IncomingOrderStatus.ready;
+    final terminal =
+        order.status == IncomingOrderStatus.redeemed ||
+        order.status == IncomingOrderStatus.cancelled ||
+        order.status == IncomingOrderStatus.expired;
+    final reference = _orderReference(order);
+
+    return AppCard(
+      padding: EdgeInsets.zero,
+      radius: 18,
+      borderColor: ready ? AppColors.greenBright : AppColors.border,
+      borderWidth: ready ? 1.4 : 1,
+      onTap: () => AppNav.toOrderDetail(context, order),
+      child: Padding(
+        padding: const EdgeInsets.all(15),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: terminal
+                        ? AppColors.greenSoftBg
+                        : AppColors.terracottaSoftBg,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Text(
+                    order.initial,
+                    style: AppText.ui(
+                      14,
+                      weight: 800,
+                      color: terminal ? AppColors.greenAccent : AppColors.brown,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        order.customer,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.ui(
+                          14.5,
+                          weight: 700,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$reference · ${order.time}',
+                        style: AppText.ui(11.5, color: AppColors.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _statusBadge(order.status),
+              ],
+            ),
+            const SizedBox(height: 13),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                    color: AppColors.terracottaSoftBorder, width: 1.5),
+                color: AppColors.cream,
+                borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.all(15),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _customerRow(
-                    initials: order.initial,
-                    boxBg: AppColors.terracottaSoftBg,
-                    boxFg: AppColors.brown,
-                    name: order.customer,
-                    meta: 'Pesan ${order.time} · ${order.bags} bag',
+                  Text(
+                    order.bagTitle.isEmpty ? 'Surprise Bag' : order.bagTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.ui(13.5, weight: 700, color: AppColors.ink),
                   ),
-                  const SizedBox(height: 11),
-                  // Kode pickup
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.cream,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Kode pickup',
-                            style: AppText.ui(13, color: AppColors.body)),
-                        Text(order.code,
-                            style: AppText.display(16,
-                                weight: 800,
-                                color: AppColors.ink,
-                                letterSpacing: 2)),
-                      ],
-                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${order.bags} bag'
+                    '${order.pickupWindow.isEmpty ? '' : ' · ambil ${order.pickupWindow}'}',
+                    style: AppText.ui(12, color: AppColors.body),
                   ),
-                  const SizedBox(height: 11),
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrimaryButton(
+                ],
+              ),
+            ),
+            if (!terminal) ...[
+              const SizedBox(height: 12),
+              if (actionable)
+                Column(
+                  children: [
+                    PrimaryButton.merchant(
+                      label: busy ? 'Menyimpan…' : 'Tandai siap diambil',
+                      height: 46,
+                      fontSize: 14,
+                      icon: busy
+                          ? const SizedBox(
+                              width: 17,
+                              height: 17,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.inventory_2_outlined,
+                              size: 18,
+                              color: AppColors.white,
+                            ),
+                      onTap: busy || order.id.isEmpty
+                          ? null
+                          : () => _markReady(order),
+                    ),
+                    const SizedBox(height: 8),
+                    _cancelButton(order, busy),
+                  ],
+                )
+              else if (ready)
+                Column(
+                  children: [
+                    PrimaryButton(
                       label: 'Scan QR untuk redeem',
                       height: 46,
                       fontSize: 14,
                       background: AppColors.green,
                       foreground: AppColors.white,
-                      icon: const Icon(Icons.qr_code_scanner,
-                          size: 18, color: AppColors.white),
-                      onTap: () async => AppNav.toScanQr(context),
+                      icon: const Icon(
+                        Icons.qr_code_scanner_rounded,
+                        size: 18,
+                        color: AppColors.white,
+                      ),
+                      onTap: busy ? null : () => AppNav.toScanQr(context),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 8),
+                    _cancelButton(order, busy),
+                  ],
+                )
+              else
+                Text(
+                  'Pesanan belum dibayar dan belum perlu disiapkan.',
+                  style: AppText.ui(12, color: AppColors.muted),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(IncomingOrderStatus status) {
+    return switch (status) {
+      IncomingOrderStatus.pending => StatusBadge.waiting('Menunggu bayar'),
+      IncomingOrderStatus.paid => StatusBadge(
+        text: 'Baru',
+        background: AppColors.terracottaSoftBg,
+        foreground: AppColors.brown,
+      ),
+      IncomingOrderStatus.preparing => StatusBadge(
+        text: 'Disiapkan',
+        background: AppColors.terracottaSoftBg,
+        foreground: AppColors.brown,
+      ),
+      IncomingOrderStatus.ready => StatusBadge.available('Siap'),
+      IncomingOrderStatus.redeemed => StatusBadge.done('Selesai'),
+      IncomingOrderStatus.cancelled => StatusBadge.expired('Dibatalkan'),
+      IncomingOrderStatus.expired => StatusBadge.expired('Kedaluwarsa'),
+    };
+  }
+
+  Widget _cancelButton(IncomingOrder order, bool busy) {
+    return SizedBox(
+      width: double.infinity,
+      height: 43,
+      child: OutlinedButton.icon(
+        onPressed: busy || order.id.isEmpty ? null : () => _cancelOrder(order),
+        icon: const Icon(Icons.cancel_outlined, size: 18),
+        label: const Text('Batalkan pesanan'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.danger,
+          side: const BorderSide(color: AppColors.danger),
+        ),
+      ),
+    );
+  }
+
+  Widget _errorCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppColors.dangerTintBg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: AppColors.danger),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              message,
+              style: AppText.ui(12.5, color: AppColors.danger),
             ),
           ),
-        );
-      } else {
-        widgets.add(
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => AppNav.toOrderDetail(context, order),
-            child: AppCard(
-              padding: const EdgeInsets.all(15),
-              radius: 18,
-              borderColor: AppColors.border,
-              child: _customerRow(
-                initials: order.initial,
-                boxBg: terracotta
-                    ? AppColors.terracottaSoftBg
-                    : AppColors.greenSoftBg,
-                boxFg: terracotta ? AppColors.brown : AppColors.greenAccent,
-                name: order.customer,
-                meta: 'Pesan ${order.time} · ${order.bags} bag',
-              ),
-            ),
+          TextButton(
+            onPressed: appState.loadMerchantData,
+            child: const Text('Coba lagi'),
           ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _markReady(IncomingOrder order) async {
+    final key = _orderKey(order);
+    if (_busyOrderKeys.contains(key) || order.id.isEmpty) return;
+    setState(() => _busyOrderKeys.add(key));
+    try {
+      await appState.markOrderReady(order.id);
+      if (mounted) {
+        AppFeedback.snack(
+          context,
+          'Pesanan ditandai siap diambil.',
+          icon: Icons.check_circle_outline_rounded,
         );
       }
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is BackendException
+          ? error.message
+          : 'Status pesanan belum dapat diperbarui.';
+      AppFeedback.snack(context, message, icon: Icons.error_outline_rounded);
+    } finally {
+      if (mounted) setState(() => _busyOrderKeys.remove(key));
     }
-    return widgets;
   }
 
-  // ── Tab "Selesai" ─────────────────────────────────────────────────────────
-  List<Widget> _completed() {
-    final orders = appState.completedOrders;
-    if (orders.isEmpty) {
-      return const [
-        EmptyState(
-          icon: Icons.check_circle_outline,
-          title: 'Belum ada yang selesai',
-          message: 'Pesanan yang sudah diambil akan muncul di sini.',
-        ),
-      ];
-    }
-    final widgets = <Widget>[];
-    for (var i = 0; i < orders.length; i++) {
-      final order = orders[i];
-      final terracotta = i.isEven;
-      if (i > 0) widgets.add(const SizedBox(height: 14));
-      widgets.add(
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => AppNav.toOrderDetail(context, order),
-          child: AppCard(
-            padding: const EdgeInsets.all(15),
-            radius: 18,
-            borderColor: AppColors.border,
-            child: _customerRow(
-              initials: order.initial,
-              boxBg: terracotta
-                  ? AppColors.terracottaSoftBg
-                  : AppColors.greenSoftBg,
-              boxFg: terracotta ? AppColors.brown : AppColors.greenAccent,
-              name: '${order.customer} · ${order.bags} bag',
-              meta: 'Diambil ${order.time}',
-              done: true,
-            ),
-          ),
-        ),
-      );
-    }
-    return widgets;
-  }
-
-  Widget _customerRow({
-    required String initials,
-    required Color boxBg,
-    required Color boxFg,
-    required String name,
-    required String meta,
-    bool done = false,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: boxBg,
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Text(initials,
-              style: AppText.ui(14, weight: 800, color: boxFg)),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name,
-                  style: AppText.ui(14.5, weight: 700, color: AppColors.ink)),
-              const SizedBox(height: 2),
-              Text(meta, style: AppText.ui(12, color: AppColors.body)),
-            ],
-          ),
-        ),
-        done
-            ? StatusBadge.done('Selesai')
-            : StatusBadge(
-                text: 'Menunggu',
-                background: AppColors.terracottaSoftBg,
-                foreground: AppColors.brown,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              ),
-      ],
+  Future<void> _cancelOrder(IncomingOrder order) async {
+    final key = _orderKey(order);
+    if (_busyOrderKeys.contains(key) || order.id.isEmpty) return;
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Batalkan pesanan?',
+      message:
+          'Pesanan ${_orderReference(order)} akan dibatalkan dan ${order.bags} bag dikembalikan ke stok. Tindakan ini tidak dapat dibatalkan.',
+      confirmLabel: 'Batalkan pesanan',
+      destructive: true,
     );
+    if (!confirmed || !mounted) return;
+    setState(() => _busyOrderKeys.add(key));
+    try {
+      await appState.cancelMerchantOrder(order.id);
+      if (mounted) {
+        AppFeedback.snack(
+          context,
+          'Pesanan dibatalkan dan stok telah dikembalikan.',
+          icon: Icons.inventory_2_outlined,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      AppFeedback.snack(
+        context,
+        error is BackendException
+            ? error.message
+            : 'Pesanan belum dapat dibatalkan.',
+        icon: Icons.error_outline_rounded,
+      );
+    } finally {
+      if (mounted) setState(() => _busyOrderKeys.remove(key));
+    }
+  }
+
+  String _orderKey(IncomingOrder order) => order.id.isNotEmpty
+      ? order.id
+      : '${order.customer}|${order.time}|${order.bags}';
+
+  String _orderReference(IncomingOrder order) {
+    if (order.id.isEmpty) return 'Pesanan baru';
+    final clean = order.id.replaceAll('-', '');
+    final suffix = clean.length <= 6
+        ? clean
+        : clean.substring(clean.length - 6);
+    return 'Order #${suffix.toUpperCase()}';
   }
 }

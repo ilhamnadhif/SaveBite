@@ -24,11 +24,20 @@ class AuthService {
 
   static Stream<AuthState>? get onAuthStateChange => _auth?.onAuthStateChange;
 
-  static Future<void> signInWithGoogle() async {
+  static Future<bool> signInWithGoogle() async {
     final auth = _auth;
-    if (auth == null) return;
-    await auth.signInWithOAuth(
+    if (auth == null) return false;
+    return auth.signInWithOAuth(
       OAuthProvider.google,
+      redirectTo: Env.authRedirect,
+    );
+  }
+
+  static Future<bool> signInWithApple() async {
+    final auth = _auth;
+    if (auth == null) return false;
+    return auth.signInWithOAuth(
+      OAuthProvider.apple,
       redirectTo: Env.authRedirect,
     );
   }

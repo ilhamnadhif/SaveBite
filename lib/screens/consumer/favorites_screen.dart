@@ -48,10 +48,15 @@ class FavoritesScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Favorit', style: AppText.display(24, weight: 800, color: AppColors.ink)),
+          Text(
+            'Favorit',
+            style: AppText.display(24, weight: 800, color: AppColors.ink),
+          ),
           const SizedBox(height: 3),
-          Text('Kami kabari kalau ada bag baru dari toko ini.',
-              style: AppText.ui(13, color: AppColors.body)),
+          Text(
+            'Kami kabari kalau ada bag baru dari toko ini.',
+            style: AppText.ui(13, color: AppColors.body),
+          ),
         ],
       ),
     );
@@ -74,10 +79,7 @@ class FavoritesScreen extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(
-                  width: 96,
-                  child: FoodImage(m.coverImage),
-                ),
+                SizedBox(width: 96, child: FoodImage(m.coverImage)),
                 Expanded(
                   child: Stack(
                     children: [
@@ -87,11 +89,19 @@ class FavoritesScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(m.name,
-                                style: AppText.ui(14, weight: 700, color: AppColors.ink)),
+                            Text(
+                              m.name,
+                              style: AppText.ui(
+                                14,
+                                weight: 700,
+                                color: AppColors.ink,
+                              ),
+                            ),
                             const SizedBox(height: 3),
-                            Text('★ ${m.rating.toStringAsFixed(1)} · ${m.distance}',
-                                style: AppText.ui(12, color: AppColors.body)),
+                            Text(
+                              '★ ${m.rating.toStringAsFixed(1)} · ${m.distance}',
+                              style: AppText.ui(12, color: AppColors.body),
+                            ),
                             const SizedBox(height: 8),
                             f.soldOut
                                 ? StatusBadge.neutral(f.availability)
@@ -107,12 +117,18 @@ class FavoritesScreen extends StatelessWidget {
                             final id = f.merchant.id;
                             await appState.toggleFavorite(id);
                             if (context.mounted) {
-                              AppFeedback.snack(context, 'Dihapus dari favorit');
+                              AppFeedback.snack(
+                                context,
+                                'Dihapus dari favorit',
+                              );
                             }
                           },
                           behavior: HitTestBehavior.opaque,
-                          child: const Icon(Icons.favorite,
-                              size: 20, color: AppColors.terracotta),
+                          child: const Icon(
+                            Icons.favorite,
+                            size: 20,
+                            color: AppColors.terracotta,
+                          ),
                         ),
                       ),
                     ],

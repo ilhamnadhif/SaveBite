@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../sb.dart';
-import '../../app_nav.dart';
+import 'package:geolocator/geolocator.dart';
 
-/// B1 Beranda + B13 Empty state (cabang berdasarkan lokasi).
-/// Pola: KONTEN TAB — Column(header + Expanded scroll), tanpa Scaffold.
+import '../../app_nav.dart';
+import '../../sb.dart';
+import 'consumer_shell.dart';
+
+/// Beranda discovery konsumen berbasis lokasi dan filter aktif.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -12,12 +14,256 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _category = 'Semua';
+  static const _locationPresets = <_LocationPreset>[
+    _LocationPreset('Margonda, Depok', -6.3721, 106.8325),
+    _LocationPreset('Cibinong, Bogor', -6.4840, 106.8424),
+    _LocationPreset('Kemang, Jakarta', -6.2607, 106.8133),
+  ];
 
-  @override
-  void initState() {
-    super.initState();
-    appState.loadConsumerHome();
+  Future<void> _refresh() => appState.loadConsumerHome();
+
+  Future<void> _showFilters() async {
+    final filter = await AppNav.showFilter(context);
+    if (!mounted || filter == null) return;
+    await appState.setBagFilter(filter);
+  }
+
+  Future<void> _selectCategory(String category) async {
+    final categories = category == 'Semua' ? <String>{} : {category};
+    await appState.setBagFilter(
+      appState.currentFilter.copyWith(categories: categories),
+    );
+  }
+
+  Future<void> _showLocationPicker() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x8C0F231C),
+      builder: (sheetContext) {
+        var busy = false;
+        String? localError;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> useCurrentLocation() async {
+              if (busy) return;
+              setSheetState(() {
+                busy = true;
+                localError = null;
+              });
+              try {
+                final located = await appState.determineLocation();
+                if (!located) {
+                  localError =
+                      appState.errorMessage ??
+                      'Lokasi terbaru belum berhasil ditemukan.';
+                } else if (!appState.locationServicesEnabled) {
+                  localError = 'Layanan lokasi perangkat belum aktif.';
+                } else if (!appState.hasLocationPermission) {
+                  final permission = await Geolocator.checkPermission();
+                  localError = permission == LocationPermission.deniedForever
+                      ? 'Izin lokasi diblokir. Buka pengaturan aplikasi untuk '
+                            'mengaktifkannya.'
+                      : 'Izin lokasi belum diberikan.';
+                } else if (!appState.hasValidUserLocation) {
+                  localError =
+                      appState.errorMessage ??
+                      'Lokasi belum berhasil ditemukan. Coba lagi.';
+                } else {
+                  if (!sheetContext.mounted) return;
+                  Navigator.of(sheetContext).pop();
+                  return;
+                }
+              } catch (_) {
+                localError =
+                    appState.errorMessage ??
+                    'Lokasi gagal diperbarui. Periksa izin dan koneksimu.';
+              }
+              if (!sheetContext.mounted) return;
+              setSheetState(() => busy = false);
+            }
+
+            Future<void> selectPreset(_LocationPreset preset) async {
+              if (busy) return;
+              setSheetState(() {
+                busy = true;
+                localError = null;
+              });
+              try {
+                await appState.setLocationWithCoordinates(
+                  preset.label,
+                  preset.latitude,
+                  preset.longitude,
+                );
+                if (!sheetContext.mounted) return;
+                if (appState.errorMessage != null) {
+                  setSheetState(() {
+                    busy = false;
+                    localError = appState.errorMessage;
+                  });
+                  return;
+                }
+                Navigator.of(sheetContext).pop();
+              } catch (_) {
+                if (!sheetContext.mounted) return;
+                setSheetState(() {
+                  busy = false;
+                  localError =
+                      appState.errorMessage ??
+                      'Area gagal dimuat. Periksa koneksimu lalu coba lagi.';
+                });
+              }
+            }
+
+            Future<void> openSettings() async {
+              if (!appState.locationServicesEnabled) {
+                await Geolocator.openLocationSettings();
+              } else {
+                await Geolocator.openAppSettings();
+              }
+            }
+
+            return SafeArea(
+              top: false,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+                ),
+                decoration: const BoxDecoration(
+                  color: AppColors.cream,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(AppRadius.sheet),
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Center(child: SheetHandle()),
+                      Text(
+                        'Pilih area',
+                        style: AppText.display(22, weight: 800),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Gunakan posisi saat ini atau pilih area secara manual.',
+                        style: AppText.ui(13.5, color: AppColors.body),
+                      ),
+                      const SizedBox(height: 18),
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        onTap: busy ? null : useCurrentLocation,
+                        child: ListTile(
+                          leading: busy
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: AppColors.greenBright,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.my_location,
+                                  color: AppColors.greenBright,
+                                ),
+                          title: Text(
+                            busy ? 'Mencari lokasimu…' : 'Lokasi saat ini',
+                            style: AppText.ui(14.5, weight: 700),
+                          ),
+                          subtitle: Text(
+                            'Menggunakan GPS perangkat',
+                            style: AppText.ui(12, color: AppColors.body),
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.chevron,
+                          ),
+                        ),
+                      ),
+                      if (localError != null) ...[
+                        const SizedBox(height: 10),
+                        Semantics(
+                          liveRegion: true,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.dangerBg,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  localError!,
+                                  style: AppText.ui(
+                                    12.5,
+                                    color: AppColors.danger,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextButton(
+                                  onPressed: openSettings,
+                                  child: const Text('Buka pengaturan'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 22),
+                      Text(
+                        'Area pilihan',
+                        style: AppText.ui(
+                          13,
+                          weight: 700,
+                          color: AppColors.body,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      AppCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < _locationPresets.length; i++)
+                              ListTile(
+                                enabled: !busy,
+                                onTap: busy
+                                    ? null
+                                    : () => selectPreset(_locationPresets[i]),
+                                leading: const Icon(
+                                  Icons.location_on_outlined,
+                                  color: AppColors.body,
+                                ),
+                                title: Text(
+                                  _locationPresets[i].label,
+                                  style: AppText.ui(14, weight: 600),
+                                ),
+                                trailing:
+                                    appState.location ==
+                                        _locationPresets[i].label
+                                    ? const Icon(
+                                        Icons.check_circle,
+                                        color: AppColors.greenBright,
+                                      )
+                                    : null,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -36,6 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       children: [
                         Expanded(child: _locationPicker()),
+                        const SizedBox(width: 8),
                         _bellButton(),
                       ],
                     ),
@@ -44,15 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              Expanded(
-                child: !appState.hasNearbyBags
-                    ? _emptyState()
-                    : appState.nearbyBags.isEmpty
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                                color: AppColors.greenBright))
-                        : _bagList(),
-              ),
+              Expanded(child: _content()),
             ],
           );
         },
@@ -61,197 +300,398 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _locationPicker() {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => appState.setLocation(
-          appState.hasNearbyBags ? 'Cibinong, Bogor' : 'Margonda, Depok'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Lokasi kamu',
-              style: AppText.ui(12, weight: 600, color: AppColors.greenMuted)),
-          Row(
-            children: [
-              const Icon(Icons.location_on, size: 15, color: AppColors.amber),
-              const SizedBox(width: 5),
-              Text(appState.location,
-                  style: AppText.ui(16, weight: 700, color: AppColors.cream)),
-              const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.cream),
-            ],
+    return Semantics(
+      button: true,
+      label: 'Lokasi kamu, ${appState.location}. Ketuk untuk mengubah.',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: _showLocationPicker,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Lokasi kamu',
+                  style: AppText.ui(
+                    12,
+                    weight: 600,
+                    color: AppColors.greenMuted,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: AppColors.amber,
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        appState.location,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.ui(
+                          16,
+                          weight: 700,
+                          color: AppColors.cream,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_drop_down,
+                      size: 20,
+                      color: AppColors.cream,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _bellButton() {
-    return GestureDetector(
-      onTap: () => AppNav.toNotifications(context),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: const BoxDecoration(
-                color: AppColors.greenDark, shape: BoxShape.circle),
-            child: const Icon(Icons.notifications_none_rounded,
-                size: 20, color: AppColors.amber),
-          ),
-          if (appState.unreadCount > 0)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: AppColors.terracotta,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.greenDark, width: 1.5),
+    return Semantics(
+      button: true,
+      label: appState.unreadCount > 0
+          ? '${appState.unreadCount} notifikasi belum dibaca'
+          : 'Notifikasi',
+      child: Material(
+        color: AppColors.greenDark,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => AppNav.toNotifications(context),
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Stack(
+              children: [
+                const Center(
+                  child: Icon(
+                    Icons.notifications_none_rounded,
+                    size: 21,
+                    color: AppColors.amber,
+                  ),
                 ),
-              ),
+                if (appState.unreadCount > 0)
+                  Positioned(
+                    top: 9,
+                    right: 9,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: AppColors.terracotta,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.greenDark,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _searchBar() {
-    return GestureDetector(
-      onTap: () => AppNav.toSearch(context),
-      child: Container(
-        height: 46,
-        padding: const EdgeInsets.only(left: 14, right: 6),
-        decoration: BoxDecoration(
-            color: AppColors.white, borderRadius: BorderRadius.circular(14)),
-        child: Row(
-          children: [
-            const Icon(Icons.search, size: 18, color: AppColors.muted),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text('Cari toko atau makanan…',
-                  style: AppText.ui(14.5, color: AppColors.mutedAlt)),
-            ),
-            GestureDetector(
-              onTap: () async {
-                final cats = await AppNav.showFilter(context);
-                if (cats != null) {
-                  setState(() => _category =
-                      cats.isNotEmpty ? cats.first : 'Semua');
-                }
-              },
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                    color: AppColors.green.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10)),
-                child: const Icon(Icons.tune, size: 18, color: AppColors.green),
+    final filterCount = _activeFilterCount(appState.currentFilter);
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => AppNav.toSearch(context),
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            children: [
+              const SizedBox(width: 14),
+              const Icon(Icons.search, size: 19, color: AppColors.muted),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Cari toko atau makanan…',
+                  style: AppText.ui(14.5, color: AppColors.mutedAlt),
+                ),
               ),
-            ),
-          ],
+              Semantics(
+                button: true,
+                label: filterCount == 0
+                    ? 'Buka filter'
+                    : 'Buka filter, $filterCount filter aktif',
+                child: IconButton(
+                  tooltip: 'Filter',
+                  onPressed: _showFilters,
+                  icon: Badge(
+                    isLabelVisible: filterCount > 0,
+                    label: Text('$filterCount'),
+                    backgroundColor: AppColors.terracotta,
+                    child: const Icon(
+                      Icons.tune,
+                      size: 19,
+                      color: AppColors.green,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 3),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _bagList() {
-    final filtered = _category == 'Semua'
-        ? appState.nearbyBags
-        : appState.nearbyBags
-            .where((b) => b.merchant.category == _category)
-            .toList(growable: false);
+  Widget _content() {
+    final hasData = appState.nearbyBags.any((bag) => !bag.soldOut);
+    if (appState.isLoadingConsumer && !hasData) {
+      return const _LoadingState();
+    }
+    if (appState.errorMessage != null && !hasData) {
+      return _ErrorState(
+        message: appState.errorMessage!,
+        onRetry: _refresh,
+        onChangeLocation: _showLocationPicker,
+      );
+    }
+    if (!hasData) {
+      return _emptyState();
+    }
+    return _bagList();
+  }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (int i = 0; i < SampleData.categories.length; i++) ...[
-                SelectChip(
-                  label: SampleData.categories[i],
-                  selected: _category == SampleData.categories[i],
-                  onTap: () =>
-                      setState(() => _category = SampleData.categories[i]),
-                ),
-                if (i != SampleData.categories.length - 1)
-                  const SizedBox(width: 8),
+  Widget _bagList() {
+    final bags = appState.nearbyBags.where((bag) => !bag.soldOut).toList()
+      ..sort((a, b) {
+        final aEnd = a.pickupEndsAt;
+        final bEnd = b.pickupEndsAt;
+        if (aEnd == null && bEnd == null) return 0;
+        if (aEnd == null) return 1;
+        if (bEnd == null) return -1;
+        return aEnd.compareTo(bEnd);
+      });
+
+    return RefreshIndicator(
+      color: AppColors.greenBright,
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        children: [
+          if (appState.errorMessage != null) ...[
+            _InlineError(message: appState.errorMessage!, onRetry: _refresh),
+            const SizedBox(height: 14),
+          ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < SampleData.categories.length; i++) ...[
+                  Builder(
+                    builder: (context) {
+                      final category = SampleData.categories[i];
+                      final selected = category == 'Semua'
+                          ? appState.currentFilter.categories.isEmpty
+                          : appState.currentFilter.categories.contains(
+                              category,
+                            );
+                      return SelectChip(
+                        label: category,
+                        selected: selected,
+                        onTap: () => _selectCategory(category),
+                      );
+                    },
+                  ),
+                  if (i != SampleData.categories.length - 1)
+                    const SizedBox(width: 8),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        const SizedBox(height: 18),
-        if (filtered.isEmpty)
-          const EmptyState(
-            icon: Icons.search_off,
-            title: 'Tak ada bag',
-            message: 'Coba kategori lain.',
-          )
-        else ...[
+          const SizedBox(height: 18),
           SectionHeading(
             title: 'Segera tutup',
-            leadingIcon: const Icon(Icons.local_fire_department,
-                size: 16, color: AppColors.terracotta),
-            actionLabel: 'Lihat semua',
+            leadingIcon: const Icon(
+              Icons.local_fire_department,
+              size: 16,
+              color: AppColors.terracotta,
+            ),
+            actionLabel: 'Lihat peta',
+            onAction: () => ConsumerShellScope.of(context)?.selectTab(1),
             fontSize: 18,
           ),
           const SizedBox(height: 12),
           BagHeroCard(
-              bag: filtered.first,
-              onTap: () => AppNav.toDetail(context, filtered.first)),
-          for (final bag in filtered.skip(1)) ...[
+            bag: bags.first,
+            onTap: () => AppNav.toDetail(context, bags.first),
+          ),
+          for (final bag in bags.skip(1)) ...[
             const SizedBox(height: 14),
             BagCompactCard(
-                bag: bag, onTap: () => AppNav.toDetail(context, bag)),
+              bag: bag,
+              onTap: () => AppNav.toDetail(context, bag),
+            ),
           ],
         ],
-      ],
+      ),
     );
   }
 
   Widget _emptyState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 36),
-      child: Center(
+    final hasFilter = !appState.currentFilter.isEmpty;
+    return RefreshIndicator(
+      color: AppColors.greenBright,
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.sizeOf(context).height * 0.12),
+          EmptyState(
+            icon: hasFilter
+                ? Icons.filter_alt_off_outlined
+                : Icons.remove_shopping_cart_outlined,
+            title: hasFilter
+                ? 'Tak ada bag yang cocok'
+                : 'Belum ada bag di sini',
+            message: hasFilter
+                ? 'Ubah atau reset filter untuk melihat lebih banyak pilihan.'
+                : 'Toko di area ini belum merilis Surprise Bag. Coba lagi '
+                      'nanti atau pilih area lain.',
+            action: SizedBox(
+              width: 240,
+              child: PrimaryButton(
+                label: hasFilter ? 'Atur ulang filter' : 'Ubah area',
+                height: 50,
+                onTap: hasFilter
+                    ? () async {
+                        await appState.setBagFilter(const BagFilter());
+                      }
+                    : _showLocationPicker,
+              ),
+            ),
+            secondaryAction: TextButton.icon(
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Muat ulang'),
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  int _activeFilterCount(BagFilter filter) {
+    var count = 0;
+    if (filter.categories.isNotEmpty) count++;
+    if (filter.maxDistanceKm != null) count++;
+    if (filter.minPrice != null || filter.maxPrice != null) count++;
+    if (filter.pickupAfter != null || filter.pickupBefore != null) count++;
+    return count;
+  }
+}
+
+class _LocationPreset {
+  final String label;
+  final double latitude;
+  final double longitude;
+
+  const _LocationPreset(this.label, this.latitude, this.longitude);
+}
+
+class _LoadingState extends StatelessWidget {
+  const _LoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      label: 'Memuat Surprise Bag di sekitar',
+      child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 104,
-              height: 104,
-              decoration: const BoxDecoration(
-                  color: AppColors.emptyCircle, shape: BoxShape.circle),
-              child: const Icon(Icons.remove_shopping_cart_outlined,
-                  size: 48, color: AppColors.emptyIcon),
+            CircularProgressIndicator(color: AppColors.greenBright),
+            SizedBox(height: 14),
+            Text('Mencari bag di sekitarmu…'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  final VoidCallback onChangeLocation;
+
+  const _ErrorState({
+    required this.message,
+    required this.onRetry,
+    required this.onChangeLocation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return EmptyState(
+      icon: Icons.cloud_off_outlined,
+      title: 'Bag belum dapat dimuat',
+      message: message,
+      action: SizedBox(
+        width: 220,
+        child: PrimaryButton(label: 'Coba lagi', onTap: onRetry, height: 50),
+      ),
+      secondaryAction: TextButton(
+        onPressed: onChangeLocation,
+        child: const Text('Ubah area'),
+      ),
+    );
+  }
+}
+
+class _InlineError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _InlineError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        decoration: BoxDecoration(
+          color: AppColors.dangerBg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: AppColors.danger, size: 19),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.ui(12.5, color: AppColors.danger),
+              ),
             ),
-            const SizedBox(height: 22),
-            Text('Belum ada bag di sini',
-                textAlign: TextAlign.center,
-                style: AppText.display(22, weight: 800)),
-            const SizedBox(height: 8),
-            Text(
-              'Toko di sekitarmu belum merilis Surprise Bag hari ini. Coba ubah lokasi atau aktifkan notifikasi biar tak ketinggalan.',
-              textAlign: TextAlign.center,
-              style: AppText.ui(14, color: AppColors.body, height: 1.55),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: 240,
-              child: PrimaryButton(
-                  label: 'Beri tahu saat ada bag',
-                  height: 50,
-                  onTap: () => AppFeedback.snack(
-                      context, 'Kami akan kabari saat ada bag baru')),
-            ),
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => appState.setLocation('Margonda, Depok'),
-              child: Text('Ubah lokasi',
-                  style: AppText.ui(14, weight: 700, color: AppColors.greenBright)),
-            ),
+            TextButton(onPressed: onRetry, child: const Text('Ulangi')),
           ],
         ),
       ),

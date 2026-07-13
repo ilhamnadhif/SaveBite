@@ -70,44 +70,44 @@ class StatusBadge extends StatelessWidget {
 
   // Preset umum.
   factory StatusBadge.available(String text) => StatusBadge(
-        text: text,
-        background: AppColors.greenSoftBg,
-        foreground: AppColors.greenAccent,
-        weight: 700,
-      );
+    text: text,
+    background: AppColors.greenSoftBg,
+    foreground: AppColors.greenAccent,
+    weight: 700,
+  );
 
   factory StatusBadge.waiting(String text) => StatusBadge(
-        text: text,
-        background: AppColors.terracottaSoftBg,
-        foreground: AppColors.brown,
-      );
+    text: text,
+    background: AppColors.terracottaSoftBg,
+    foreground: AppColors.brown,
+  );
 
   factory StatusBadge.done(String text) => StatusBadge(
-        text: text,
-        background: AppColors.neutralChip2,
-        foreground: AppColors.body,
-        weight: 700,
-      );
+    text: text,
+    background: AppColors.neutralChip2,
+    foreground: AppColors.body,
+    weight: 700,
+  );
 
   factory StatusBadge.expired(String text) => StatusBadge(
-        text: text,
-        background: AppColors.dangerSoftBg,
-        foreground: AppColors.danger,
-        weight: 700,
-      );
+    text: text,
+    background: AppColors.dangerSoftBg,
+    foreground: AppColors.danger,
+    weight: 700,
+  );
 
   factory StatusBadge.neutral(String text) => StatusBadge(
-        text: text,
-        background: AppColors.neutralChip,
-        foreground: AppColors.muted,
-        weight: 700,
-      );
+    text: text,
+    background: AppColors.neutralChip,
+    foreground: AppColors.muted,
+    weight: 700,
+  );
 
   factory StatusBadge.save(String text) => StatusBadge(
-        text: text,
-        background: AppColors.saveBg,
-        foreground: AppColors.saveText,
-      );
+    text: text,
+    background: AppColors.saveBg,
+    foreground: AppColors.saveText,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -117,8 +117,10 @@ class StatusBadge extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(text,
-          style: AppText.ui(fontSize, weight: weight, color: foreground)),
+      child: Text(
+        text,
+        style: AppText.ui(fontSize, weight: weight, color: foreground),
+      ),
     );
   }
 }
@@ -146,9 +148,11 @@ class OverlayBadge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: AppText.ui(11,
-            weight: dark ? 700 : 800,
-            color: dark ? AppColors.goldOnDark : lightForeground),
+        style: AppText.ui(
+          11,
+          weight: dark ? 700 : 800,
+          color: dark ? AppColors.goldOnDark : lightForeground,
+        ),
       ),
     );
   }

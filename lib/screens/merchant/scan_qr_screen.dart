@@ -1,9 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+
+import '../../data/backend/backend.dart';
 import '../../sb.dart';
 
-/// C5 Scan & Redeem QR. Pola: LAYAR PENUH (Scaffold sendiri).
+/// Scanner pickup merchant. [code] dipertahankan agar route lama kompatibel,
+/// tetapi sengaja tidak pernah digunakan untuk redeem: token wajib berasal
+/// dari QR yang benar-benar dibaca kamera.
 class ScanQrScreen extends StatefulWidget {
   const ScanQrScreen({super.key, this.code});
 
@@ -13,107 +18,122 @@ class ScanQrScreen extends StatefulWidget {
   State<ScanQrScreen> createState() => _ScanQrScreenState();
 }
 
-class _ScanQrScreenState extends State<ScanQrScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  Timer? _scanTimer;
-  bool _scanned = false;
+class _ScanQrScreenState extends State<ScanQrScreen> {
+  late final MobileScannerController _scannerController =
+      MobileScannerController(
+        detectionSpeed: DetectionSpeed.noDuplicates,
+        formats: const [BarcodeFormat.qrCode],
+        facing: CameraFacing.back,
+        autoZoom: true,
+      );
+
+  bool _busy = false;
   IncomingOrder? _redeemed;
+  String? _message;
+  String? _lastRejectedValue;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
-    _scanTimer = Timer(const Duration(milliseconds: 2600), () {
-      if (mounted && !_scanned) _doRedeem();
-    });
-  }
-
-  Future<void> _doRedeem() async {
-    if (_scanned) return;
-    final redeemed = await appState.redeemOrder(widget.code ?? '');
-    if (!mounted) return;
-    setState(() {
-      _scanned = true;
-      _redeemed = redeemed;
-    });
-  }
+  bool get _completed => _redeemed != null;
 
   @override
   void dispose() {
-    _scanTimer?.cancel();
-    _controller.dispose();
+    unawaited(_scannerController.dispose());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final topInset = MediaQuery.of(context).padding.top;
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final topInset = MediaQuery.paddingOf(context).top;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     return StatusBarStyle.light(
       child: Scaffold(
         backgroundColor: AppColors.scanBg,
         body: Column(
           children: [
-            // Header (status-bar inset + 16 ≈ 58 dari desain)
             Padding(
-              padding: EdgeInsets.fromLTRB(20, topInset + 16, 20, 14),
+              padding: EdgeInsets.fromLTRB(14, topInset + 8, 14, 8),
               child: Row(
                 children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => Navigator.of(context).pop(false),
-                    child: const Icon(Icons.close,
-                        size: 22, color: AppColors.white),
+                  IconButton(
+                    tooltip: 'Tutup scanner',
+                    onPressed: () => Navigator.of(context).pop(_completed),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.white,
+                    ),
                   ),
-                  const SizedBox(width: 14),
-                  Text('Scan QR konsumen',
-                      style: AppText.display(18,
-                          weight: 700, color: AppColors.white)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Scan QR konsumen',
+                      style: AppText.display(
+                        18,
+                        weight: 700,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+                  ValueListenableBuilder<MobileScannerState>(
+                    valueListenable: _scannerController,
+                    builder: (context, state, _) {
+                      if (state.torchState == TorchState.unavailable ||
+                          _completed) {
+                        return const SizedBox(width: 48);
+                      }
+                      final on = state.torchState == TorchState.on;
+                      return IconButton(
+                        tooltip: on ? 'Matikan senter' : 'Nyalakan senter',
+                        onPressed: _busy
+                            ? null
+                            : () => _scannerController.toggleTorch(),
+                        icon: Icon(
+                          on ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                          color: on ? AppColors.amber : AppColors.white,
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
-            // Tengah: frame scanner + instruksi
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _scannerFrame(),
-                    const SizedBox(height: 26),
+                    if (_completed)
+                      _completedIllustration()
+                    else
+                      _scannerFrame(),
+                    const SizedBox(height: 24),
                     Text(
-                      'Arahkan kamera ke QR di layar pembeli.',
+                      _completed
+                          ? 'Pickup berhasil dikonfirmasi'
+                          : _busy
+                          ? 'Memverifikasi pesanan…'
+                          : 'Arahkan kamera ke QR di layar pembeli.',
                       textAlign: TextAlign.center,
-                      style: AppText.ui(14, color: AppColors.scanMuted),
-                    ),
-                    if (!_scanned) ...[
-                      const SizedBox(height: 14),
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _doRedeem,
-                        child: Text(
-                          'Simulasikan pemindaian',
-                          textAlign: TextAlign.center,
-                          style: AppText.ui(13,
-                              weight: 600, color: AppColors.greenBright),
-                        ),
+                      style: AppText.ui(
+                        14,
+                        weight: _completed ? 700 : 500,
+                        color: _completed
+                            ? AppColors.white
+                            : AppColors.scanMuted,
                       ),
+                    ),
+                    if (_message != null) ...[
+                      const SizedBox(height: 14),
+                      _messageCard(_message!),
                     ],
                   ],
                 ),
               ),
             ),
-            // Bawah: kartu sukses (setelah ter-scan) / hint
             Padding(
-              padding: EdgeInsets.fromLTRB(24, 20, 24, 34 + bottomInset),
-              child: _scanned
+              padding: EdgeInsets.fromLTRB(24, 14, 24, 24 + bottomInset),
+              child: _completed
                   ? Column(
                       children: [
-                        _successCard(),
+                        _successCard(_redeemed!),
                         const SizedBox(height: 14),
                         PrimaryButton.merchant(
                           label: 'Selesai',
@@ -121,10 +141,23 @@ class _ScanQrScreenState extends State<ScanQrScreen>
                         ),
                       ],
                     )
-                  : Text(
-                      'Menunggu QR…',
-                      textAlign: TextAlign.center,
-                      style: AppText.ui(13, color: AppColors.scanMuted),
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 15,
+                          color: AppColors.scanMuted,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Token pickup divalidasi aman oleh server.',
+                            textAlign: TextAlign.center,
+                            style: AppText.ui(12, color: AppColors.scanMuted),
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ],
@@ -134,101 +167,151 @@ class _ScanQrScreenState extends State<ScanQrScreen>
   }
 
   Widget _scannerFrame() {
-    return SizedBox(
-      width: 240,
-      height: 240,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Latar bergaris diagonal
-          ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: const SizedBox(
-              width: 240,
-              height: 240,
-              child: CustomPaint(painter: _StripePainter()),
-            ),
-          ),
-          // Empat sudut amber
-          _corner(top: -2, left: -2, topB: true, leftB: true),
-          _corner(top: -2, right: -2, topB: true, rightB: true),
-          _corner(bottom: -2, left: -2, bottomB: true, leftB: true),
-          _corner(bottom: -2, right: -2, bottomB: true, rightB: true),
-          // Garis scan animasi vertikal
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              // gerak di antara y=14 dan y=240-14 (mengikuti inset left/right:14px)
-              final t = _controller.value;
-              final y = 14 + t * (240 - 28);
-              return Positioned(
-                left: 14,
-                right: 14,
-                top: y,
-                child: Container(
-                  height: 2.5,
-                  decoration: BoxDecoration(
-                    color: AppColors.greenBright,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.greenBright,
-                        blurRadius: 12,
-                        spreadRadius: 0,
-                      ),
-                    ],
+    return Semantics(
+      label: 'Area kamera untuk memindai QR pickup konsumen',
+      child: SizedBox(
+        width: 280,
+        height: 280,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: MobileScanner(
+                controller: _scannerController,
+                fit: BoxFit.cover,
+                tapToFocus: true,
+                onDetect: _onDetect,
+                onDetectError: (error, _) {
+                  if (!mounted || _busy) return;
+                  setState(() {
+                    _message =
+                        'QR belum dapat dibaca. Coba arahkan ulang kamera.';
+                  });
+                },
+                placeholderBuilder: (_) => const ColoredBox(
+                  color: AppColors.scanCard,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.greenBright,
+                    ),
                   ),
                 ),
-              );
-            },
+                errorBuilder: (context, error) => _cameraError(error),
+              ),
+            ),
+            IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: AppColors.scanCardBorder),
+                ),
+              ),
+            ),
+            _corner(top: -1, left: -1, topBorder: true, leftBorder: true),
+            _corner(top: -1, right: -1, topBorder: true, rightBorder: true),
+            _corner(bottom: -1, left: -1, bottomBorder: true, leftBorder: true),
+            _corner(
+              bottom: -1,
+              right: -1,
+              bottomBorder: true,
+              rightBorder: true,
+            ),
+            if (_busy)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: ColoredBox(
+                  color: const Color(0x99101B16),
+                  child: const Center(
+                    child: CircularProgressIndicator(color: AppColors.amber),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cameraError(MobileScannerException error) {
+    final denied = error.errorCode == MobileScannerErrorCode.permissionDenied;
+    return ColoredBox(
+      color: AppColors.scanCard,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              denied
+                  ? Icons.no_photography_outlined
+                  : Icons.camera_alt_outlined,
+              size: 42,
+              color: AppColors.scanMuted,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              denied
+                  ? 'Izin kamera diperlukan untuk scan QR.'
+                  : 'Kamera belum dapat digunakan.',
+              textAlign: TextAlign.center,
+              style: AppText.ui(13, color: AppColors.white, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: denied
+                  ? appState.openAppSettings
+                  : () => _restartScanner(clearMessage: true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.amber),
+              child: Text(denied ? 'Buka pengaturan' : 'Coba lagi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _completedIllustration() {
+    return Container(
+      width: 150,
+      height: 150,
+      decoration: const BoxDecoration(
+        color: AppColors.greenBright,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.check_rounded, size: 78, color: AppColors.white),
+    );
+  }
+
+  Widget _messageCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppColors.danger.withAlpha(28),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: AppColors.danger.withAlpha(100)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.danger,
+            size: 19,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              message,
+              style: AppText.ui(12.5, color: AppColors.white, height: 1.4),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _corner({
-    double? top,
-    double? bottom,
-    double? left,
-    double? right,
-    bool topB = false,
-    bool bottomB = false,
-    bool leftB = false,
-    bool rightB = false,
-  }) {
-    const side = BorderSide(color: AppColors.amber, width: 4);
-    BorderRadius radius;
-    if (topB && leftB) {
-      radius = const BorderRadius.only(topLeft: Radius.circular(14));
-    } else if (topB && rightB) {
-      radius = const BorderRadius.only(topRight: Radius.circular(14));
-    } else if (bottomB && leftB) {
-      radius = const BorderRadius.only(bottomLeft: Radius.circular(14));
-    } else {
-      radius = const BorderRadius.only(bottomRight: Radius.circular(14));
-    }
-    return Positioned(
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          borderRadius: radius,
-          border: Border(
-            top: topB ? side : BorderSide.none,
-            bottom: bottomB ? side : BorderSide.none,
-            left: leftB ? side : BorderSide.none,
-            right: rightB ? side : BorderSide.none,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _successCard() {
+  Widget _successCard(IncomingOrder order) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -253,16 +336,17 @@ class _ScanQrScreenState extends State<ScanQrScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    _redeemed != null
-                        ? '${_redeemed!.code} berhasil di-redeem'
-                        : 'QR berhasil di-redeem',
-                    style: AppText.ui(14, weight: 700, color: AppColors.white)),
+                  'Pesanan berhasil di-redeem',
+                  style: AppText.ui(14, weight: 700, color: AppColors.white),
+                ),
                 const SizedBox(height: 2),
                 Text(
-                    _redeemed != null
-                        ? '${_redeemed!.customer} · baru saja · ${_redeemed!.bags} bag'
-                        : 'Order masuk saldo',
-                    style: AppText.ui(12, color: AppColors.scanMuted)),
+                  '${order.customer} · ${order.bags} bag'
+                  '${order.bagTitle.isEmpty ? '' : ' · ${order.bagTitle}'}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.ui(12, color: AppColors.scanMuted),
+                ),
               ],
             ),
           ),
@@ -270,37 +354,140 @@ class _ScanQrScreenState extends State<ScanQrScreen>
       ),
     );
   }
-}
 
-/// Garis diagonal 135° untuk latar frame scanner (mengikuti
-/// repeating-linear-gradient(135deg, #1B221D 0–12px, #222a24 12–24px)).
-class _StripePainter extends CustomPainter {
-  const _StripePainter();
+  Widget _corner({
+    double? top,
+    double? bottom,
+    double? left,
+    double? right,
+    bool topBorder = false,
+    bool bottomBorder = false,
+    bool leftBorder = false,
+    bool rightBorder = false,
+  }) {
+    const side = BorderSide(color: AppColors.amber, width: 4);
+    final radius = BorderRadius.only(
+      topLeft: topBorder && leftBorder
+          ? const Radius.circular(18)
+          : Radius.zero,
+      topRight: topBorder && rightBorder
+          ? const Radius.circular(18)
+          : Radius.zero,
+      bottomLeft: bottomBorder && leftBorder
+          ? const Radius.circular(18)
+          : Radius.zero,
+      bottomRight: bottomBorder && rightBorder
+          ? const Radius.circular(18)
+          : Radius.zero,
+    );
+    return Positioned(
+      top: top,
+      bottom: bottom,
+      left: left,
+      right: right,
+      child: IgnorePointer(
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border(
+              top: topBorder ? side : BorderSide.none,
+              bottom: bottomBorder ? side : BorderSide.none,
+              left: leftBorder ? side : BorderSide.none,
+              right: rightBorder ? side : BorderSide.none,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-  static const _a = AppColors.scanCard; // #1B221D
-  static const _b = Color(0xFF222A24); // #222a24
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = _a);
-    final paint = Paint()
-      ..color = _b
-      ..style = PaintingStyle.fill;
-    const stripe = 12.0;
-    final reach = size.width + size.height;
-    // garis 135° → tegak lurus arah (1,1); offset diukur sepanjang (1,-1)/... ;
-    // gambar pita berselang dengan menggeser sepanjang sumbu diagonal.
-    for (double d = -reach; d < reach; d += stripe * 2) {
-      final path = Path()
-        ..moveTo(d, 0)
-        ..lineTo(d + stripe, 0)
-        ..lineTo(d + stripe + size.height, size.height)
-        ..lineTo(d + size.height, size.height)
-        ..close();
-      canvas.drawPath(path, paint);
+  void _onDetect(BarcodeCapture capture) {
+    if (_busy || _completed) return;
+    for (final barcode in capture.barcodes) {
+      final raw = barcode.rawValue?.trim();
+      if (raw == null || raw.isEmpty) continue;
+      final token = _extractPickupToken(raw);
+      if (token == null) {
+        if (_lastRejectedValue == raw) return;
+        _lastRejectedValue = raw;
+        setState(() {
+          _message = 'QR ini bukan voucher pickup SaveBite yang valid.';
+        });
+        return;
+      }
+      unawaited(_redeem(token));
+      return;
     }
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  String? _extractPickupToken(String raw) {
+    if (raw.length < 6 || raw.length > 512 || raw.contains(RegExp(r'\s'))) {
+      return null;
+    }
+    final uri = Uri.tryParse(raw);
+    if (uri != null && uri.hasScheme) {
+      final queryToken = uri.queryParameters['token'];
+      if (queryToken != null &&
+          queryToken.length >= 6 &&
+          queryToken.length <= 512) {
+        return queryToken;
+      }
+      if (uri.scheme.toLowerCase() == 'savebite' &&
+          uri.pathSegments.isNotEmpty) {
+        final candidate = uri.pathSegments.last;
+        if (candidate.length >= 6) return candidate;
+      }
+      return null;
+    }
+    return raw;
+  }
+
+  Future<void> _redeem(String token) async {
+    if (_busy || _completed) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await _scannerController.stop();
+      final order = await appState.redeemOrder(token);
+      if (!mounted) return;
+      if (order == null) {
+        setState(() {
+          _busy = false;
+          _message =
+              'Voucher tidak ditemukan, sudah dipakai, atau bukan milik toko ini.';
+        });
+        await _restartScanner();
+        return;
+      }
+      setState(() {
+        _busy = false;
+        _redeemed = order;
+        _message = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _message = error is BackendException
+            ? error.message
+            : 'Voucher belum dapat diverifikasi. Coba lagi.';
+      });
+      await _restartScanner();
+    }
+  }
+
+  Future<void> _restartScanner({bool clearMessage = false}) async {
+    if (!mounted || _completed) return;
+    if (clearMessage) setState(() => _message = null);
+    _lastRejectedValue = null;
+    try {
+      await _scannerController.start();
+    } catch (_) {
+      // MobileScanner menampilkan error kamera melalui errorBuilder.
+    }
+  }
 }

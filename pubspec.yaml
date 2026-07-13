@@ -13,9 +13,18 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   qr_flutter: ^4.1.0
-  supabase_flutter: ^2.15.0
-  image_picker: ^1.2.2
-  flutter_dotenv: ^6.0.1
+  supabase_flutter: ^2.16.0
+  image_picker: ^1.2.3
+  geolocator: ^14.0.3
+  geocoding: ^5.0.0
+  flutter_map: ^8.3.1
+  latlong2: ^0.10.1
+  mobile_scanner: ^7.2.0
+  shared_preferences: ^2.5.5
+  url_launcher: ^6.3.2
+  uuid: ^4.5.3
+  intl: ^0.20.3
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:
@@ -27,7 +36,6 @@ flutter:
 
   assets:
     - assets/images/
-    - .env
 
   fonts:
     - family: Bricolage

@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
-import '../../sb.dart';
-import '../../app_nav.dart';
+import 'dart:async';
 
-/// B7 Pesanan. Pola: KONTEN TAB — Column(header + Expanded scroll), tanpa Scaffold.
-/// Tab internal: Aktif / Riwayat.
+import 'package:flutter/material.dart';
+
+import '../../app_nav.dart';
+import '../../sb.dart';
+
+/// Daftar pesanan konsumen dengan pemisahan status aktif dan riwayat.
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
 
@@ -13,6 +15,65 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> {
   int _tab = 0;
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loading = appState.activeOrders.isEmpty && appState.orderHistory.isEmpty;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refresh());
+    });
+  }
+
+  Future<void> _refresh() async {
+    if (mounted &&
+        !_loading &&
+        appState.activeOrders.isEmpty &&
+        appState.orderHistory.isEmpty) {
+      setState(() => _loading = true);
+    }
+    try {
+      appState.clearError();
+      await appState.loadOrders();
+      if (!mounted) return;
+      setState(() => _error = appState.errorMessage);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Pesanan gagal dimuat. Periksa koneksi lalu coba lagi.';
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  bool _hasExpired(OrderRecord order) {
+    final expiresAt = order.expiresAt;
+    return expiresAt != null && !expiresAt.isAfter(DateTime.now());
+  }
+
+  List<OrderRecord> get _activeOrders => appState.activeOrders
+      .where(
+        (order) =>
+            (order.status == OrderStatus.pending ||
+                order.status == OrderStatus.ready) &&
+            !_hasExpired(order),
+      )
+      .toList(growable: false);
+
+  List<OrderRecord> get _historyOrders {
+    final result = <OrderRecord>[...appState.orderHistory];
+    final ids = result
+        .map((order) => order.id)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    for (final order in appState.activeOrders.where(_hasExpired)) {
+      if (order.id.isEmpty || ids.add(order.id)) result.add(order);
+    }
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,13 +83,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         builder: (context, _) => Column(
           children: [
             _header(context),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                children:
-                    _tab == 0 ? _aktifChildren(context) : _riwayatChildren(context),
-              ),
-            ),
+            Expanded(child: _body(context)),
           ],
         ),
       ),
@@ -38,7 +93,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Widget _header(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-          20, MediaQuery.of(context).padding.top + 12, 20, 12),
+        20,
+        MediaQuery.of(context).padding.top + 12,
+        20,
+        12,
+      ),
       decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(bottom: BorderSide(color: AppColors.border)),
@@ -46,45 +105,68 @@ class _OrdersScreenState extends State<OrdersScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Pesanan',
-              style: AppText.display(24, weight: 800, color: AppColors.ink)),
+          Text(
+            'Pesanan',
+            style: AppText.display(24, weight: 800, color: AppColors.ink),
+          ),
           const SizedBox(height: 14),
           TabSwitch(
             tabs: const ['Aktif', 'Riwayat'],
             index: _tab,
-            onTap: (i) => setState(() => _tab = i),
+            onTap: (index) => setState(() => _tab = index),
           ),
         ],
       ),
     );
   }
 
-  List<Widget> _aktifChildren(BuildContext context) {
-    final active = appState.activeOrders;
-    return [
-      if (active.isEmpty)
-        const EmptyState(
-          icon: Icons.shopping_bag_outlined,
-          title: 'Belum ada pesanan aktif',
-          message: 'Pesanan yang sedang berjalan akan muncul di sini.',
-        )
-      else
-        for (final o in active) _activeCard(context, o),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(2, 10, 2, 12),
-        child: Text('RIWAYAT',
-            style: AppText.ui(12.5,
-                weight: 700, color: AppColors.muted, letterSpacing: 0.5)),
+  Widget _body(BuildContext context) {
+    if (_loading &&
+        appState.activeOrders.isEmpty &&
+        appState.orderHistory.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.greenBright),
+      );
+    }
+
+    final orders = _tab == 0 ? _activeOrders : _historyOrders;
+    return RefreshIndicator(
+      color: AppColors.greenBright,
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        children: [
+          if (_error != null) ...[
+            _ErrorBanner(message: _error!, onRetry: _refresh),
+            const SizedBox(height: 14),
+          ],
+          if (orders.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 72),
+              child: EmptyState(
+                icon: _tab == 0
+                    ? Icons.shopping_bag_outlined
+                    : Icons.receipt_long_outlined,
+                title: _tab == 0
+                    ? 'Belum ada pesanan aktif'
+                    : 'Belum ada riwayat pesanan',
+                message: _tab == 0
+                    ? 'Pesanan yang sedang berjalan akan muncul di sini.'
+                    : 'Pesanan selesai, dibatalkan, atau kedaluwarsa akan muncul di sini.',
+              ),
+            )
+          else if (_tab == 0)
+            for (final order in orders) _activeCard(context, order)
+          else
+            for (final order in orders) _historyCard(context, order),
+        ],
       ),
-      ..._historyCards(context),
-    ];
+    );
   }
 
-  List<Widget> _riwayatChildren(BuildContext context) {
-    return _historyCards(context);
-  }
-
-  Widget _activeCard(BuildContext context, OrderRecord o) {
+  Widget _activeCard(BuildContext context, OrderRecord order) {
+    final ready = order.status == OrderStatus.ready;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
@@ -94,12 +176,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
         border: Border.all(color: AppColors.greenSoftBorder, width: 1.5),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               StoreAvatar(
-                initial: o.bag.merchant.initial,
-                color: o.bag.merchant.avatarColor,
+                initial: order.bag.merchant.initial,
+                color: order.bag.merchant.avatarColor,
                 size: 40,
                 radius: 11,
               ),
@@ -108,41 +191,81 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(o.bag.merchant.name,
-                        style: AppText.ui(14, weight: 700, color: AppColors.ink)),
+                    Text(
+                      order.bag.merchant.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.ui(14, weight: 700, color: AppColors.ink),
+                    ),
                     const SizedBox(height: 1),
-                    Text('${o.code} · ${o.quantity} bag',
-                        style: AppText.ui(12, color: AppColors.body)),
+                    Text(
+                      '${order.quantity}× ${order.bag.title}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.ui(12, color: AppColors.body),
+                    ),
                   ],
                 ),
               ),
-              StatusBadge.available('Siap diambil'),
+              const SizedBox(width: 8),
+              ready
+                  ? StatusBadge.available('Siap diambil')
+                  : StatusBadge.waiting('Diproses'),
+            ],
+          ),
+          const SizedBox(height: 11),
+          Row(
+            children: [
+              const Icon(
+                Icons.confirmation_number_outlined,
+                size: 15,
+                color: AppColors.muted,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Pesanan ${order.code}',
+                style: AppText.ui(11.5, color: AppColors.muted),
+              ),
+              const Spacer(),
+              Text(
+                formatRupiah(order.amount),
+                style: AppText.ui(12, weight: 700, color: AppColors.ink),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: PrimaryButton(
-              label: 'Lihat QR pickup',
-              height: 44,
-              fontSize: 14,
-              onTap: () => AppNav.toVoucher(context, o),
+          if (ready)
+            SizedBox(
+              width: double.infinity,
+              child: PrimaryButton(
+                label: 'Tampilkan QR pickup',
+                height: 44,
+                fontSize: 14,
+                onTap: () => AppNav.toVoucher(context, order),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: AppColors.neutralChip,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'QR akan tersedia setelah pesanan siap diambil.',
+                textAlign: TextAlign.center,
+                style: AppText.ui(12, color: AppColors.body),
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  List<Widget> _historyCards(BuildContext context) {
-    final history = appState.orderHistory;
-    return [
-      for (final o in history) _historyCard(context, o),
-    ];
-  }
-
-  Widget _historyCard(BuildContext context, OrderRecord o) {
-    final expired = o.status == OrderStatus.expired;
+  Widget _historyCard(BuildContext context, OrderRecord order) {
+    final expired = order.status == OrderStatus.expired || _hasExpired(order);
+    final cancelled = order.status == OrderStatus.cancelled;
     Widget card = Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -157,10 +280,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: FoodImage(
-              o.bag.image,
+              order.bag.image,
               width: 46,
               height: 46,
-              saturation: expired ? 0.6 : 1,
+              saturation: expired || cancelled ? 0.5 : 1,
             ),
           ),
           const SizedBox(width: 12),
@@ -168,46 +291,103 @@ class _OrdersScreenState extends State<OrdersScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(o.bag.merchant.name,
-                    style: AppText.ui(14, weight: 700, color: AppColors.ink)),
+                Text(
+                  order.bag.merchant.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.ui(14, weight: 700, color: AppColors.ink),
+                ),
                 const SizedBox(height: 2),
-                Text('${o.dateLabel} · ${formatRupiah(o.amount)}',
-                    style: AppText.ui(12, color: AppColors.body)),
+                Text(
+                  '${order.dateLabel} · ${formatRupiah(order.amount)}',
+                  style: AppText.ui(12, color: AppColors.body),
+                ),
               ],
             ),
           ),
           const SizedBox(width: 10),
-          _trailing(context, o),
+          _historyTrailing(context, order, expired: expired),
         ],
       ),
     );
-    if (expired) {
-      card = Opacity(opacity: 0.75, child: card);
-    }
+    if (expired || cancelled) card = Opacity(opacity: 0.76, child: card);
     return card;
   }
 
-  Widget _trailing(BuildContext context, OrderRecord o) {
-    if (o.status == OrderStatus.expired) {
-      return StatusBadge.expired('Hangus');
+  Widget _historyTrailing(
+    BuildContext context,
+    OrderRecord order, {
+    required bool expired,
+  }) {
+    if (order.status == OrderStatus.cancelled) {
+      return StatusBadge.expired('Dibatalkan');
     }
-    // Selesai (done)
+    if (expired) return StatusBadge.expired('Kedaluwarsa');
+    if (order.status == OrderStatus.pending ||
+        order.status == OrderStatus.ready) {
+      return StatusBadge.waiting('Diproses');
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         StatusBadge.done('Selesai'),
         const SizedBox(height: 6),
-        if (o.canRate)
-          GestureDetector(
-            onTap: () => AppNav.toRating(context,
-                merchant: o.bag.merchant, date: o.dateLabel),
-            child: Text('★ Beri rating',
-                style: AppText.ui(12, weight: 700, color: AppColors.amber)),
+        if (order.canRate)
+          InkWell(
+            onTap: () => AppNav.toRating(context, order: order),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
+              child: Text(
+                '★ Beri rating',
+                style: AppText.ui(12, weight: 700, color: AppColors.amber),
+              ),
+            ),
           )
-        else if (o.reviewed)
-          Text('★ 5 · diulas',
-              style: AppText.ui(12, weight: 600, color: AppColors.muted)),
+        else if (order.reviewed)
+          Text(
+            'Sudah diulas',
+            style: AppText.ui(12, weight: 600, color: AppColors.muted),
+          ),
       ],
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  final Future<void> Function() onRetry;
+
+  const _ErrorBanner({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppColors.dangerBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.danger.withValues(alpha: .25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: AppText.ui(12.5, color: AppColors.body, height: 1.4),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(
+              'Coba lagi',
+              style: AppText.ui(12.5, weight: 700, color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

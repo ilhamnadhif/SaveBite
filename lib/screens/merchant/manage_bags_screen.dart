@@ -13,6 +13,12 @@ class ManageBagsScreen extends StatefulWidget {
 
 class _ManageBagsScreenState extends State<ManageBagsScreen> {
   int _tab = 0;
+  final Set<String> _busyBagIds = {};
+
+  String _bagKey(MerchantBag bag) =>
+      bag.id.isEmpty ? identityHashCode(bag).toString() : bag.id;
+
+  bool _isBusy(MerchantBag bag) => _busyBagIds.contains(_bagKey(bag));
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +30,9 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
             child: ListenableBuilder(
               listenable: appState,
               builder: (context, _) {
-                final bags =
-                    _tab == 0 ? appState.activeBags : appState.inactiveBags;
+                final bags = _tab == 0
+                    ? appState.activeBags
+                    : appState.inactiveBags;
                 if (bags.isEmpty) {
                   return _tab == 0
                       ? const EmptyState(
@@ -44,9 +51,8 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                   itemCount: bags.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) => _tab == 0
-                      ? _activeCard(bags[i])
-                      : _inactiveCard(bags[i]),
+                  itemBuilder: (context, i) =>
+                      _tab == 0 ? _activeCard(bags[i]) : _inactiveCard(bags[i]),
                 );
               },
             ),
@@ -86,7 +92,10 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
   // ───────────── Aktif ─────────────
 
   Widget _activeCard(MerchantBag bag) {
-    final fraction = bag.total == 0 ? 0.0 : bag.sold / bag.total;
+    final fraction = bag.total == 0
+        ? 0.0
+        : (bag.sold / bag.total).clamp(0.0, 1.0);
+    final busy = _isBusy(bag);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -114,9 +123,14 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
-                            child: Text(bag.title,
-                                style: AppText.ui(14,
-                                    weight: 700, color: AppColors.ink)),
+                            child: Text(
+                              bag.title,
+                              style: AppText.ui(
+                                14,
+                                weight: 700,
+                                color: AppColors.ink,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           _togglePill(bag),
@@ -124,13 +138,16 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                          '${formatRupiah(bag.salePrice)} · ambil ${bag.pickupWindow}',
-                          style: AppText.ui(12, color: AppColors.body)),
+                        '${formatRupiah(bag.salePrice)} · ambil ${bag.pickupWindow}',
+                        style: AppText.ui(12, color: AppColors.body),
+                      ),
                       const SizedBox(height: 8),
                       ProgressBar(fraction: fraction, height: 6),
                       const SizedBox(height: 5),
-                      Text('${bag.sold} dari ${bag.total} terjual',
-                          style: AppText.ui(11.5, color: AppColors.muted)),
+                      Text(
+                        '${bag.sold} dari ${bag.total} terjual',
+                        style: AppText.ui(11.5, color: AppColors.muted),
+                      ),
                     ],
                   ),
                 ),
@@ -138,13 +155,18 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
             ),
           ),
           _actionsRow(
-            left: _actionCell('Edit',
-                color: AppColors.body,
-                onTap: () => AppNav.toEditBag(context, bag)),
-            right: _actionCell('Duplikat besok',
-                color: AppColors.terracotta,
-                withCopyIcon: true,
-                onTap: () => _duplicate(bag)),
+            left: _actionCell(
+              'Edit',
+              color: AppColors.body,
+              onTap: busy ? null : () => AppNav.toEditBag(context, bag),
+            ),
+            right: _actionCell(
+              'Duplikat besok',
+              color: AppColors.terracotta,
+              withCopyIcon: true,
+              busy: busy,
+              onTap: busy ? null : () => _duplicate(bag),
+            ),
           ),
         ],
       ),
@@ -154,6 +176,10 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
   // ───────────── Nonaktif ─────────────
 
   Widget _inactiveCard(MerchantBag bag) {
+    final busy = _isBusy(bag);
+    final canActivate =
+        bag.quantityLeft > 0 &&
+        (bag.pickupEndsAt == null || bag.pickupEndsAt!.isAfter(DateTime.now()));
     return Opacity(
       opacity: 0.92,
       child: Container(
@@ -172,8 +198,12 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(13),
-                    child:
-                        FoodImage(bag.image, width: 64, height: 64, saturation: 0.5),
+                    child: FoodImage(
+                      bag.image,
+                      width: 64,
+                      height: 64,
+                      saturation: 0.5,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -184,17 +214,24 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Expanded(
-                              child: Text(bag.title,
-                                  style: AppText.ui(14,
-                                      weight: 700, color: AppColors.ink)),
+                              child: Text(
+                                bag.title,
+                                style: AppText.ui(
+                                  14,
+                                  weight: 700,
+                                  color: AppColors.ink,
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 8),
                             _togglePill(bag),
                           ],
                         ),
                         const SizedBox(height: 5),
-                        Text('${formatRupiah(bag.salePrice)} · nonaktif',
-                            style: AppText.ui(12, color: AppColors.body)),
+                        Text(
+                          '${formatRupiah(bag.salePrice)} · nonaktif',
+                          style: AppText.ui(12, color: AppColors.body),
+                        ),
                         if (bag.statusNote != null) ...[
                           const SizedBox(height: 6),
                           StatusBadge.neutral(bag.statusNote!),
@@ -206,12 +243,23 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
               ),
             ),
             _actionsRow(
-              left: _actionCell('Aktifkan',
-                  color: AppColors.body, onTap: () => _activate(bag)),
-              right: _actionCell('Duplikat besok',
-                  color: AppColors.terracotta,
-                  withCopyIcon: true,
-                  onTap: () => _duplicate(bag)),
+              left: _actionCell(
+                canActivate ? 'Aktifkan' : 'Edit stok/jadwal',
+                color: AppColors.body,
+                busy: busy,
+                onTap: busy
+                    ? null
+                    : canActivate
+                    ? () => _activate(bag)
+                    : () => AppNav.toEditBag(context, bag),
+              ),
+              right: _actionCell(
+                'Duplikat besok',
+                color: AppColors.terracotta,
+                withCopyIcon: true,
+                busy: busy,
+                onTap: busy ? null : () => _duplicate(bag),
+              ),
             ),
           ],
         ),
@@ -222,6 +270,7 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
   // ───────────── Aksi ─────────────
 
   Future<void> _onTogglePill(MerchantBag bag) async {
+    if (_isBusy(bag)) return;
     if (bag.active) {
       final ok = await AppDialog.confirm(
         context,
@@ -230,57 +279,118 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
         confirmLabel: 'Nonaktifkan',
         destructive: true,
       );
-      if (ok && mounted) {
-        appState.toggleBagActive(bag);
-        AppFeedback.snack(context, 'Bag dinonaktifkan');
-      }
+      if (!mounted || !ok) return;
+      await _setActive(bag, active: false);
     } else {
-      _activate(bag);
+      await _activate(bag);
     }
   }
 
-  void _activate(MerchantBag bag) {
-    appState.toggleBagActive(bag);
-    AppFeedback.snack(context, 'Bag diaktifkan');
+  Future<void> _activate(MerchantBag bag) => _setActive(bag, active: true);
+
+  Future<void> _setActive(MerchantBag bag, {required bool active}) async {
+    if (bag.active == active) return;
+    await _runBagAction(
+      bag,
+      action: () => appState.toggleBagActive(bag),
+      successMessage: active ? 'Bag diaktifkan' : 'Bag dinonaktifkan',
+      errorMessage: active
+          ? 'Bag gagal diaktifkan. Coba lagi.'
+          : 'Bag gagal dinonaktifkan. Coba lagi.',
+    );
   }
 
-  void _duplicate(MerchantBag bag) {
-    appState.duplicateBag(bag);
-    AppFeedback.snack(context, 'Diduplikat untuk besok');
+  Future<void> _duplicate(MerchantBag bag) async {
+    await _runBagAction(
+      bag,
+      action: () => appState.duplicateBag(bag),
+      successMessage: 'Bag dijadwalkan untuk besok',
+      errorMessage: 'Bag gagal diduplikat. Coba lagi.',
+    );
+  }
+
+  Future<void> _runBagAction(
+    MerchantBag bag, {
+    required Future<void> Function() action,
+    required String successMessage,
+    required String errorMessage,
+  }) async {
+    final key = _bagKey(bag);
+    if (_busyBagIds.contains(key)) return;
+    setState(() => _busyBagIds.add(key));
+    try {
+      await action();
+      if (!mounted) return;
+      AppFeedback.snack(context, successMessage);
+    } catch (_) {
+      if (!mounted) return;
+      AppFeedback.snack(context, errorMessage, icon: Icons.error_outline);
+    } finally {
+      if (mounted) setState(() => _busyBagIds.remove(key));
+    }
   }
 
   // ───────────── Bagian bersama ─────────────
 
   Widget _togglePill(MerchantBag bag) {
     final on = bag.active;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _onTogglePill(bag),
-      child: Container(
-        width: 40,
-        height: 23,
-        decoration: BoxDecoration(
-          color: on ? AppColors.greenBright : AppColors.handle,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 2.5,
-              left: on ? null : 2.5,
-              right: on ? 2.5 : null,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: const BoxDecoration(
-                  color: AppColors.white,
-                  shape: BoxShape.circle,
+    final busy = _isBusy(bag);
+    final canToggle =
+        on ||
+        (bag.quantityLeft > 0 &&
+            (bag.pickupEndsAt == null ||
+                bag.pickupEndsAt!.isAfter(DateTime.now())));
+    return Semantics(
+      button: true,
+      toggled: on,
+      label: on ? 'Nonaktifkan ${bag.title}' : 'Aktifkan ${bag.title}',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: busy || !canToggle ? null : () => _onTogglePill(bag),
+        child: Container(
+          width: 40,
+          height: 23,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: on ? AppColors.greenBright : AppColors.handle,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: busy
+              ? const SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.white,
+                  ),
+                )
+              : Stack(
+                  children: [
+                    Positioned(
+                      top: 2.5,
+                      left: on ? null : 2.5,
+                      right: on ? 2.5 : null,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: const BoxDecoration(
+                          color: AppColors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ],
         ),
       ),
+    );
+  }
+
+  Widget _actionProgress(Color color) {
+    return SizedBox(
+      width: 15,
+      height: 15,
+      child: CircularProgressIndicator(strokeWidth: 2, color: color),
     );
   }
 
@@ -295,8 +405,7 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
             Expanded(
               child: Container(
                 decoration: const BoxDecoration(
-                  border:
-                      Border(right: BorderSide(color: AppColors.divider)),
+                  border: Border(right: BorderSide(color: AppColors.divider)),
                 ),
                 child: left,
               ),
@@ -308,25 +417,39 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
     );
   }
 
-  Widget _actionCell(String label,
-      {required Color color,
-      required VoidCallback onTap,
-      bool withCopyIcon = false}) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (withCopyIcon) ...[
-              Icon(Icons.copy_outlined, size: 15, color: color),
-              const SizedBox(width: 6),
-            ],
-            Text(label, style: AppText.ui(13, weight: 700, color: color)),
-          ],
+  Widget _actionCell(
+    String label, {
+    required Color color,
+    required VoidCallback? onTap,
+    bool withCopyIcon = false,
+    bool busy = false,
+  }) {
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      child: Opacity(
+        opacity: onTap == null && !busy ? 0.5 : 1,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (busy)
+                  _actionProgress(color)
+                else if (withCopyIcon) ...[
+                  Icon(Icons.copy_outlined, size: 15, color: color),
+                  const SizedBox(width: 6),
+                ],
+                if (busy) const SizedBox(width: 6),
+                Text(label, style: AppText.ui(13, weight: 700, color: color)),
+              ],
+            ),
+          ),
         ),
       ),
     );

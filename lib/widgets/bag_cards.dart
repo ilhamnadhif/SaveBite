@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../theme/app_colors.dart';
@@ -27,12 +28,20 @@ class FoodImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final isNetwork = path.startsWith('http');
     Widget img = isNetwork
-        ? Image.network(
-            path,
+        ? CachedNetworkImage(
+            imageUrl: path,
             width: width,
             height: height,
             fit: fit,
-            errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+            fadeInDuration: const Duration(milliseconds: 180),
+            placeholder: (context, _) =>
+                const ColoredBox(color: AppColors.tanPlaceholder),
+            errorWidget: (context, url, error) => const Center(
+              child: Icon(
+                Icons.image_not_supported_outlined,
+                color: AppColors.muted,
+              ),
+            ),
           )
         : Image.asset(
             path,
@@ -57,13 +66,28 @@ class FoodImage extends StatelessWidget {
 
   static ColorFilter _saturationFilter(double s) {
     const r = 0.2126, g = 0.7152, b = 0.0722;
-    double m(double base, bool diag) =>
-        (1 - s) * base + (diag ? s : 0);
+    double m(double base, bool diag) => (1 - s) * base + (diag ? s : 0);
     return ColorFilter.matrix(<double>[
-      m(r, true), m(g, false), m(b, false), 0, 0,
-      m(r, false), m(g, true), m(b, false), 0, 0,
-      m(r, false), m(g, false), m(b, true), 0, 0,
-      0, 0, 0, 1, 0,
+      m(r, true),
+      m(g, false),
+      m(b, false),
+      0,
+      0,
+      m(r, false),
+      m(g, true),
+      m(b, false),
+      0,
+      0,
+      m(r, false),
+      m(g, false),
+      m(b, true),
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
     ]);
   }
 }
@@ -117,13 +141,21 @@ class SaveRibbon extends StatelessWidget {
           decoration: const BoxDecoration(
             color: AppColors.terracotta,
             boxShadow: [
-              BoxShadow(color: Color(0x40000000), blurRadius: 8, offset: Offset(0, 3)),
+              BoxShadow(
+                color: Color(0x40000000),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
             ],
           ),
           child: Text(
             text,
-            style: AppText.ui(fontSize,
-                weight: 800, color: AppColors.white, letterSpacing: 0.6),
+            style: AppText.ui(
+              fontSize,
+              weight: 800,
+              color: AppColors.white,
+              letterSpacing: 0.6,
+            ),
           ),
         ),
       ),
@@ -152,17 +184,26 @@ class PriceTag extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(formatRupiah(salePrice),
-            style: AppText.display(saleSize, weight: 800, color: saleColor, height: 1)),
+        Text(
+          formatRupiah(salePrice),
+          style: AppText.display(
+            saleSize,
+            weight: 800,
+            color: saleColor,
+            height: 1,
+          ),
+        ),
         const SizedBox(width: 9),
         Padding(
           padding: const EdgeInsets.only(bottom: 2),
           child: Text(
             formatRupiah(originalPrice),
-            style: AppText.ui(13,
-                color: AppColors.strikethrough,
-                decoration: TextDecoration.lineThrough,
-                decorationColor: AppColors.strikethrough),
+            style: AppText.ui(
+              13,
+              color: AppColors.strikethrough,
+              decoration: TextDecoration.lineThrough,
+              decorationColor: AppColors.strikethrough,
+            ),
           ),
         ),
       ],
@@ -181,8 +222,10 @@ class SaveLabel extends StatelessWidget {
       children: [
         const Icon(Icons.eco_outlined, size: 15, color: AppColors.greenAccent),
         const SizedBox(width: 5),
-        Text('Selamatkan',
-            style: AppText.ui(12, weight: 700, color: AppColors.greenAccent)),
+        Text(
+          'Selamatkan',
+          style: AppText.ui(12, weight: 700, color: AppColors.greenAccent),
+        ),
       ],
     );
   }
@@ -215,12 +258,18 @@ class StoreAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(radius ?? size * 0.32),
-        border: border > 0 ? Border.all(color: borderColor, width: border) : null,
+        border: border > 0
+            ? Border.all(color: borderColor, width: border)
+            : null,
       ),
       alignment: Alignment.center,
       child: Text(
         initial,
-        style: AppText.display(size * 0.46, weight: 800, color: AppColors.white),
+        style: AppText.display(
+          size * 0.46,
+          weight: 800,
+          color: AppColors.white,
+        ),
       ),
     );
   }
@@ -277,29 +326,45 @@ class BagHeroCard extends StatelessWidget {
                   Row(
                     children: [
                       StoreAvatar(
-                          initial: bag.merchant.initial,
-                          color: bag.merchant.avatarColor),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(bag.merchant.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.ui(14, weight: 700)),
+                        initial: bag.merchant.initial,
+                        color: bag.merchant.avatarColor,
                       ),
                       const SizedBox(width: 8),
-                      Text('★ ${_r(bag.merchant.rating)} · ${bag.merchant.distance}',
-                          style: AppText.ui(12, weight: 600, color: AppColors.body)),
+                      Flexible(
+                        child: Text(
+                          bag.merchant.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.ui(14, weight: 700),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '★ ${_r(bag.merchant.rating)} · ${bag.merchant.distance}',
+                        style: AppText.ui(
+                          12,
+                          weight: 600,
+                          color: AppColors.body,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(bag.title,
-                      style: AppText.display(17, weight: 700, letterSpacing: -0.3)),
+                  Text(
+                    bag.title,
+                    style: AppText.display(
+                      17,
+                      weight: 700,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       PriceTag(
-                          salePrice: bag.salePrice,
-                          originalPrice: bag.originalPrice),
+                        salePrice: bag.salePrice,
+                        originalPrice: bag.originalPrice,
+                      ),
                       const Spacer(),
                       const SaveLabel(),
                     ],
@@ -346,8 +411,10 @@ class BagCompactCard extends StatelessWidget {
                     bottom: 11,
                     child: Row(
                       children: [
-                        OverlayBadge('Sisa ${bag.quantityLeft} lagi',
-                            lightForeground: AppColors.greenAccent),
+                        OverlayBadge(
+                          'Sisa ${bag.quantityLeft} lagi',
+                          lightForeground: AppColors.greenAccent,
+                        ),
                         const Spacer(),
                         OverlayBadge('Ambil ${bag.pickupWindow}', dark: true),
                       ],
@@ -364,30 +431,46 @@ class BagCompactCard extends StatelessWidget {
                   Row(
                     children: [
                       StoreAvatar(
-                          initial: bag.merchant.initial,
-                          color: bag.merchant.avatarColor),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(bag.merchant.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.ui(14, weight: 700)),
+                        initial: bag.merchant.initial,
+                        color: bag.merchant.avatarColor,
                       ),
                       const SizedBox(width: 8),
-                      Text('★ ${_r(bag.merchant.rating)} · ${bag.merchant.distance}',
-                          style: AppText.ui(12, weight: 600, color: AppColors.body)),
+                      Flexible(
+                        child: Text(
+                          bag.merchant.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.ui(14, weight: 700),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '★ ${_r(bag.merchant.rating)} · ${bag.merchant.distance}',
+                        style: AppText.ui(
+                          12,
+                          weight: 600,
+                          color: AppColors.body,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(bag.title,
-                      style: AppText.display(16, weight: 700, letterSpacing: -0.3)),
+                  Text(
+                    bag.title,
+                    style: AppText.display(
+                      16,
+                      weight: 700,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       PriceTag(
-                          salePrice: bag.salePrice,
-                          originalPrice: bag.originalPrice,
-                          saleSize: 21),
+                        salePrice: bag.salePrice,
+                        originalPrice: bag.originalPrice,
+                        saleSize: 21,
+                      ),
                       const Spacer(),
                       StatusBadge.save('Hemat ${bag.discountPercent}%'),
                     ],

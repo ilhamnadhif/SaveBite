@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Savebite</string>
+	<string>SaveBite</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>savebite</string>
+	<string>SaveBite</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -40,7 +40,9 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>SaveBite memerlukan akses galeri untuk mengunggah foto bag, logo toko, atau foto profil.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>SaveBite memerlukan kamera untuk mengambil foto bag atau toko.</string>
+	<string>SaveBite menggunakan kamera untuk memindai kode pengambilan serta mengambil foto bag atau toko.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SaveBite menggunakan lokasimu saat aplikasi dibuka untuk menampilkan makanan terdekat dan menghitung jarak pengambilan.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -73,15 +75,13 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 </dict>
 </plist>

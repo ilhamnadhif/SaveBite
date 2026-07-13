@@ -34,8 +34,8 @@ class PrimaryButton extends StatefulWidget {
     this.height = 54,
     this.fontSize = 16,
     this.icon,
-  })  : background = AppColors.terracotta,
-        foreground = AppColors.white;
+  }) : background = AppColors.terracotta,
+       foreground = AppColors.white;
 
   @override
   State<PrimaryButton> createState() => _PrimaryButtonState();
@@ -73,10 +73,18 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 9)],
-                    Text(widget.label,
-                        style: AppText.ui(widget.fontSize,
-                            weight: 700, color: widget.foreground)),
+                    if (widget.icon != null) ...[
+                      widget.icon!,
+                      const SizedBox(width: 9),
+                    ],
+                    Text(
+                      widget.label,
+                      style: AppText.ui(
+                        widget.fontSize,
+                        weight: 700,
+                        color: widget.foreground,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -120,9 +128,13 @@ class GhostButton extends StatelessWidget {
         style: TextButton.styleFrom(
           foregroundColor: color,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.button)),
+            borderRadius: BorderRadius.circular(AppRadius.button),
+          ),
         ),
-        child: Text(label, style: AppText.ui(fontSize, weight: 700, color: color)),
+        child: Text(
+          label,
+          style: AppText.ui(fontSize, weight: 700, color: color),
+        ),
       ),
     );
   }
@@ -161,7 +173,11 @@ class CircleIconButton extends StatelessWidget {
                   HapticFeedback.lightImpact();
                   onTap!();
                 },
-          child: SizedBox(width: size, height: size, child: Center(child: child)),
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Center(child: child),
+          ),
         ),
       ),
     );

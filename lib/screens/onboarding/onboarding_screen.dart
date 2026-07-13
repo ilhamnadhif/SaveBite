@@ -41,6 +41,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
+  Future<void> _finish() async {
+    await appState.markOnboardingSeen();
+    if (mounted) AppNav.toFork(context);
+  }
+
   void _next() {
     if (_page < _slides.length - 1) {
       _controller.nextPage(
@@ -48,7 +53,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.easeOut,
       );
     } else {
-      AppNav.toFork(context);
+      _finish();
     }
   }
 
@@ -57,38 +62,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final topInset = MediaQuery.of(context).padding.top;
     return StatusBarStyle.dark(
       child: Scaffold(
-      backgroundColor: AppColors.cream,
-      body: Padding(
-        padding: EdgeInsets.fromLTRB(24, topInset + 16, 24, 32),
-        child: Column(
-          children: [
-            // Lewati
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: () => AppNav.toFork(context),
-                child: Text('Lewati',
-                    style:
-                        AppText.ui(15, weight: 600, color: AppColors.muted)),
+        backgroundColor: AppColors.cream,
+        body: Padding(
+          padding: EdgeInsets.fromLTRB(24, topInset + 16, 24, 32),
+          child: Column(
+            children: [
+              // Lewati
+              Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: _finish,
+                  child: Text(
+                    'Lewati',
+                    style: AppText.ui(15, weight: 600, color: AppColors.muted),
+                  ),
+                ),
               ),
-            ),
-            Expanded(
-              child: PageView.builder(
-                controller: _controller,
-                onPageChanged: (i) => setState(() => _page = i),
-                itemCount: _slides.length,
-                itemBuilder: (context, i) => _slideView(_slides[i]),
+              Expanded(
+                child: PageView.builder(
+                  controller: _controller,
+                  onPageChanged: (i) => setState(() => _page = i),
+                  itemCount: _slides.length,
+                  itemBuilder: (context, i) => _slideView(_slides[i]),
+                ),
               ),
-            ),
-            const SizedBox(height: 22),
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(label: 'Lanjut', onTap: _next),
-            ),
-          ],
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: PrimaryButton(label: 'Lanjut', onTap: _next),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -96,11 +102,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Center(
-            child: _imageBlock(slide.image),
-          ),
-        ),
+        Expanded(child: Center(child: _imageBlock(slide.image))),
         _dots(),
         Text(
           slide.title,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../sb.dart';
 import 'home_screen.dart';
@@ -16,7 +18,7 @@ class ConsumerShellScope extends InheritedWidget {
   });
 
   static ConsumerShellScope? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<ConsumerShellScope>();
+      context.getInheritedWidgetOfExactType<ConsumerShellScope>();
 
   @override
   bool updateShouldNotify(ConsumerShellScope oldWidget) => false;
@@ -31,44 +33,94 @@ class ConsumerShell extends StatefulWidget {
   State<ConsumerShell> createState() => _ConsumerShellState();
 }
 
-class _ConsumerShellState extends State<ConsumerShell> {
+class _ConsumerShellState extends State<ConsumerShell>
+    with WidgetsBindingObserver {
   late int _index = widget.initialIndex;
+  DateTime? _lastRefresh;
 
   @override
   void initState() {
     super.initState();
-    // Muat data ekosistem konsumen dari backend.
-    appState.loadConsumerHome();
-    appState.loadOrders();
-    appState.loadFavorites();
-    appState.loadNotifications();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_reloadAll());
+    });
   }
 
-  void _select(int i) => setState(() => _index = i);
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final last = _lastRefresh;
+    if (last == null || DateTime.now().difference(last).inSeconds >= 30) {
+      unawaited(_reloadAll());
+    }
+  }
+
+  Future<void> _reloadAll() async {
+    _lastRefresh = DateTime.now();
+    await Future.wait([
+      appState.loadConsumerHome(),
+      appState.loadOrders(),
+      appState.loadFavorites(),
+      appState.loadNotifications(),
+    ]);
+  }
+
+  void _select(int i) {
+    if (i < 0 || i > 4) return;
+    if (_index != i) setState(() => _index = i);
+    switch (i) {
+      case 0:
+      case 1:
+        unawaited(appState.loadConsumerHome());
+        break;
+      case 2:
+        unawaited(appState.loadOrders());
+        break;
+      case 3:
+        unawaited(appState.loadFavorites());
+        break;
+      case 4:
+        unawaited(appState.loadProfile());
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      body: ConsumerShellScope(
-        selectTab: _select,
-        child: IndexedStack(
-          index: _index,
-          sizing: StackFit.expand,
-          children: const [
-            HomeScreen(),
-            MapScreen(),
-            OrdersScreen(),
-            FavoritesScreen(),
-            ProfileScreen(),
-          ],
+    return PopScope(
+      canPop: _index == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _index != 0) _select(0);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.cream,
+        body: ConsumerShellScope(
+          selectTab: _select,
+          child: IndexedStack(
+            index: _index,
+            sizing: StackFit.expand,
+            children: const [
+              HomeScreen(),
+              MapScreen(),
+              OrdersScreen(),
+              FavoritesScreen(),
+              ProfileScreen(),
+            ],
+          ),
         ),
-      ),
-      bottomNavigationBar: AppBottomNav(
-        items: AppBottomNav.consumerItems,
-        currentIndex: _index,
-        onTap: _select,
-        activeColor: AppColors.green,
+        bottomNavigationBar: AppBottomNav(
+          items: AppBottomNav.consumerItems,
+          currentIndex: _index,
+          onTap: _select,
+          activeColor: AppColors.green,
+        ),
       ),
     );
   }

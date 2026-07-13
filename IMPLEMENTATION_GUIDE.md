@@ -1,18 +1,26 @@
-# SaveBite — Panduan Implementasi Layar (Flutter)
+# SaveBite — Panduan Implementasi Flutter
 
-Dokumen kontrak untuk membangun tiap layar agar konsisten. Sumber kebenaran
-desain: `.design/desain-aplikasi-savebite/project/SaveBite.dc.html`.
+Dokumen ini menjelaskan arsitektur dan invariant yang dipakai implementasi
+SaveBite saat ini. Untuk setup environment, migration, OAuth, cron, dan signing,
+lihat `SUPABASE_SETUP.md`. Referensi visual awal tetap berada di
+`.design/desain-aplikasi-savebite/project/SaveBite.dc.html`, sedangkan source
+Dart adalah sumber kebenaran untuk perilaku aplikasi.
 
 ## Aturan umum
-- Setiap file layar: `import 'package:flutter/material.dart';`, `import '../../sb.dart';`,
-  dan kalau perlu navigasi `import '../../app_nav.dart';`.
-- **Cocokkan warna, ukuran, radius, dan copy (Bahasa Indonesia) PERSIS** dengan HTML.
-  Jangan mengarang teks baru. Angka & label harus sama.
-- Pakai komponen foundation (lihat di bawah) sebelum bikin manual.
-- Jangan render foto sebagai placeholder garis — pakai `FoodImage(path)` dengan
-  aset nyata. Mapping foto ada di `SampleData` (`SampleData.img1`..`img8`).
-- Tidak ada emoji. Ikon pakai Material Icons (mendekati ikon SVG di desain).
-- Jangan jalankan perintah flutter. Hanya tulis file Dart yang diminta.
+
+- Pertahankan copy Bahasa Indonesia, design token, dan pola komponen yang sudah
+  ada. Gunakan widget foundation sebelum membuat variasi baru.
+- Layar mengambil/mengubah data melalui `appState`; jangan mengakses Supabase
+  langsung dari widget.
+- Semua perpindahan layar lintas fitur masuk melalui `AppNav` agar reset stack,
+  intent peran, dan logout konsisten.
+- Render gambar dengan `FoodImage`; komponen ini menangani asset lokal, URL
+  Storage, cache, loading, dan fallback.
+- Ikon memakai Material Icons, bukan emoji.
+- Semua aksi async wajib mempunyai busy state, feedback error yang dapat dibaca,
+  dan guard agar submit ganda tidak menghasilkan mutasi berulang.
+- Jangan menampilkan integrasi yang belum ada sebagai transaksi nyata. Checkout
+  harus tetap berlabel simulasi sampai gateway dan webhook benar-benar aktif.
 
 ## Warna (lib/theme/app_colors.dart) — `AppColors.*`
 cream `#FBF7EF`, green `#0F3D2C`, greenDark `#16442F`, greenBright `#27A36A`,
@@ -81,67 +89,254 @@ factory `StatusBadge.available/waiting/done/expired/neutral/save(text)`,
 Radius: `AppRadius.card=22, cardSm=18, button=16, input=14, pill=20, sheet=28`.
 Bayangan kartu hero: `kHeroCardShadow`. Bayangan sheet: `kSheetShadow`.
 
-## Data — `SampleData.*` (lib/data/sample_data.dart)
-Merchant: `rotiNyaman, kopiSenja, donatManis, tokoSehat`.
-Bag: `bagRoti, bagKopi, bagDonat`. List: `nearbyBags, favorites, activeOrders,
-orderHistory, notifications, merchantActiveBags, merchantInactiveBags,
-incomingOrders, transactions`.
-Helper: `formatRupiah(int)` → "Rp15.000". `bag.discountPercent`, `bag.savings`.
+## Struktur aplikasi
 
-## State — `appState` (lib/app_state.dart)
-`appState.mode` (AppMode.consumer/merchant), `appState.location`,
-`appState.hasNearbyBags`, `appState.merchantSetupDone`,
-`appState.isFavorite(id)`, `appState.toggleFavorite(id)`, `setLocation`,
-`switchToMerchant`, `switchToConsumer`. Bungkus widget reaktif dengan
-`ListenableBuilder(listenable: appState, builder: ...)` bila perlu.
+```text
+lib/
+├── main.dart                    bootstrap environment, auth listener, app
+├── app_state.dart               state + orkestrasi use case
+├── app_nav.dart                 satu pintu navigasi
+├── config/env.dart              compile-time Supabase config
+├── data/
+│   ├── models.dart              model domain
+│   ├── mappers.dart             map row Supabase ke model
+│   ├── sample_data.dart         fixture FakeBackend
+│   └── backend/
+│       ├── backend.dart         kontrak backend
+│       ├── fake_backend.dart    offline/test implementation
+│       └── supabase_backend.dart online implementation
+├── services/                    pemilih backend + Supabase Auth
+├── screens/{onboarding,consumer,merchant,shared}/
+├── theme/                       color, typography, Material theme
+└── widgets/                     komponen UI reusable
+```
 
-## Navigasi — `AppNav.*` (lib/app_nav.dart) — PAKAI INI untuk berpindah layar
-- `AppNav.toOnboarding(c)` / `toFork(c)` / `toLogin(c, merchant: bool)`
-- `AppNav.toConsumerHome(c)` (replace) / `toMerchantHome(c)` (replace)
-- `AppNav.toStoreSetup(c)`
-- `AppNav.toDetail(c, Bag bag)`
-- `AppNav.showFilter(c)` (bottom sheet)
-- `AppNav.toCheckout(c, Bag bag)`
-- `AppNav.toProcessing(c, bag: Bag, willFail: bool, method: String)`
-- `AppNav.toVoucher(c, bag: Bag, code: String)` (replace processing)
-- `AppNav.toPaymentFailed(c, bag: Bag, method: String)` (replace processing)
-- `AppNav.toStoreProfile(c, Merchant m)`
-- `AppNav.toRating(c, merchant: Merchant, date: String)`
-- `AppNav.toNotifications(c)`
-- `AppNav.toCreateBag(c)`
-- `AppNav.toScanQr(c)`
-- `AppNav.showWithdraw(c)` (bottom sheet)
-- `AppNav.switchToMerchant(c)` (atur appState + ke setup/dashboard)
-- `AppNav.switchToConsumer(c)` (atur appState + ke beranda)
+`main()` memilih `SupabaseBackend` hanya bila `SUPABASE_URL` dan
+`SUPABASE_ANON_KEY` tersedia melalui dart-define. Tanpa keduanya, global
+`backend` tetap berupa `FakeBackend`. Jangan menambahkan pemeriksaan environment
+sendiri di layar.
 
-## Pindah tab di dalam shell
-- Konsumen: `ConsumerShellScope.of(context)?.selectTab(i)` — 0 Beranda,1 Peta,2 Pesanan,3 Favorit,4 Profil.
-- Merchant: `MerchantShellScope.of(context)?.selectTab(i)` — 0 Dashboard,1 Bag,2 Pesanan,3 Saldo,4 Profil.
+## Model dan kontrak backend
 
-## Dua pola layar
-### A. Konten tab (TANPA Scaffold/bottom nav — shell yang menyediakannya)
-Kembalikan `Column` berisi header + `Expanded(child: scrollable)`. Header pakai
-`ColoredHeader`/`SimpleHeader` (sudah menangani inset status bar). Contoh nyata:
-`lib/screens/consumer/home_screen.dart`.
-Layar konten-tab: HomeScreen, MapScreen, OrdersScreen, FavoritesScreen,
-ProfileScreen, DashboardScreen, ManageBagsScreen, IncomingOrdersScreen,
-BalanceScreen, MerchantProfileScreen.
+Model domain berada di `lib/data/models.dart`. `Bag` dipakai katalog konsumen,
+sedangkan `MerchantBag` menyertakan data pengelolaan seperti status, stok,
+tanggal tersedia, serta waktu pickup. `OrderRecord` adalah perspektif konsumen;
+`IncomingOrder` adalah perspektif merchant. Status cancelled dan expired harus
+tetap dibedakan.
 
-### B. Layar penuh (punya Scaffold sendiri) — di-push lewat Navigator
-`Scaffold(backgroundColor: AppColors.cream, body: Column(...))`. Untuk konten
-yang bisa scroll + bar bawah tetap, susun `Column([header, Expanded(ListView), bottomBar])`.
-Tangani inset bawah dengan `SafeArea` atau padding. Contoh nyata:
-`lib/screens/consumer/detail_screen.dart`.
-Layar penuh: Splash, Onboarding, Fork, Login, Detail, Checkout, Processing,
-PaymentFailed, Voucher, Rating, StoreProfile, Notifications, StoreSetup,
-CreateBag, ScanQr.
+`lib/data/backend/backend.dart` adalah batas I/O. Fitur baru harus ditambahkan
+ke interface, lalu diimplementasikan pada **keduanya**:
 
-### C. Bottom sheet — widget isi sheet (FilterSheet, WithdrawSheet)
-Kembalikan kontainer dengan `SheetHandle()` di atas. Ditampilkan via AppNav.
-Contoh: `lib/screens/consumer/filter_sheet.dart`.
+- `FakeBackend` untuk demo dan test deterministik;
+- `SupabaseBackend` untuk Auth user aktif, view/RPC aman, Storage, dan Realtime.
 
-## Status bar padding
-`ColoredHeader`/`SimpleHeader` sudah menambah `MediaQuery.padding.top`. Untuk
-layar penuh berlatar penuh yang headernya manual, tambahkan sendiri
-`MediaQuery.of(context).padding.top` agar konten tidak ketutup notch
-(desain pakai padding-top ~58px = status bar + ~16).
+Kelompok use case yang tersedia:
+
+- profil, mode terakhir, dan hapus akun;
+- nearby/search/filter, toko, favorit;
+- place order idempoten, daftar order, issue token pickup, review;
+- notifikasi dan stream realtime;
+- profil toko, CRUD/duplikasi/aktivasi bag beserta jadwal;
+- order merchant, mark ready, redeem token, statistik;
+- ledger saldo/transaksi, rekening, dan payout manual;
+- upload gambar menurut bucket.
+
+Jangan membuat fallback dari error Supabase ke data contoh di tengah sesi.
+Mode backend dipilih sekali saat startup agar kegagalan produksi tidak tersamar
+sebagai data demo.
+
+## State — `appState`
+
+`AppState` adalah `ChangeNotifier` tunggal yang menyimpan snapshot UI dan
+mengorkestrasi backend. Widget reaktif memakai:
+
+```dart
+ListenableBuilder(
+  listenable: appState,
+  builder: (context, _) => /* baca getter appState */,
+)
+```
+
+State lokal berikut dipersist melalui `SharedPreferences`: onboarding selesai,
+location priming, lokasi/koordinat terakhir, metode pembayaran default, dan
+intent login merchant. Mode terakhir disimpan pada profil backend. Filter aktif
+hanya berlaku selama proses aplikasi. Data akun, order, saldo, rekening, serta
+notifikasi selalu dimuat ulang dari backend per sesi.
+
+Operasi penting:
+
+- `restoreLocalState()` dipanggil sebelum `runApp`;
+- `bootstrap()` memuat profil dan data peran setelah auth;
+- `determineLocation()` menangani service/permission GPS dan memperbarui katalog;
+- `setBagFilter()` dan `search()` meneruskan filter serta koordinat aktif;
+- `placeOrder()`, `withdraw()`, dan backend RPC memakai idempotency key;
+- `loadConsumerHome()`, `loadOrders()`, `loadMerchantData()`, dan
+  `loadBalance()` menyegarkan snapshot terkait;
+- `clearSessionState()` membatalkan subscription, menaikkan session epoch, dan
+  menghapus data akun lama agar tidak bocor ke login berikutnya;
+- `deleteAccount()` memanggil alur cleanup/anonymization backend.
+
+Gunakan `appState.errorMessage`, loading flags, dan try/catch pada aksi lokal.
+Jangan mempertahankan `BuildContext` melewati `await` tanpa memeriksa `mounted`.
+
+## Auth dan routing
+
+`AuthService` menangani Google/Apple OAuth dengan callback
+`com.savebite://login-callback`. Listener auth global di `main.dart` melakukan
+bootstrap saat `signedIn`, membersihkan state saat `signedOut`, dan menampilkan
+layar retry bila startup gagal. Di mode offline, login meneruskan langsung ke
+bootstrap FakeBackend.
+
+Semua navigasi lintas fitur memakai `AppNav`. Signature yang sering dipakai:
+
+- onboarding/account: `toOnboarding`, `toFork`, `toLogin`, `logout`,
+  `deleteAccount`, `switchToMerchant`, `switchToConsumer`;
+- root: `toConsumerHome`, `toMerchantHome`, `toStoreSetup`,
+  `toLocationPriming`, `toOrders`;
+- konsumen: `toDetail`, `toSearch`, `showFilter`, `toCheckout`,
+  `toProcessing(bag:, qty:, method:)`, `toVoucher(OrderRecord)`,
+  `toRating(order:)`, `toNotifications`, `toEditProfile`, `toHelp`, dan
+  `toLegal`;
+- merchant: `toCreateBag`, `toEditBag`, `toOrderDetail`, `toEditStore`,
+  `toScanQr`, `showWithdraw`, dan `toWithdrawSuccess`.
+
+QR scanner tidak menerima `code` dari layar merchant. Token hanya boleh berasal
+dari kamera yang benar-benar membaca QR milik konsumen.
+
+Pindah tab di dalam shell:
+
+- konsumen: `ConsumerShellScope.of(context)?.selectTab(i)` — Beranda, Peta,
+  Pesanan, Favorit, Profil;
+- merchant: `MerchantShellScope.of(context)?.selectTab(i)` — Dashboard, Bag,
+  Pesanan, Saldo, Profil.
+
+## Alur bisnis dan invariant
+
+### Discovery dan lokasi
+
+Koordinat pengguna digunakan untuk menghitung jarak, mengurutkan bag, dan
+menentukan area peta. Pengguna boleh menolak GPS; UI harus menjelaskan dampaknya
+dan menyediakan retry/Settings. Filter saat ini mencakup kategori, radius,
+rentang harga, dan rentang waktu pickup. Peta memakai OpenStreetMap dengan
+atribusi yang dapat dibuka.
+
+### Checkout dan order
+
+1. Validasi quantity dan stok di UI untuk feedback cepat.
+2. Backend tetap menjadi otoritas dan mengurangi stok atomik.
+3. Harga, service fee, komisi, snapshot bag/toko, dan expiry dihitung server.
+4. Retry memakai idempotency key yang sama agar tidak membuat order ganda.
+5. Dalam versi ini metode pembayaran hanya simulasi dan harus selalu dilabeli
+   demikian. Jangan menambahkan kegagalan provider palsu.
+6. Merchant menandai order siap sebelum konsumen dapat meminta token pickup.
+7. Token pickup acak boleh dirotasi, disimpan server sebagai hash, terikat
+   order/window, dan hanya dapat diredeem satu kali.
+8. Review hanya dapat dikirim pemilik order yang sudah selesai, satu review per
+   order.
+
+### Merchant dan inventory
+
+Form toko/bag memvalidasi input, schedule, harga, stok, dan gambar sebelum
+submit. Status `active`, `sold_out`, dan `inactive` harus konsisten dengan
+inventory. Mutasi yang bisa balapan menggunakan RPC database; jangan mengganti
+pengurangan stok, mark-ready, atau redeem dengan update langsung dari klien.
+
+### Saldo dan payout
+
+Saldo berasal dari ledger transaksi tepercaya, bukan angka lokal. Redeem order
+mencatat pendapatan bersih satu kali. Payout hanya dapat diajukan ke rekening
+`verified`, minimum Rp50.000, biaya Rp2.500, dan dana langsung direservasi.
+Transfer masih diproses manual; hanya worker/operator `service_role` yang boleh
+memverifikasi rekening atau menyelesaikan payout. Aplikasi tidak boleh
+menampilkan request `pending` sebagai transfer sukses. Selama checkout masih
+simulasi, ledger order dipaksa `untrusted` dan database menolak payout baru;
+rail payout hanya boleh diaktifkan bersama sumber pembayaran terverifikasi.
+
+### Privasi dan sesi
+
+- Cache store Supabase harus dipisahkan berdasarkan UID.
+- Logout/auth change wajib membatalkan stream dan membersihkan snapshot sesi.
+- Raw token QR, hash token, idempotency key internal, nomor rekening penuh,
+  provider recipient ID, dan key `service_role` tidak boleh muncul di view atau
+  log klien. Nomor rekening penuh hanya boleh didekripsi oleh RPC `service_role`
+  yang mewajibkan alasan dan menulis audit privat.
+- Delete account memanggil fase prepare lebih dahulu, kemudian menghapus objek
+  Storage pengguna, lalu menjalankan RPC final untuk menganonimkan record
+  historis yang harus dipertahankan. Mutasi lain diblokir selama marker delete
+  masih aktif agar retry tidak meninggalkan akun parsial.
+
+## Pola layar
+
+### A. Konten tab
+
+Konten tab tidak membuat bottom navigation sendiri karena disediakan shell.
+Biasanya mengembalikan `Column` dengan header dan `Expanded` scrollable. Contoh:
+`HomeScreen`, `MapScreen`, `OrdersScreen`, `DashboardScreen`,
+`IncomingOrdersScreen`, dan `BalanceScreen`.
+
+### B. Layar penuh
+
+Layar yang di-push mempunyai `Scaffold` sendiri. Untuk action bar bawah tetap,
+gunakan `Column([header, Expanded(scrollable), SafeArea(bottomBar)])`. Contoh:
+detail, search, checkout, voucher, rating, edit profil/toko, form bag, detail
+order, scanner, bantuan, dan legal.
+
+### C. Bottom sheet
+
+`FilterSheet` dan `WithdrawSheet` dikembalikan melalui `showModalBottomSheet`
+dari `AppNav`. Perhitungkan keyboard dengan `MediaQuery.viewInsets.bottom`,
+gunakan `SheetHandle`, dan kembalikan nilai hanya setelah mutasi berhasil.
+
+`ColoredHeader` dan `SimpleHeader` sudah menangani inset status bar. Untuk layar
+manual, tambahkan safe-area sendiri. Uji layout minimal pada lebar 320/360/400,
+text scale besar, keyboard terbuka, dan perangkat bernotch.
+
+## Loading, error, dan realtime
+
+- Gunakan loading/empty/error/success state yang berbeda; jangan menyamarkan
+  kegagalan jaringan sebagai list kosong.
+- Submit button dinonaktifkan saat request berjalan.
+- Error backend dipetakan menjadi copy yang dapat ditindaklanjuti tanpa
+  menampilkan detail internal SQL/Auth.
+- Notification, incoming order, dan transaction stream menyegarkan snapshot
+  terkait. Perubahan payout juga menghasilkan notifikasi, tetapi daftar payout
+  dimuat melalui `loadBalance`; tetap sediakan pull/manual refresh sebagai jalur
+  recovery.
+- Hindari subscription ganda. Semua subscription dimiliki `AppState` dan
+  dibatalkan saat sesi berubah.
+
+## Asset, Storage, dan gambar
+
+Fixture offline menggunakan `assets/images/`. Upload online masuk ke folder
+`<auth.uid()>/...` pada bucket `avatars`, `store-logos`, atau `bag-images`.
+Klien dan bucket membatasi gambar ke JPEG/PNG/WebP/HEIC/HEIF dan maksimal 2 MB.
+Jangan menyimpan path file lokal permanen atau mengizinkan user memilih nama
+object Storage milik pengguna lain.
+
+## Quality gate perubahan
+
+Setelah perubahan implementasi:
+
+```bash
+dart format lib test
+flutter analyze
+flutter test
+flutter test --coverage
+flutter build apk --debug --dart-define-from-file=.env
+```
+
+Tambahkan test FakeBackend/AppState untuk invariant bisnis dan widget test untuk
+copy/status utama. Perubahan SQL harus diuji pada project Supabase disposable
+dengan sedikitnya dua user per peran untuk memverifikasi isolasi RLS.
+
+## Batas yang disengaja
+
+- Payment gateway dan webhook pembayaran ditunda; checkout masih simulasi.
+- Payout provider otomatis ditunda; verifikasi dan transfer memakai operasi
+  manual tepercaya.
+- In-app realtime tersedia, tetapi background/terminated OS push memerlukan
+  kredensial FCM/APNs dan worker eksternal.
+- Naskah legal adalah draf produk dan memerlukan review hukum sebelum rilis.
+
+Jangan menghilangkan disclosure tersebut dari UI atau dokumentasi sampai
+integrasi masing-masing benar-benar selesai dan telah diuji end-to-end.

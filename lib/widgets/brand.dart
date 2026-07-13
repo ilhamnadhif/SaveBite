@@ -91,8 +91,12 @@ class AppLogoWordmark extends StatelessWidget {
         SizedBox(width: logoSize * 0.3),
         Text(
           'SaveBite',
-          style: AppText.display(textSize, weight: 800, color: textColor,
-              letterSpacing: -0.5),
+          style: AppText.display(
+            textSize,
+            weight: 800,
+            color: textColor,
+            letterSpacing: -0.5,
+          ),
         ),
       ],
     );

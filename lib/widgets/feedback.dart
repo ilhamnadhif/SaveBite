@@ -20,8 +20,10 @@ class AppFeedback {
               const SizedBox(width: 10),
             ],
             Expanded(
-              child: Text(message,
-                  style: AppText.ui(13.5, weight: 600, color: AppColors.cream)),
+              child: Text(
+                message,
+                style: AppText.ui(13.5, weight: 600, color: AppColors.cream),
+              ),
             ),
           ],
         ),
@@ -46,21 +48,29 @@ class AppDialog {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title, style: AppText.display(19, weight: 800)),
-        content: Text(message,
-            style: AppText.ui(14, color: AppColors.body, height: 1.5)),
+        content: Text(
+          message,
+          style: AppText.ui(14, color: AppColors.body, height: 1.5),
+        ),
         actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(cancelLabel,
-                style: AppText.ui(14, weight: 700, color: AppColors.body)),
+            child: Text(
+              cancelLabel,
+              style: AppText.ui(14, weight: 700, color: AppColors.body),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(confirmLabel,
-                style: AppText.ui(14,
-                    weight: 800,
-                    color: destructive ? AppColors.danger : AppColors.greenAccent)),
+            child: Text(
+              confirmLabel,
+              style: AppText.ui(
+                14,
+                weight: 800,
+                color: destructive ? AppColors.danger : AppColors.greenAccent,
+              ),
+            ),
           ),
         ],
       ),

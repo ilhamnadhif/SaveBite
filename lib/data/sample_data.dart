@@ -32,6 +32,8 @@ class SampleData {
     hours: '08.00–21.00',
     coverImage: img2,
     bagsSaved: 184,
+    latitude: -6.3718,
+    longitude: 106.8318,
   );
 
   static const kopiSenja = Merchant(
@@ -47,6 +49,8 @@ class SampleData {
     hours: '10.00–22.00',
     coverImage: img8,
     bagsSaved: 76,
+    latitude: -6.3762,
+    longitude: 106.8392,
   );
 
   static const donatManis = Merchant(
@@ -62,6 +66,8 @@ class SampleData {
     hours: '08.00–20.00',
     coverImage: img7,
     bagsSaved: 41,
+    latitude: -6.3654,
+    longitude: 106.8408,
   );
 
   static const tokoSehat = Merchant(
@@ -77,6 +83,8 @@ class SampleData {
     hours: '09.00–21.00',
     coverImage: img3,
     bagsSaved: 22,
+    latitude: -6.3825,
+    longitude: 106.8251,
   );
 
   static const warungIbu = Merchant(
@@ -92,6 +100,8 @@ class SampleData {
     hours: '07.00–21.00',
     coverImage: img6,
     bagsSaved: 95,
+    latitude: -6.3686,
+    longitude: 106.8234,
   );
 
   static const sayurMart = Merchant(
@@ -107,6 +117,8 @@ class SampleData {
     hours: '08.00–22.00',
     coverImage: img10,
     bagsSaved: 58,
+    latitude: -6.3898,
+    longitude: 106.8441,
   );
 
   static const pizzaSudut = Merchant(
@@ -122,6 +134,8 @@ class SampleData {
     hours: '11.00–23.00',
     coverImage: img9,
     bagsSaved: 67,
+    latitude: -6.3796,
+    longitude: 106.8189,
   );
 
   static const saladHijau = Merchant(
@@ -137,11 +151,19 @@ class SampleData {
     hours: '09.00–20.00',
     coverImage: img4,
     bagsSaved: 39,
+    latitude: -6.3740,
+    longitude: 106.8354,
   );
 
   static const merchants = [
-    rotiNyaman, kopiSenja, donatManis, tokoSehat,
-    warungIbu, sayurMart, pizzaSudut, saladHijau,
+    rotiNyaman,
+    kopiSenja,
+    donatManis,
+    tokoSehat,
+    warungIbu,
+    sayurMart,
+    pizzaSudut,
+    saladHijau,
   ];
 
   // ───────────── Bag ─────────────
@@ -194,7 +216,8 @@ class SampleData {
     id: 'b4',
     merchant: tokoSehat,
     title: 'Surprise Bag Buah Potong',
-    description: 'Aneka buah potong segar siap santap yang harus habis hari ini.',
+    description:
+        'Aneka buah potong segar siap santap yang harus habis hari ini.',
     originalPrice: 38000,
     salePrice: 18000,
     quantityLeft: 4,
@@ -222,7 +245,8 @@ class SampleData {
     id: 'b6',
     merchant: sayurMart,
     title: 'Surprise Bag Sayur & Buah',
-    description: 'Paket sayur dan buah mendekati best-before, masih segar & layak.',
+    description:
+        'Paket sayur dan buah mendekati best-before, masih segar & layak.',
     originalPrice: 60000,
     salePrice: 25000,
     quantityLeft: 8,
@@ -236,7 +260,8 @@ class SampleData {
     id: 'b7',
     merchant: pizzaSudut,
     title: 'Surprise Bag Pizza Slice',
-    description: 'Aneka potongan pizza akhir hari yang masih nikmat dihangatkan.',
+    description:
+        'Aneka potongan pizza akhir hari yang masih nikmat dihangatkan.',
     originalPrice: 70000,
     salePrice: 28000,
     quantityLeft: 2,
@@ -277,171 +302,230 @@ class SampleData {
 
   /// Semua bag (tersedia lebih dulu, lalu yang habis).
   static const allBags = [
-    bagRoti, bagKopi, bagSalad, bagSehat, bagNasi, bagSayur, bagPizza,
-    bagDonat, bagPastrySore,
+    bagRoti,
+    bagKopi,
+    bagSalad,
+    bagSehat,
+    bagNasi,
+    bagSayur,
+    bagPizza,
+    bagDonat,
+    bagPastrySore,
   ];
 
   static List<Bag> get nearbyBags =>
       allBags.where((b) => !b.soldOut).toList(growable: false);
 
   static const categories = [
-    'Semua', 'Bakery', 'Kafe', 'Resto', 'Supermarket', 'Sehat',
+    'Semua',
+    'Bakery',
+    'Kafe',
+    'Resto',
+    'Supermarket',
+    'Sehat',
   ];
 
   static List<FavoriteStore> get favorites => const [
-        FavoriteStore(merchant: rotiNyaman, availability: '3 bag tersedia'),
-        FavoriteStore(merchant: kopiSenja, availability: '6 bag tersedia'),
-        FavoriteStore(merchant: saladHijau, availability: '7 bag tersedia'),
-        FavoriteStore(
-            merchant: donatManis,
-            availability: 'Habis hari ini',
-            soldOut: true),
-      ];
+    FavoriteStore(merchant: rotiNyaman, availability: '3 bag tersedia'),
+    FavoriteStore(merchant: kopiSenja, availability: '6 bag tersedia'),
+    FavoriteStore(merchant: saladHijau, availability: '7 bag tersedia'),
+    FavoriteStore(
+      merchant: donatManis,
+      availability: 'Habis hari ini',
+      soldOut: true,
+    ),
+  ];
 
   static List<OrderRecord> get activeOrders => const [
-        OrderRecord(
-          bag: bagRoti,
-          code: 'SB-7K2Q9',
-          dateLabel: 'Hari ini',
-          amount: 15000,
-          status: OrderStatus.ready,
-          quantity: 1,
-        ),
-      ];
+    OrderRecord(
+      id: 'order-1',
+      bag: bagRoti,
+      code: 'SB-7K2Q9',
+      dateLabel: 'Hari ini',
+      amount: 16000,
+      status: OrderStatus.ready,
+      quantity: 1,
+      subtotalAmount: 15000,
+      serviceFee: 1000,
+      merchantNetAmount: 13500,
+    ),
+  ];
 
   static List<OrderRecord> get orderHistory => const [
-        OrderRecord(
-          bag: bagKopi,
-          code: 'SB-5P1A8',
-          dateLabel: '14 Jun',
-          amount: 20000,
-          status: OrderStatus.done,
-          canRate: true,
-        ),
-        OrderRecord(
-          bag: bagRoti,
-          code: 'SB-2H7C4',
-          dateLabel: '11 Jun',
-          amount: 15000,
-          status: OrderStatus.done,
-          reviewed: true,
-        ),
-        OrderRecord(
-          bag: bagSehat,
-          code: 'SB-9X3D2',
-          dateLabel: '8 Jun',
-          amount: 22000,
-          status: OrderStatus.expired,
-        ),
-      ];
+    OrderRecord(
+      id: 'order-2',
+      bag: bagKopi,
+      code: 'SB-5P1A8',
+      dateLabel: '14 Jun',
+      amount: 21000,
+      status: OrderStatus.done,
+      canRate: true,
+      subtotalAmount: 20000,
+      serviceFee: 1000,
+      merchantNetAmount: 18000,
+    ),
+    OrderRecord(
+      id: 'order-3',
+      bag: bagRoti,
+      code: 'SB-2H7C4',
+      dateLabel: '11 Jun',
+      amount: 16000,
+      status: OrderStatus.done,
+      reviewed: true,
+      subtotalAmount: 15000,
+      serviceFee: 1000,
+      merchantNetAmount: 13500,
+    ),
+    OrderRecord(
+      id: 'order-4',
+      bag: bagSehat,
+      code: 'SB-9X3D2',
+      dateLabel: '8 Jun',
+      amount: 22000,
+      status: OrderStatus.expired,
+      subtotalAmount: 22000,
+      serviceFee: 0,
+    ),
+  ];
 
   static List<AppNotification> get notifications => const [
-        AppNotification(
-          title: 'Pesananmu siap diambil',
-          body: 'Roti Nyaman Bakery menunggu sampai 21.00. Tunjukkan QR-mu.',
-          time: '5 menit lalu',
-          type: NotifType.ready,
-          group: 'Hari ini',
-          unread: true,
-        ),
-        AppNotification(
-          title: 'Bag baru di dekatmu',
-          body: 'Kopi Senja baru rilis 6 Surprise Bag, mulai Rp20.000.',
-          time: '1 jam lalu',
-          type: NotifType.newBag,
-          group: 'Hari ini',
-        ),
-        AppNotification(
-          title: 'Sudah ambil bag-nya? Beri rating',
-          body: 'Bantu pembeli lain dengan ulasanmu untuk Kopi Senja.',
-          time: 'Kemarin · 20.40',
-          type: NotifType.rating,
-          group: 'Kemarin',
-        ),
-        AppNotification(
-          title: 'Pembayaran berhasil',
-          body: 'Order SB-7K2Q9 · Rp16.000 lunas.',
-          time: 'Kemarin · 18.42',
-          type: NotifType.payment,
-          group: 'Kemarin',
-        ),
-      ];
+    AppNotification(
+      id: 'notification-1',
+      title: 'Pesananmu siap diambil',
+      body: 'Roti Nyaman Bakery menunggu sampai 21.00. Tunjukkan QR-mu.',
+      time: '5 menit lalu',
+      type: NotifType.ready,
+      group: 'Hari ini',
+      unread: true,
+      route: 'orders',
+    ),
+    AppNotification(
+      id: 'notification-2',
+      title: 'Bag baru di dekatmu',
+      body: 'Kopi Senja baru rilis 6 Surprise Bag, mulai Rp20.000.',
+      time: '1 jam lalu',
+      type: NotifType.newBag,
+      group: 'Hari ini',
+    ),
+    AppNotification(
+      id: 'notification-3',
+      title: 'Sudah ambil bag-nya? Beri rating',
+      body: 'Bantu pembeli lain dengan ulasanmu untuk Kopi Senja.',
+      time: 'Kemarin · 20.40',
+      type: NotifType.rating,
+      group: 'Kemarin',
+      route: 'orders',
+    ),
+    AppNotification(
+      id: 'notification-4',
+      title: 'Pembayaran berhasil',
+      body: 'Order SB-7K2Q9 · Rp16.000 lunas.',
+      time: 'Kemarin · 18.42',
+      type: NotifType.payment,
+      group: 'Kemarin',
+    ),
+  ];
 
   // ───────────── Merchant ─────────────
   static List<MerchantBag> get merchantActiveBags => const [
-        MerchantBag(
-          id: 'mb1',
-          title: 'Surprise Bag Roti & Pastry',
-          salePrice: 15000,
-          pickupWindow: '20.00–21.00',
-          sold: 5,
-          total: 8,
-          image: img1,
-          active: true,
-        ),
-        MerchantBag(
-          id: 'mb3',
-          title: 'Surprise Bag Donat',
-          salePrice: 16000,
-          pickupWindow: '18.00–19.00',
-          sold: 2,
-          total: 6,
-          image: img7,
-          active: true,
-        ),
-      ];
+    MerchantBag(
+      id: 'mb1',
+      title: 'Surprise Bag Roti & Pastry',
+      salePrice: 15000,
+      pickupWindow: '20.00–21.00',
+      sold: 5,
+      total: 8,
+      image: img1,
+      active: true,
+      contents: ['Roti manis', 'Croissant', 'Donat', 'Roti tawar'],
+    ),
+    MerchantBag(
+      id: 'mb3',
+      title: 'Surprise Bag Donat',
+      salePrice: 16000,
+      pickupWindow: '18.00–19.00',
+      sold: 2,
+      total: 6,
+      image: img7,
+      active: true,
+      contents: ['Donat cokelat', 'Donat gula', 'Donat keju'],
+    ),
+  ];
 
   static List<MerchantBag> get merchantInactiveBags => const [
-        MerchantBag(
-          id: 'mb2',
-          title: 'Surprise Bag Pastry Sore',
-          salePrice: 18000,
-          pickupWindow: '—',
-          sold: 8,
-          total: 8,
-          image: img5,
-          active: false,
-          statusNote: 'Habis terjual kemarin',
-        ),
-      ];
+    MerchantBag(
+      id: 'mb2',
+      title: 'Surprise Bag Pastry Sore',
+      salePrice: 18000,
+      pickupWindow: '—',
+      sold: 8,
+      total: 8,
+      image: img5,
+      active: false,
+      statusNote: 'Habis terjual kemarin',
+      contents: ['Croissant', 'Danish', 'Roti isi'],
+    ),
+  ];
 
   static List<IncomingOrder> get incomingOrders => const [
-        IncomingOrder(
-          customer: 'Rani Anggraini',
-          initial: 'RA',
-          time: '18.42',
-          bags: 1,
-          code: 'SB-7K2Q9',
-        ),
-        IncomingOrder(
-          customer: 'Budi Santoso',
-          initial: 'BS',
-          time: '18.20',
-          bags: 2,
-          code: 'SB-3M8X1',
-        ),
-      ];
+    IncomingOrder(
+      id: 'order-1',
+      customer: 'Rani Anggraini',
+      initial: 'RA',
+      time: '18.42',
+      bags: 1,
+      code: 'SB-7K2Q9',
+      status: IncomingOrderStatus.ready,
+      needsAction: false,
+      bagTitle: 'Surprise Bag Roti & Pastry',
+      bagImage: img1,
+      pickupWindow: '20.00–21.00',
+      unitPrice: 15000,
+      subtotalAmount: 15000,
+      serviceFee: 1000,
+      merchantNetAmount: 13500,
+    ),
+    IncomingOrder(
+      id: 'order-5',
+      customer: 'Budi Santoso',
+      initial: 'BS',
+      time: '18.20',
+      bags: 2,
+      code: 'SB-3M8X1',
+      status: IncomingOrderStatus.paid,
+      bagTitle: 'Surprise Bag Roti & Pastry',
+      bagImage: img1,
+      pickupWindow: '20.00–21.00',
+      unitPrice: 15000,
+      subtotalAmount: 30000,
+      serviceFee: 1000,
+      merchantNetAmount: 27000,
+    ),
+  ];
 
   static const merchantBalance = 1245000;
 
   static List<TxRecord> get transactions => const [
-        TxRecord(
-          title: 'Order SB-7K2Q9',
-          subtitle: '17 Jun · komisi Rp1.500',
-          amount: 13500,
-          kind: TxKind.income,
-        ),
-        TxRecord(
-          title: 'Order SB-3M8X1',
-          subtitle: '17 Jun · komisi Rp2.000',
-          amount: 18000,
-          kind: TxKind.income,
-        ),
-        TxRecord(
-          title: 'Penarikan ke BCA',
-          subtitle: '15 Jun · ••6789',
-          amount: 1500000,
-          kind: TxKind.withdrawal,
-        ),
-      ];
+    TxRecord(
+      id: 'tx-1',
+      title: 'Order SB-7K2Q9',
+      subtitle: '17 Jun · komisi Rp1.500',
+      amount: 13500,
+      kind: TxKind.income,
+    ),
+    TxRecord(
+      id: 'tx-2',
+      title: 'Order SB-3M8X1',
+      subtitle: '17 Jun · komisi Rp2.000',
+      amount: 18000,
+      kind: TxKind.income,
+    ),
+    TxRecord(
+      id: 'tx-3',
+      title: 'Penarikan ke BCA',
+      subtitle: '15 Jun · ••6789',
+      amount: 1500000,
+      kind: TxKind.withdrawal,
+    ),
+  ];
 }

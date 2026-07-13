@@ -38,11 +38,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         backgroundColor: AppColors.cream,
         body: ListView(
           padding: EdgeInsets.zero,
-          children: [
-            _cover(context, topInset),
-            _headerInfo(),
-            _body(context),
-          ],
+          children: [_cover(context, topInset), _headerInfo(), _body(context)],
         ),
       ),
     );
@@ -59,8 +55,11 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
             left: 18,
             child: CircleIconButton(
               onTap: () => Navigator.of(context).maybePop(),
-              child: const Icon(Icons.arrow_back_ios_new,
-                  size: 16, color: AppColors.ink),
+              child: const Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: AppColors.ink,
+              ),
             ),
           ),
           Positioned(
@@ -73,8 +72,9 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                 return CircleIconButton(
                   semanticLabel: 'Favorit',
                   onTap: () async {
-                    final added =
-                        await appState.toggleFavorite(widget.merchant.id);
+                    final added = await appState.toggleFavorite(
+                      widget.merchant.id,
+                    );
                     if (context.mounted) {
                       AppFeedback.snack(
                         context,
@@ -84,8 +84,11 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                       );
                     }
                   },
-                  child: Icon(fav ? Icons.favorite : Icons.favorite_border,
-                      size: 18, color: AppColors.terracotta),
+                  child: Icon(
+                    fav ? Icons.favorite : Icons.favorite_border,
+                    size: 18,
+                    color: AppColors.terracotta,
+                  ),
                 );
               },
             ),
@@ -113,32 +116,44 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
               borderColor: AppColors.cream,
             ),
             const SizedBox(height: 12),
-            Text(merchant.name,
-                style: AppText.display(22, weight: 800, color: AppColors.ink)),
+            Text(
+              merchant.name,
+              style: AppText.display(22, weight: 800, color: AppColors.ink),
+            ),
             const SizedBox(height: 5),
             Wrap(
               spacing: 10,
               runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text('★ ${merchant.rating.toStringAsFixed(1)}',
-                    style: AppText.ui(13,
-                        weight: 700, color: AppColors.amber)),
-                Text('(${merchant.reviewCount} ulasan)',
-                    style: AppText.ui(13, color: AppColors.body)),
+                Text(
+                  '★ ${merchant.rating.toStringAsFixed(1)}',
+                  style: AppText.ui(13, weight: 700, color: AppColors.amber),
+                ),
+                Text(
+                  '(${merchant.reviewCount} ulasan)',
+                  style: AppText.ui(13, color: AppColors.body),
+                ),
                 Text('·', style: AppText.ui(13, color: AppColors.body)),
-                Text(merchant.category,
-                    style: AppText.ui(13, color: AppColors.body)),
+                Text(
+                  merchant.category,
+                  style: AppText.ui(13, color: AppColors.body),
+                ),
                 Text('·', style: AppText.ui(13, color: AppColors.body)),
-                Text(merchant.distance,
-                    style: AppText.ui(13, color: AppColors.body)),
+                Text(
+                  merchant.distance,
+                  style: AppText.ui(13, color: AppColors.body),
+                ),
               ],
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(Icons.location_on_outlined,
-                    size: 14, color: AppColors.greenBright),
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 14,
+                  color: AppColors.greenBright,
+                ),
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
@@ -166,14 +181,21 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
               icon: Icons.home_outlined,
               child: RichText(
                 text: TextSpan(
-                  style: AppText.ui(13,
-                      weight: 600, color: AppColors.greenAccent),
+                  style: AppText.ui(
+                    13,
+                    weight: 600,
+                    color: AppColors.greenAccent,
+                  ),
                   children: [
                     const TextSpan(text: 'Toko ini sudah menyelamatkan '),
                     TextSpan(
-                        text: '${widget.merchant.bagsSaved} bag',
-                        style: AppText.ui(13,
-                            weight: 700, color: AppColors.greenAccent)),
+                      text: '${widget.merchant.bagsSaved} bag',
+                      style: AppText.ui(
+                        13,
+                        weight: 700,
+                        color: AppColors.greenAccent,
+                      ),
+                    ),
                     const TextSpan(text: ' makanan.'),
                   ],
                 ),
@@ -198,8 +220,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       );
     }
     if (_bags.isEmpty) {
-      return Text('Belum ada bag tersedia',
-          style: AppText.ui(13, color: AppColors.body));
+      return Text(
+        'Belum ada bag tersedia',
+        style: AppText.ui(13, color: AppColors.body),
+      );
     }
     return Column(
       children: [
@@ -233,25 +257,41 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(bag.title,
-                          style: AppText.ui(14,
-                              weight: 700, color: AppColors.ink)),
+                      Text(
+                        bag.title,
+                        style: AppText.ui(
+                          14,
+                          weight: 700,
+                          color: AppColors.ink,
+                        ),
+                      ),
                       const SizedBox(height: 3),
-                      Text('Ambil ${bag.pickupWindow} · sisa ${bag.quantityLeft}',
-                          style: AppText.ui(12, color: AppColors.body)),
+                      Text(
+                        'Ambil ${bag.pickupWindow} · sisa ${bag.quantityLeft}',
+                        style: AppText.ui(12, color: AppColors.body),
+                      ),
                       const SizedBox(height: 8),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(formatRupiah(bag.originalPrice),
-                              style: AppText.ui(12,
-                                  color: AppColors.strikethrough,
-                                  decoration: TextDecoration.lineThrough,
-                                  decorationColor: AppColors.strikethrough)),
+                          Text(
+                            formatRupiah(bag.originalPrice),
+                            style: AppText.ui(
+                              12,
+                              color: AppColors.strikethrough,
+                              decoration: TextDecoration.lineThrough,
+                              decorationColor: AppColors.strikethrough,
+                            ),
+                          ),
                           const SizedBox(width: 7),
-                          Text(formatRupiah(bag.salePrice),
-                              style: AppText.display(17,
-                                  weight: 800, color: AppColors.greenBright)),
+                          Text(
+                            formatRupiah(bag.salePrice),
+                            style: AppText.display(
+                              17,
+                              weight: 800,
+                              color: AppColors.greenBright,
+                            ),
+                          ),
                         ],
                       ),
                     ],

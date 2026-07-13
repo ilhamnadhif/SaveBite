@@ -42,7 +42,11 @@ class ColoredHeader extends StatelessWidget {
       width: double.infinity,
       color: background,
       padding: EdgeInsets.fromLTRB(
-          horizontalPadding, top + 14, horizontalPadding, bottomPadding),
+        horizontalPadding,
+        top + 14,
+        horizontalPadding,
+        bottomPadding,
+      ),
       child: child,
     );
   }
@@ -79,14 +83,23 @@ class SimpleHeader extends StatelessWidget {
             GestureDetector(
               onTap: onBack ?? () => Navigator.of(context).maybePop(),
               behavior: HitTestBehavior.opaque,
-              child: const Icon(Icons.arrow_back_ios_new,
-                  size: 18, color: AppColors.ink),
+              child: const Icon(
+                Icons.arrow_back_ios_new,
+                size: 18,
+                color: AppColors.ink,
+              ),
             ),
             const SizedBox(width: 14),
           ],
           Expanded(
-            child: Text(title,
-                style: AppText.display(titleSize, weight: 700, letterSpacing: -0.3)),
+            child: Text(
+              title,
+              style: AppText.display(
+                titleSize,
+                weight: 700,
+                letterSpacing: -0.3,
+              ),
+            ),
           ),
           ?trailing,
         ],
@@ -103,7 +116,10 @@ class FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
-      child: Text(text, style: AppText.ui(12.5, weight: 700, color: AppColors.body)),
+      child: Text(
+        text,
+        style: AppText.ui(12.5, weight: 700, color: AppColors.body),
+      ),
     );
   }
 }
@@ -185,8 +201,10 @@ class QtyStepper extends StatelessWidget {
       children: [
         _circle('−', false, onMinus),
         const SizedBox(width: 16),
-        Text(suffix == null ? '$value' : '$value $suffix',
-            style: AppText.ui(16, weight: 700)),
+        Text(
+          suffix == null ? '$value' : '$value $suffix',
+          style: AppText.ui(16, weight: 700),
+        ),
         const SizedBox(width: 16),
         _circle('+', true, onPlus),
       ],
@@ -203,12 +221,18 @@ class QtyStepper extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: filled ? plusColor : Colors.transparent,
-          border: filled ? null : Border.all(color: AppColors.inputBorder, width: 1.5),
+          border: filled
+              ? null
+              : Border.all(color: AppColors.inputBorder, width: 1.5),
         ),
         alignment: Alignment.center,
-        child: Text(sign,
-            style: AppText.ui(18,
-                color: filled ? AppColors.white : AppColors.muted)),
+        child: Text(
+          sign,
+          style: AppText.ui(
+            18,
+            color: filled ? AppColors.white : AppColors.muted,
+          ),
+        ),
       ),
     );
   }
@@ -245,7 +269,8 @@ class MenuRow extends StatelessWidget {
             Icon(icon, size: 20, color: AppColors.body),
             const SizedBox(width: 12),
             Expanded(
-                child: Text(label, style: AppText.ui(14.5, color: AppColors.ink))),
+              child: Text(label, style: AppText.ui(14.5, color: AppColors.ink)),
+            ),
             const Icon(Icons.chevron_right, size: 20, color: AppColors.chevron),
           ],
         ),
@@ -285,7 +310,10 @@ class StatTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value, style: AppText.display(18, weight: 800, color: valueColor)),
+          Text(
+            value,
+            style: AppText.display(18, weight: 800, color: valueColor),
+          ),
           const SizedBox(height: 2),
           Text(label, style: AppText.ui(11.5, color: labelColor)),
         ],
@@ -325,8 +353,10 @@ class SectionHeading extends StatelessWidget {
           GestureDetector(
             onTap: onAction,
             behavior: HitTestBehavior.opaque,
-            child: Text(actionLabel!,
-                style: AppText.ui(13, weight: 700, color: actionColor)),
+            child: Text(
+              actionLabel!,
+              style: AppText.ui(13, weight: 700, color: actionColor),
+            ),
           ),
       ],
     );
@@ -375,10 +405,14 @@ class TabSwitch extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(tabs[i],
-                        style: AppText.ui(14.5,
-                            weight: i == index ? 700 : 600,
-                            color: i == index ? activeColor : AppColors.navInactive)),
+                    Text(
+                      tabs[i],
+                      style: AppText.ui(
+                        14.5,
+                        weight: i == index ? 700 : 600,
+                        color: i == index ? activeColor : AppColors.navInactive,
+                      ),
+                    ),
                     if (badges != null && badges![i] != null) ...[
                       const SizedBox(width: 7),
                       badges![i]!,
@@ -490,7 +524,11 @@ class AppCard extends StatelessWidget {
       child: child,
     );
     if (onTap == null) return card;
-    return GestureDetector(onTap: onTap, behavior: HitTestBehavior.opaque, child: card);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: card,
+    );
   }
 }
 
@@ -523,17 +561,23 @@ class EmptyState extends StatelessWidget {
               width: 104,
               height: 104,
               decoration: const BoxDecoration(
-                  color: AppColors.emptyCircle, shape: BoxShape.circle),
+                color: AppColors.emptyCircle,
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, size: 48, color: AppColors.emptyIcon),
             ),
             const SizedBox(height: 22),
-            Text(title,
-                textAlign: TextAlign.center,
-                style: AppText.display(22, weight: 800)),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppText.display(22, weight: 800),
+            ),
             const SizedBox(height: 8),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: AppText.ui(14, color: AppColors.body, height: 1.55)),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppText.ui(14, color: AppColors.body, height: 1.55),
+            ),
             if (action != null) ...[const SizedBox(height: 24), action!],
             if (secondaryAction != null) ...[
               const SizedBox(height: 12),

@@ -24,77 +24,84 @@ class _SplashScreenState extends State<SplashScreen> {
       if (mounted) await AppNav.handleSignedIn(context);
       return;
     }
-    await Future.delayed(const Duration(milliseconds: 1800));
-    if (mounted) AppNav.toOnboarding(context);
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+    if (appState.onboardingSeen) {
+      AppNav.toForkRoot(context);
+    } else {
+      AppNav.toOnboarding(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return StatusBarStyle.light(
       child: Scaffold(
-      backgroundColor: AppColors.green,
-      body: Stack(
-        children: [
-          // Glow radial hijau terang di area atas.
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0, -0.24),
-                  radius: 0.6,
-                  colors: [
-                    Color(0x5927A36A),
-                    Color(0x0027A36A),
-                  ],
+        backgroundColor: AppColors.green,
+        body: Stack(
+          children: [
+            // Glow radial hijau terang di area atas.
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0, -0.24),
+                    radius: 0.6,
+                    colors: [Color(0x5927A36A), Color(0x0027A36A)],
+                  ),
                 ),
               ),
             ),
-          ),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const AppLogo(size: 88, background: AppColors.greenDark),
-                const SizedBox(height: 26),
-                Column(
-                  children: [
-                    Text(
-                      'SaveBite',
-                      style: AppText.display(38,
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const AppLogo(size: 88, background: AppColors.greenDark),
+                  const SizedBox(height: 26),
+                  Column(
+                    children: [
+                      Text(
+                        'SaveBite',
+                        style: AppText.display(
+                          38,
                           weight: 800,
                           color: AppColors.cream,
-                          letterSpacing: -1),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Selamatkan makanan, hemat lebih.',
-                      style: AppText.ui(15,
-                          weight: 500, color: AppColors.greenMuted),
-                    ),
-                  ],
-                ),
-              ],
+                          letterSpacing: -1,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Selamatkan makanan, hemat lebih.',
+                        style: AppText.ui(
+                          15,
+                          weight: 500,
+                          color: AppColors.greenMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          // Tiga titik indikator di dekat bawah.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 78,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _dot(AppColors.amber),
-                const SizedBox(width: 7),
-                _dot(Colors.white.withValues(alpha: 0.3)),
-                const SizedBox(width: 7),
-                _dot(Colors.white.withValues(alpha: 0.3)),
-              ],
+            // Tiga titik indikator di dekat bawah.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 78,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _dot(AppColors.amber),
+                  const SizedBox(width: 7),
+                  _dot(Colors.white.withValues(alpha: 0.3)),
+                  const SizedBox(width: 7),
+                  _dot(Colors.white.withValues(alpha: 0.3)),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 

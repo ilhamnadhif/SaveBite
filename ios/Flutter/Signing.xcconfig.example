@@ -1,0 +1,5 @@
+// Copy this file to Signing.xcconfig and replace the value with the
+// 10-character Team ID from the Apple Developer account. The real file is
+// gitignored so each developer/CI environment can provide its own identity.
+DEVELOPMENT_TEAM = ABCDE12345
+CODE_SIGN_STYLE = Automatic

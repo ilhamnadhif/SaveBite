@@ -1,39 +1,89 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
-import 'data/models.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+
 import 'data/backend/backend.dart';
+import 'data/business_config.dart';
+import 'data/models.dart';
 import 'services/app_backend.dart';
 
 enum AppMode { consumer, merchant }
 
-/// State global SaveBite: cache reaktif di atas [backend] (Fake atau Supabase).
-/// Layar membaca getter cache (sinkron) lewat [ListenableBuilder]; data dimuat
-/// async lewat loadX() dan diubah lewat mutator async.
+/// Cache reaktif di atas backend aktif. Seluruh cache user dihapus ketika sesi
+/// berubah, dan hasil request lama diabaikan memakai [_sessionEpoch].
 class AppState extends ChangeNotifier {
+  static const _uuid = Uuid();
+  static const _onboardingKey = 'onboarding_seen';
+  static const _locationPrimedKey = 'location_primed';
+  static const _locationLabelKey = 'location_label';
+  static const _latitudeKey = 'location_latitude';
+  static const _longitudeKey = 'location_longitude';
+  static const _locationFromDeviceKey = 'location_from_device';
+  static const _deviceLatitudeKey = 'device_location_latitude';
+  static const _deviceLongitudeKey = 'device_location_longitude';
+  static const _locationAccuracyKey = 'location_accuracy_meters';
+  static const _locationReducedAccuracyKey = 'location_reduced_accuracy';
+  static const _paymentMethodKey = 'default_payment_method';
+  static const _merchantIntentKey = 'pending_merchant_intent';
+  static const _checkoutIdempotencyKey = 'pending_checkout_idempotency_v1';
+  static const _payoutIdempotencyKey = 'pending_payout_idempotency_v1';
+
+  SharedPreferences? _preferences;
+  int _sessionEpoch = 0;
+  int _consumerRequestGeneration = 0;
+  StreamSubscription<List<AppNotification>>? _notificationSubscription;
+  StreamSubscription<List<IncomingOrder>>? _incomingSubscription;
+  StreamSubscription<List<TxRecord>>? _transactionSubscription;
+  final Map<String, String> _checkoutKeys = {};
+  final Map<String, String> _payoutKeys = {};
+
   AppMode mode = AppMode.consumer;
-
-  String location = 'Margonda, Depok';
-  bool get hasNearbyBags => location == 'Margonda, Depok';
-  static const cities = ['Margonda, Depok', 'Cibinong, Bogor', 'Kemang, Jakarta'];
-
+  bool onboardingSeen = false;
   bool merchantSetupDone = false;
   bool locationPrimed = false;
-
-  /// Peran yang dipilih di Fork sebelum login (untuk routing pasca-OAuth).
-  /// null = tak memilih (pakai [lastMode]); true = jual; false = beli.
   bool? pendingMerchantIntent;
-
-  /// Ekosistem terakhir (dari profil); untuk mengarahkan pengguna lama.
   String lastMode = 'consumer';
 
-  static const paymentMethods = ['GoPay', 'OVO', 'Virtual Account BCA'];
-  static const bankAccounts = ['BCA · ••6789', 'Mandiri · ••1234', 'BNI · ••4521'];
-  String defaultPaymentMethod = 'GoPay';
-  String selectedBank = 'BCA · ••6789';
+  String location = 'Lokasi belum dipilih';
+  double? userLatitude;
+  double? userLongitude;
+  bool userLocationIsFromDevice = false;
+  double? deviceLatitude;
+  double? deviceLongitude;
+  double? userLocationAccuracyMeters;
+  bool userLocationAccuracyReduced = false;
+  bool hasLocationPermission = false;
+  bool locationPermissionDeniedForever = false;
+  bool locationServicesEnabled = true;
+  bool isDeterminingLocation = false;
+  BagFilter currentFilter = const BagFilter();
 
-  // ── Profil konsumen ──
-  String userName = 'Ilham Hidayat';
-  String userEmail = 'ilham@gmail.com';
-  String userPhone = '0812-3456-7890';
+  bool isBootstrapping = false;
+  bool isLoadingConsumer = false;
+  bool isLoadingOrders = false;
+  bool isLoadingMerchant = false;
+  bool isLoadingMerchantReviews = false;
+  bool isLoadingBalance = false;
+  bool isLoadingNotifications = false;
+  String? errorMessage;
+
+  static const cities = [
+    'Margonda, Depok',
+    'Cibinong, Bogor',
+    'Kemang, Jakarta',
+  ];
+  static const paymentMethods = ['GoPay', 'OVO', 'Virtual Account BCA'];
+  String defaultPaymentMethod = 'GoPay';
+  String selectedBank = '';
+  BusinessConfig businessConfig = const BusinessConfig();
+
+  String userName = 'Pengguna';
+  String userEmail = '';
+  String userPhone = '';
   String? userAvatarUrl;
   String get userInitials {
     final parts = userName.trim().split(RegExp(r'\s+'));
@@ -42,16 +92,17 @@ class AppState extends ChangeNotifier {
     return (parts.first[0] + parts[1][0]).toUpperCase();
   }
 
-  // ── Profil toko ──
-  String storeName = 'Roti Nyaman Bakery';
+  String storeName = '';
   String storeCategory = 'Bakery';
-  String storeAddress = 'Jl. Margonda Raya No. 88, Depok';
+  String storeAddress = '';
   String openTime = '08.00';
   String closeTime = '21.00';
   String storeDescription = '';
   String? storeLogoUrl;
+  double? storeLatitude;
+  double? storeLongitude;
 
-  // ── Cache ──
+  List<Bag> _allNearby = [];
   List<Bag> _nearby = [];
   Set<String> _favIds = {};
   List<FavoriteStore> _favStores = [];
@@ -60,146 +111,834 @@ class AppState extends ChangeNotifier {
   List<AppNotification> _notifs = [];
   List<MerchantBag> _bags = [];
   List<IncomingOrder> _incoming = [];
+  List<MerchantReview> _merchantReviews = [];
   List<TxRecord> _tx = [];
+  List<BankAccount> _bankAccounts = [];
+  List<PayoutRequest> _payouts = [];
   int balance = 0;
   int bagsSoldToday = 0;
   int incomeToday = 0;
+  int incomeThisMonth = 0;
+  double foodSavedKg = 0;
 
-  // ── Getter sinkron untuk layar ──
-  List<Bag> get nearbyBags => _nearby;
-  List<OrderRecord> get activeOrders => _active;
-  List<OrderRecord> get orderHistory => _history;
-  List<FavoriteStore> get favoriteStores => _favStores;
+  List<Bag> get nearbyBags => List.unmodifiable(_nearby);
+  List<Bag> get allNearbyBags => List.unmodifiable(_allNearby);
+  bool get hasNearbyBags => _nearby.isNotEmpty;
+  List<OrderRecord> get activeOrders => List.unmodifiable(_active);
+  List<OrderRecord> get orderHistory => List.unmodifiable(_history);
+  List<FavoriteStore> get favoriteStores => List.unmodifiable(_favStores);
   bool isFavorite(String id) => _favIds.contains(id);
-  List<AppNotification> get notifications => _notifs;
-  int get unreadCount => _notifs.where((n) => n.unread).length;
+  List<AppNotification> get notifications => List.unmodifiable(_notifs);
+  int get unreadCount =>
+      _notifs.where((notification) => notification.unread).length;
   List<MerchantBag> get activeBags =>
-      _bags.where((b) => b.active).toList(growable: false);
+      _bags.where((bag) => bag.active).toList(growable: false);
   List<MerchantBag> get inactiveBags =>
-      _bags.where((b) => !b.active).toList(growable: false);
+      _bags.where((bag) => !bag.active).toList(growable: false);
   int get activeBagCount => activeBags.length;
-  List<IncomingOrder> get pendingOrders =>
-      _incoming.where((o) => !o.redeemed).toList(growable: false);
-  List<IncomingOrder> get completedOrders =>
-      _incoming.where((o) => o.redeemed).toList(growable: false);
+  List<IncomingOrder> get pendingOrders => _incoming
+      .where(
+        (order) =>
+            order.status != IncomingOrderStatus.redeemed &&
+            order.status != IncomingOrderStatus.cancelled &&
+            order.status != IncomingOrderStatus.expired,
+      )
+      .toList(growable: false);
+  List<IncomingOrder> get completedOrders => _incoming
+      .where(
+        (order) =>
+            order.status == IncomingOrderStatus.redeemed ||
+            order.status == IncomingOrderStatus.cancelled ||
+            order.status == IncomingOrderStatus.expired,
+      )
+      .toList(growable: false);
   int get pendingOrderCount => pendingOrders.length;
-  List<TxRecord> get transactions => _tx;
+  List<MerchantReview> get merchantReviews =>
+      List.unmodifiable(_merchantReviews);
+  List<TxRecord> get transactions => List.unmodifiable(_tx);
+  List<BankAccount> get bankAccountRecords => List.unmodifiable(_bankAccounts);
+  List<String> get bankAccounts =>
+      _bankAccounts.map((account) => account.label).toList(growable: false);
+  List<PayoutRequest> get payoutRequests => List.unmodifiable(_payouts);
 
-  // ── One-off (tak di-cache) ──
-  Future<List<Bag>> search(String q) => backend.searchBags(q);
+  BankAccount? get selectedBankAccount {
+    for (final account in _bankAccounts) {
+      if (account.label == selectedBank) return account;
+    }
+    return _bankAccounts.isEmpty ? null : _bankAccounts.first;
+  }
+
+  Future<void> restoreLocalState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _preferences = prefs;
+      onboardingSeen = prefs.getBool(_onboardingKey) ?? false;
+      locationPrimed = prefs.getBool(_locationPrimedKey) ?? false;
+      location = prefs.getString(_locationLabelKey) ?? location;
+      userLatitude = prefs.getDouble(_latitudeKey);
+      userLongitude = prefs.getDouble(_longitudeKey);
+      if (!_validLocationCoordinates(userLatitude, userLongitude)) {
+        userLatitude = null;
+        userLongitude = null;
+      }
+      userLocationIsFromDevice =
+          prefs.getBool(_locationFromDeviceKey) ??
+          (userLatitude != null && location == 'Sekitar saya');
+      deviceLatitude = prefs.getDouble(_deviceLatitudeKey);
+      deviceLongitude = prefs.getDouble(_deviceLongitudeKey);
+      if (!_validLocationCoordinates(deviceLatitude, deviceLongitude)) {
+        if (userLocationIsFromDevice) {
+          deviceLatitude = userLatitude;
+          deviceLongitude = userLongitude;
+        } else {
+          deviceLatitude = null;
+          deviceLongitude = null;
+        }
+      }
+      userLocationAccuracyMeters = deviceLatitude != null
+          ? prefs.getDouble(_locationAccuracyKey)
+          : null;
+      userLocationAccuracyReduced =
+          deviceLatitude != null &&
+          (prefs.getBool(_locationReducedAccuracyKey) ?? false);
+      defaultPaymentMethod =
+          prefs.getString(_paymentMethodKey) ?? defaultPaymentMethod;
+      final intent = prefs.getString(_merchantIntentKey);
+      pendingMerchantIntent = switch (intent) {
+        'merchant' => true,
+        'consumer' => false,
+        _ => null,
+      };
+      _checkoutKeys
+        ..clear()
+        ..addAll(_decodeStringMap(prefs.getString(_checkoutIdempotencyKey)));
+      _payoutKeys
+        ..clear()
+        ..addAll(_decodeStringMap(prefs.getString(_payoutIdempotencyKey)));
+    } catch (_) {
+      // Penyimpanan lokal bukan dependency kritis; app tetap dapat digunakan.
+    }
+  }
+
+  Future<SharedPreferences?> _prefs() async {
+    if (_preferences != null) return _preferences;
+    try {
+      return _preferences = await SharedPreferences.getInstance();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Map<String, String> _decodeStringMap(String? value) {
+    if (value == null || value.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! Map) return {};
+      return decoded.map(
+        (key, item) => MapEntry(key.toString(), item.toString()),
+      );
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _persistIdempotencyKeys() async {
+    final prefs = await _prefs();
+    await Future.wait([
+      if (prefs != null)
+        prefs.setString(_checkoutIdempotencyKey, jsonEncode(_checkoutKeys)),
+      if (prefs != null)
+        prefs.setString(_payoutIdempotencyKey, jsonEncode(_payoutKeys)),
+    ]);
+  }
+
+  Future<void> markOnboardingSeen() async {
+    onboardingSeen = true;
+    await (await _prefs())?.setBool(_onboardingKey, true);
+    notifyListeners();
+  }
+
+  Future<void> markLocationPrimed() async {
+    locationPrimed = true;
+    await (await _prefs())?.setBool(_locationPrimedKey, true);
+    notifyListeners();
+  }
+
+  Future<void> setPendingMerchantIntent(bool? merchant) async {
+    pendingMerchantIntent = merchant;
+    final prefs = await _prefs();
+    if (merchant == null) {
+      await prefs?.remove(_merchantIntentKey);
+    } else {
+      await prefs?.setString(
+        _merchantIntentKey,
+        merchant ? 'merchant' : 'consumer',
+      );
+    }
+    notifyListeners();
+  }
+
+  bool? consumePendingMerchantIntent() {
+    final intent = pendingMerchantIntent;
+    pendingMerchantIntent = null;
+    unawaited(_prefs().then((prefs) => prefs?.remove(_merchantIntentKey)));
+    return intent;
+  }
+
+  Future<bool> determineLocation({bool requestPermission = true}) async {
+    isDeterminingLocation = true;
+    errorMessage = null;
+    notifyListeners();
+    if (!backend.isRemote) {
+      locationServicesEnabled = true;
+      hasLocationPermission = true;
+      locationPermissionDeniedForever = false;
+      await setLocationWithCoordinates(
+        'Margonda, Depok',
+        -6.3725,
+        106.8323,
+        reload: false,
+      );
+      await markLocationPrimed();
+      await loadConsumerHome();
+      isDeterminingLocation = false;
+      notifyListeners();
+      return true;
+    }
+    try {
+      locationServicesEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!locationServicesEnabled) {
+        errorMessage = 'Layanan lokasi perangkat belum aktif.';
+        return false;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied && requestPermission) {
+        permission = await Geolocator.requestPermission();
+      }
+      hasLocationPermission =
+          permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+      locationPermissionDeniedForever =
+          permission == LocationPermission.deniedForever;
+      if (!hasLocationPermission) {
+        errorMessage = locationPermissionDeniedForever
+            ? 'Izin lokasi diblokir. Aktifkan lewat Pengaturan aplikasi.'
+            : 'Izin lokasi diperlukan untuk menampilkan bag terdekat.';
+        return false;
+      }
+      var reducedAccuracy = false;
+      try {
+        reducedAccuracy =
+            await Geolocator.getLocationAccuracy() ==
+            LocationAccuracyStatus.reduced;
+      } catch (_) {
+        // Tidak semua platform melaporkan status precise/reduced.
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 0,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+      if (!_validLocationCoordinates(position.latitude, position.longitude)) {
+        throw const BackendException(
+          'invalid_location',
+          'Perangkat mengembalikan titik lokasi yang tidak valid.',
+        );
+      }
+      await setLocationWithCoordinates(
+        'Sekitar saya',
+        position.latitude,
+        position.longitude,
+        reload: false,
+        fromDevice: true,
+        accuracyMeters: position.accuracy > 0 ? position.accuracy : null,
+        reducedAccuracy: reducedAccuracy,
+      );
+      await markLocationPrimed();
+      await loadConsumerHome();
+      return true;
+    } catch (error) {
+      errorMessage = _messageFor(
+        error,
+        fallback: 'Lokasi tidak dapat dibaca. Coba lagi.',
+      );
+      return false;
+    } finally {
+      isDeterminingLocation = false;
+      notifyListeners();
+    }
+  }
+
+  /// Membaca titik fisik toko tanpa mengubah lokasi discovery konsumen.
+  Future<({double latitude, double longitude, double accuracy})?>
+  determineStoreLocation({bool requestPermission = true}) async {
+    isDeterminingLocation = true;
+    errorMessage = null;
+    notifyListeners();
+    if (!backend.isRemote) {
+      locationServicesEnabled = true;
+      hasLocationPermission = true;
+      locationPermissionDeniedForever = false;
+      isDeterminingLocation = false;
+      notifyListeners();
+      return (latitude: -6.3720, longitude: 106.8318, accuracy: 5.0);
+    }
+    try {
+      locationServicesEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!locationServicesEnabled) {
+        errorMessage = 'Layanan lokasi perangkat belum aktif.';
+        return null;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied && requestPermission) {
+        permission = await Geolocator.requestPermission();
+      }
+      hasLocationPermission =
+          permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+      locationPermissionDeniedForever =
+          permission == LocationPermission.deniedForever;
+      if (!hasLocationPermission) {
+        errorMessage = locationPermissionDeniedForever
+            ? 'Izin lokasi diblokir. Aktifkan lewat Pengaturan aplikasi.'
+            : 'Izin lokasi diperlukan untuk menyimpan titik toko.';
+        return null;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 0,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+      if (!_validLocationCoordinates(position.latitude, position.longitude)) {
+        throw const BackendException(
+          'invalid_store_location',
+          'Perangkat mengembalikan titik toko yang tidak valid.',
+        );
+      }
+      return (
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracy: position.accuracy,
+      );
+    } catch (error) {
+      errorMessage = _messageFor(
+        error,
+        fallback: 'Lokasi toko tidak dapat dibaca. Coba lagi.',
+      );
+      return null;
+    } finally {
+      isDeterminingLocation = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> openLocationSettings() => Geolocator.openLocationSettings();
+  Future<void> openAppSettings() => Geolocator.openAppSettings();
+
+  Future<void> setLocationWithCoordinates(
+    String label,
+    double latitude,
+    double longitude, {
+    bool reload = true,
+    bool fromDevice = false,
+    double? accuracyMeters,
+    bool reducedAccuracy = false,
+  }) async {
+    if (!_validLocationCoordinates(latitude, longitude)) {
+      throw ArgumentError('Koordinat lokasi tidak valid.');
+    }
+    location = label;
+    userLatitude = latitude;
+    userLongitude = longitude;
+    userLocationIsFromDevice = fromDevice;
+    if (fromDevice) {
+      deviceLatitude = latitude;
+      deviceLongitude = longitude;
+      userLocationAccuracyMeters = accuracyMeters;
+      userLocationAccuracyReduced = reducedAccuracy;
+    }
+    final prefs = await _prefs();
+    await prefs?.setString(_locationLabelKey, label);
+    await prefs?.setDouble(_latitudeKey, latitude);
+    await prefs?.setDouble(_longitudeKey, longitude);
+    await prefs?.setBool(_locationFromDeviceKey, fromDevice);
+    if (fromDevice) {
+      await prefs?.setDouble(_deviceLatitudeKey, latitude);
+      await prefs?.setDouble(_deviceLongitudeKey, longitude);
+      if (accuracyMeters != null) {
+        await prefs?.setDouble(_locationAccuracyKey, accuracyMeters);
+      } else {
+        await prefs?.remove(_locationAccuracyKey);
+      }
+      await prefs?.setBool(_locationReducedAccuracyKey, reducedAccuracy);
+    }
+    notifyListeners();
+    if (reload) await loadConsumerHome();
+  }
+
+  bool get hasValidUserLocation =>
+      _validLocationCoordinates(userLatitude, userLongitude);
+
+  bool get hasValidDeviceLocation =>
+      _validLocationCoordinates(deviceLatitude, deviceLongitude);
+
+  static bool _validLocationCoordinates(double? latitude, double? longitude) =>
+      latitude != null &&
+      longitude != null &&
+      latitude.isFinite &&
+      longitude.isFinite &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180 &&
+      (latitude != 0 || longitude != 0);
+
+  void setLocation(String value) {
+    const coordinates = <String, (double, double)>{
+      'Margonda, Depok': (-6.3725, 106.8323),
+      'Cibinong, Bogor': (-6.4853, 106.8422),
+      'Kemang, Jakarta': (-6.2607, 106.8134),
+    };
+    final point = coordinates[value];
+    if (point != null) {
+      unawaited(setLocationWithCoordinates(value, point.$1, point.$2));
+    } else {
+      location = value;
+      notifyListeners();
+    }
+  }
+
+  Future<void> setBagFilter(BagFilter filter) async {
+    currentFilter = filter;
+    _nearby = _allNearby
+        .where((bag) => bagMatchesFilter(bag, currentFilter))
+        .toList(growable: false);
+    notifyListeners();
+  }
+
+  Future<List<Bag>> search(String query) => backend.searchBags(
+    query.trim(),
+    latitude: userLatitude,
+    longitude: userLongitude,
+    filter: currentFilter,
+  );
   Future<List<Bag>> bagsByMerchant(String id) => backend.bagsByMerchant(id);
 
-  // ── Loads ──
   Future<void> bootstrap() async {
-    await loadProfile();
-    await loadStore();
+    final epoch = _sessionEpoch;
+    isBootstrapping = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final results = await Future.wait<dynamic>([
+        backend.currentProfile(),
+        backend.myStore(),
+        backend.businessConfig(),
+      ]);
+      if (epoch != _sessionEpoch) return;
+      _applyProfile(results[0] as Profile?);
+      _applyStore(results[1] as StoreProfile?);
+      businessConfig = results[2] as BusinessConfig;
+      await _startRealtime(epoch);
+    } catch (error) {
+      if (epoch == _sessionEpoch) {
+        errorMessage = _messageFor(error);
+        rethrow;
+      }
+    } finally {
+      if (epoch == _sessionEpoch) {
+        isBootstrapping = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> loadProfile() async {
-    final p = await backend.currentProfile();
-    if (p != null) {
-      userName = p.name;
-      userEmail = p.email;
-      userPhone = p.phone;
-      userAvatarUrl = p.avatarUrl;
-      lastMode = p.lastMode;
+    final epoch = _sessionEpoch;
+    errorMessage = null;
+    try {
+      final profile = await backend.currentProfile();
+      if (epoch != _sessionEpoch) return;
+      _applyProfile(profile);
+      notifyListeners();
+    } catch (error) {
+      _setError(error, epoch);
     }
-    notifyListeners();
+  }
+
+  Future<void> loadBusinessConfig() async {
+    final epoch = _sessionEpoch;
+    try {
+      final config = await backend.businessConfig();
+      if (epoch != _sessionEpoch) return;
+      businessConfig = config;
+      notifyListeners();
+    } catch (_) {
+      // Default migration tetap dipakai saat konfigurasi remote tak terjangkau.
+    }
   }
 
   Future<void> loadConsumerHome() async {
-    _nearby = await backend.nearbyBags();
-    _favIds = await backend.favoriteMerchantIds();
+    final epoch = _sessionEpoch;
+    final generation = ++_consumerRequestGeneration;
+    isLoadingConsumer = true;
+    errorMessage = null;
     notifyListeners();
+    try {
+      final results = await Future.wait<dynamic>([
+        backend.nearbyBags(
+          latitude: userLatitude,
+          longitude: userLongitude,
+          filter: const BagFilter(),
+        ),
+        backend.favoriteMerchantIds(),
+      ]);
+      if (epoch != _sessionEpoch || generation != _consumerRequestGeneration) {
+        return;
+      }
+      _allNearby = results[0] as List<Bag>;
+      _nearby = _allNearby
+          .where((bag) => bagMatchesFilter(bag, currentFilter))
+          .toList(growable: false);
+      _favIds = results[1] as Set<String>;
+    } catch (error) {
+      if (generation == _consumerRequestGeneration) {
+        _setError(error, epoch);
+      }
+    } finally {
+      if (epoch == _sessionEpoch && generation == _consumerRequestGeneration) {
+        isLoadingConsumer = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> loadOrders() async {
-    _active = await backend.activeOrders();
-    _history = await backend.orderHistory();
+    final epoch = _sessionEpoch;
+    isLoadingOrders = true;
+    errorMessage = null;
     notifyListeners();
+    try {
+      final results = await Future.wait([
+        backend.activeOrders(),
+        backend.orderHistory(),
+      ]);
+      if (epoch != _sessionEpoch) return;
+      _active = results[0];
+      _history = results[1];
+    } catch (error) {
+      _setError(error, epoch);
+    } finally {
+      if (epoch == _sessionEpoch) {
+        isLoadingOrders = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> loadFavorites() async {
-    _favIds = await backend.favoriteMerchantIds();
-    _favStores = await backend.favoriteStores();
-    notifyListeners();
+    final epoch = _sessionEpoch;
+    errorMessage = null;
+    try {
+      final results = await Future.wait<dynamic>([
+        backend.favoriteMerchantIds(),
+        backend.favoriteStores(),
+      ]);
+      if (epoch != _sessionEpoch) return;
+      _favIds = results[0] as Set<String>;
+      _favStores = results[1] as List<FavoriteStore>;
+      notifyListeners();
+    } catch (error) {
+      _setError(error, epoch);
+    }
   }
 
   Future<void> loadNotifications() async {
-    _notifs = await backend.notifications();
+    final epoch = _sessionEpoch;
+    isLoadingNotifications = true;
+    errorMessage = null;
     notifyListeners();
+    try {
+      final values = await backend.notifications();
+      if (epoch != _sessionEpoch) return;
+      _notifs = values;
+    } catch (error) {
+      _setError(error, epoch);
+    } finally {
+      if (epoch == _sessionEpoch) {
+        isLoadingNotifications = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> loadStore() async {
-    final s = await backend.myStore();
-    merchantSetupDone = s != null;
-    if (s != null) {
-      storeName = s.name;
-      storeCategory = s.category;
-      storeAddress = s.address;
-      openTime = s.openTime;
-      closeTime = s.closeTime;
-      storeDescription = s.description;
-      storeLogoUrl = s.logoUrl;
+    final epoch = _sessionEpoch;
+    errorMessage = null;
+    try {
+      final store = await backend.myStore();
+      if (epoch != _sessionEpoch) return;
+      _applyStore(store);
+      notifyListeners();
+    } catch (error) {
+      _setError(error, epoch);
     }
-    notifyListeners();
   }
 
   Future<void> loadMerchantData() async {
-    _bags = await backend.myBags();
-    _incoming = await backend.incomingOrders();
-    final st = await backend.merchantStats();
-    bagsSoldToday = st.bagsSoldToday;
-    incomeToday = st.incomeToday;
+    final epoch = _sessionEpoch;
+    isLoadingMerchant = true;
+    errorMessage = null;
     notifyListeners();
+    try {
+      final results = await Future.wait<dynamic>([
+        backend.myBags(),
+        backend.incomingOrders(),
+        backend.merchantStats(),
+      ]);
+      if (epoch != _sessionEpoch) return;
+      _bags = results[0] as List<MerchantBag>;
+      _incoming = results[1] as List<IncomingOrder>;
+      _applyStats(results[2] as MerchantStats);
+    } catch (error) {
+      _setError(error, epoch);
+    } finally {
+      if (epoch == _sessionEpoch) {
+        isLoadingMerchant = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> loadMerchantReviews() async {
+    final epoch = _sessionEpoch;
+    isLoadingMerchantReviews = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final values = await backend.merchantReviews();
+      if (epoch != _sessionEpoch) return;
+      _merchantReviews = values;
+    } catch (error) {
+      _setError(error, epoch);
+    } finally {
+      if (epoch == _sessionEpoch) {
+        isLoadingMerchantReviews = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> loadBalance() async {
-    balance = await backend.balance();
-    _tx = await backend.transactions();
+    final epoch = _sessionEpoch;
+    isLoadingBalance = true;
+    errorMessage = null;
     notifyListeners();
+    try {
+      final results = await Future.wait<dynamic>([
+        backend.balance(),
+        backend.transactions(),
+        backend.bankAccounts(),
+        backend.payoutRequests(),
+      ]);
+      if (epoch != _sessionEpoch) return;
+      balance = results[0] as int;
+      _tx = results[1] as List<TxRecord>;
+      _bankAccounts = results[2] as List<BankAccount>;
+      _payouts = results[3] as List<PayoutRequest>;
+      if (_bankAccounts.isNotEmpty &&
+          !_bankAccounts.any((account) => account.label == selectedBank)) {
+        final defaultAccount = _bankAccounts.where(
+          (account) => account.isDefault,
+        );
+        selectedBank =
+            (defaultAccount.isEmpty
+                    ? _bankAccounts.first
+                    : defaultAccount.first)
+                .label;
+      }
+    } catch (error) {
+      _setError(error, epoch);
+    } finally {
+      if (epoch == _sessionEpoch) {
+        isLoadingBalance = false;
+        notifyListeners();
+      }
+    }
   }
 
-  // ── Mutator ──
+  Future<void> _startRealtime(int epoch) async {
+    await _cancelRealtime();
+    if (epoch != _sessionEpoch) return;
+    _notificationSubscription = backend.watchNotifications().listen((values) {
+      if (epoch != _sessionEpoch) return;
+      final previous = {
+        for (final notification in _notifs)
+          notification.id: notification.unread,
+      };
+      final changed = values.where(
+        (notification) =>
+            !previous.containsKey(notification.id) ||
+            previous[notification.id] != notification.unread,
+      );
+      _notifs = values;
+      notifyListeners();
+      final routes = changed.map((value) => value.route).whereType<String>();
+      if (routes.any(
+        (route) => route == 'orders' || route.startsWith('order:'),
+      )) {
+        unawaited(loadOrders());
+      }
+      if (merchantSetupDone && routes.contains('merchant_orders')) {
+        unawaited(loadMerchantData());
+      }
+      if (merchantSetupDone && routes.contains('merchant_reviews')) {
+        unawaited(loadMerchantReviews());
+      }
+      if (merchantSetupDone && routes.contains('merchant_balance')) {
+        unawaited(loadBalance());
+      }
+      if (routes.contains('consumer_home')) {
+        unawaited(loadConsumerHome());
+      }
+    }, onError: (Object error) => _setError(error, epoch));
+    if (!merchantSetupDone) return;
+    _incomingSubscription = backend.watchIncomingOrders().listen((values) {
+      if (epoch != _sessionEpoch) return;
+      _incoming = values;
+      notifyListeners();
+    }, onError: (Object error) => _setError(error, epoch));
+    _transactionSubscription = backend.watchTransactions().listen((
+      values,
+    ) async {
+      if (epoch != _sessionEpoch) return;
+      _tx = values;
+      try {
+        balance = await backend.balance();
+      } catch (_) {}
+      if (epoch == _sessionEpoch) notifyListeners();
+    }, onError: (Object error) => _setError(error, epoch));
+  }
+
+  Future<void> _cancelRealtime() async {
+    await _notificationSubscription?.cancel();
+    await _incomingSubscription?.cancel();
+    await _transactionSubscription?.cancel();
+    _notificationSubscription = null;
+    _incomingSubscription = null;
+    _transactionSubscription = null;
+  }
+
   Future<bool> toggleFavorite(String merchantId) async {
     final added = await backend.toggleFavorite(merchantId);
-    if (added) {
-      _favIds.add(merchantId);
-    } else {
-      _favIds.remove(merchantId);
-    }
+    added ? _favIds.add(merchantId) : _favIds.remove(merchantId);
     notifyListeners();
-    _favStores = await backend.favoriteStores();
-    notifyListeners();
+    unawaited(loadFavorites());
     return added;
   }
 
-  Future<OrderRecord> placeOrder(Bag bag, int qty, String method) async {
-    final order = await backend.placeOrder(bag, qty, method);
-    _active.insert(0, order);
+  Future<OrderRecord> placeOrder(
+    Bag bag,
+    int quantity,
+    String method, {
+    String? idempotencyKey,
+  }) async {
+    if (quantity < 1 || quantity > bag.quantityLeft) {
+      throw const BackendException(
+        'invalid_quantity',
+        'Jumlah bag tidak sesuai stok yang tersedia.',
+      );
+    }
+    final requestSignature = '${bag.id}|$quantity|$method';
+    final key =
+        idempotencyKey ?? _checkoutKeys.putIfAbsent(requestSignature, _uuid.v4);
+    _checkoutKeys[requestSignature] = key;
+    await _persistIdempotencyKeys();
+    final order = await backend.placeOrder(
+      bag,
+      quantity,
+      method,
+      idempotencyKey: key,
+    );
+    _active.removeWhere((item) => item.id == order.id);
+    _history.removeWhere((item) => item.id == order.id);
+    if (order.status == OrderStatus.done ||
+        order.status == OrderStatus.cancelled ||
+        order.status == OrderStatus.expired) {
+      _history.insert(0, order);
+    } else {
+      _active.insert(0, order);
+    }
+    if (_checkoutKeys[requestSignature] == key) {
+      _checkoutKeys.remove(requestSignature);
+      try {
+        await _persistIdempotencyKeys();
+      } catch (_) {
+        // Order sudah committed; kegagalan cleanup lokal bukan kegagalan order.
+      }
+    }
     notifyListeners();
     return order;
   }
 
+  Future<OrderRecord> issuePickupToken(OrderRecord order) async {
+    final refreshed = await backend.issuePickupToken(order);
+    final activeIndex = _active.indexWhere((item) => item.id == order.id);
+    if (activeIndex >= 0) _active[activeIndex] = refreshed;
+    final historyIndex = _history.indexWhere((item) => item.id == order.id);
+    if (historyIndex >= 0) _history[historyIndex] = refreshed;
+    notifyListeners();
+    return refreshed;
+  }
+
   Future<void> submitReview(
-          OrderRecord order, int rating, List<String> tags, String comment) =>
-      backend.submitReview(order, rating, tags, comment);
+    OrderRecord order,
+    int rating,
+    List<String> tags,
+    String comment,
+  ) async {
+    await backend.submitReview(order, rating, tags, comment);
+    final index = _history.indexWhere((item) => item.id == order.id);
+    if (index >= 0) {
+      _history[index] = _history[index].copyWith(
+        reviewed: true,
+        canRate: false,
+      );
+    }
+    notifyListeners();
+  }
 
   Future<void> addBag({
     required String title,
     required int salePrice,
     required String pickupWindow,
     required int total,
+    required String description,
+    required List<String> contents,
+    required int originalPrice,
     String? imageUrl,
+    DateTime? availableOn,
+    DateTime? pickupStartsAt,
+    DateTime? pickupEndsAt,
   }) async {
     await backend.addBag(
-        title: title,
-        salePrice: salePrice,
-        pickupWindow: pickupWindow,
-        total: total,
-        imageUrl: imageUrl);
-    _bags = await backend.myBags();
-    notifyListeners();
+      title: title,
+      salePrice: salePrice,
+      pickupWindow: pickupWindow,
+      total: total,
+      description: description,
+      contents: contents,
+      originalPrice: originalPrice,
+      imageUrl: imageUrl,
+      availableOn: availableOn,
+      pickupStartsAt: pickupStartsAt,
+      pickupEndsAt: pickupEndsAt,
+    );
+    unawaited(loadMerchantData());
   }
 
   Future<void> updateBag(
@@ -208,61 +947,196 @@ class AppState extends ChangeNotifier {
     required int salePrice,
     required String pickupWindow,
     required int total,
+    required String description,
+    required List<String> contents,
+    required int originalPrice,
     String? imageUrl,
+    DateTime? availableOn,
+    DateTime? pickupStartsAt,
+    DateTime? pickupEndsAt,
   }) async {
-    await backend.updateBag(bag,
-        title: title,
-        salePrice: salePrice,
-        pickupWindow: pickupWindow,
-        total: total,
-        imageUrl: imageUrl);
-    _bags = await backend.myBags();
-    notifyListeners();
+    await backend.updateBag(
+      bag,
+      title: title,
+      salePrice: salePrice,
+      pickupWindow: pickupWindow,
+      total: total,
+      description: description,
+      contents: contents,
+      originalPrice: originalPrice,
+      imageUrl: imageUrl,
+      availableOn: availableOn,
+      pickupStartsAt: pickupStartsAt,
+      pickupEndsAt: pickupEndsAt,
+    );
+    unawaited(loadMerchantData());
   }
 
   Future<void> toggleBagActive(MerchantBag bag) async {
     await backend.setBagActive(bag, !bag.active);
-    _bags = await backend.myBags();
+    final index = _bags.indexWhere((item) => item.id == bag.id);
+    if (index >= 0) _bags[index] = bag.copyWith(active: !bag.active);
     notifyListeners();
+    unawaited(loadMerchantData());
   }
 
   Future<void> duplicateBag(MerchantBag bag) async {
     await backend.duplicateBag(bag);
-    _bags = await backend.myBags();
-    notifyListeners();
+    unawaited(loadMerchantData());
   }
 
-  Future<IncomingOrder?> redeemOrder(String code) async {
-    final order = await backend.redeemOrder(code);
-    _incoming = await backend.incomingOrders();
-    final st = await backend.merchantStats();
-    bagsSoldToday = st.bagsSoldToday;
-    incomeToday = st.incomeToday;
+  Future<void> markOrderReady(String orderId) async {
+    await backend.markOrderReady(orderId);
+    final index = _incoming.indexWhere((order) => order.id == orderId);
+    if (index >= 0) {
+      _incoming[index] = _incoming[index].copyWith(
+        status: IncomingOrderStatus.ready,
+        needsAction: false,
+      );
+    }
     notifyListeners();
+    unawaited(loadMerchantData());
+    unawaited(loadOrders());
+  }
+
+  Future<IncomingOrder> cancelMerchantOrder(String orderId) async {
+    final cancelled = await backend.cancelMerchantOrder(orderId);
+    final incomingIndex = _incoming.indexWhere(
+      (order) => order.id == cancelled.id,
+    );
+    if (incomingIndex >= 0) {
+      _incoming[incomingIndex] = cancelled;
+    } else {
+      _incoming.insert(0, cancelled);
+    }
+
+    final consumerIndex = _active.indexWhere(
+      (order) => order.id == cancelled.id,
+    );
+    if (consumerIndex >= 0) {
+      final consumerOrder = _active.removeAt(consumerIndex);
+      _history.insert(
+        0,
+        consumerOrder.copyWith(
+          status: OrderStatus.cancelled,
+          canRate: false,
+          clearPickupToken: true,
+        ),
+      );
+    }
+    notifyListeners();
+    unawaited(loadMerchantData());
+    unawaited(loadOrders());
+    unawaited(loadConsumerHome());
+    return cancelled;
+  }
+
+  Future<IncomingOrder?> redeemOrder(String pickupToken) async {
+    final order = await backend.redeemOrder(pickupToken);
+    if (order != null) {
+      final index = _incoming.indexWhere((item) => item.id == order.id);
+      if (index >= 0) {
+        _incoming[index] = order;
+      } else {
+        _incoming.insert(0, order);
+      }
+    }
+    notifyListeners();
+    unawaited(loadMerchantData());
+    unawaited(loadBalance());
+    unawaited(loadOrders());
     return order;
   }
 
-  Future<void> withdraw(int amount) async {
-    await backend.withdraw(amount, selectedBank);
-    balance = await backend.balance();
-    _tx = await backend.transactions();
+  Future<BankAccount> saveBankAccount({
+    required String bankCode,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolder,
+    String? idempotencyKey,
+  }) async {
+    final account = await backend.saveBankAccount(
+      bankCode: bankCode,
+      bankName: bankName,
+      accountNumber: accountNumber,
+      accountHolder: accountHolder,
+      idempotencyKey: idempotencyKey ?? _uuid.v4(),
+    );
+    final index = _bankAccounts.indexWhere((item) => item.id == account.id);
+    if (index >= 0) {
+      _bankAccounts[index] = account;
+    } else {
+      _bankAccounts.insert(0, account);
+    }
+    selectedBank = account.label;
     notifyListeners();
+    unawaited(loadBalance());
+    return account;
+  }
+
+  Future<PayoutRequest> withdraw(int amount, {String? idempotencyKey}) async {
+    if (!businessConfig.payoutsEnabled) {
+      throw const BackendException(
+        'payout_disabled',
+        'Penarikan dinonaktifkan selama pembayaran konsumen masih simulasi.',
+      );
+    }
+    final account = selectedBankAccount;
+    if (account == null) {
+      throw const BackendException(
+        'bank_required',
+        'Tambahkan rekening bank sebelum menarik saldo.',
+      );
+    }
+    final signature = '${account.id}|$amount';
+    final key = idempotencyKey ?? _payoutKeys.putIfAbsent(signature, _uuid.v4);
+    _payoutKeys[signature] = key;
+    await _persistIdempotencyKeys();
+    final request = await backend.requestPayout(
+      amount: amount,
+      bankAccountId: account.id,
+      idempotencyKey: key,
+    );
+    if (_payoutKeys[signature] == key) {
+      _payoutKeys.remove(signature);
+      try {
+        await _persistIdempotencyKeys();
+      } catch (_) {
+        // Request sudah committed; cleanup lokal dapat dicoba saat sesi ditutup.
+      }
+    }
+    _payouts.insert(0, request);
+    notifyListeners();
+    unawaited(loadBalance());
+    return request;
   }
 
   Future<void> markAllNotificationsRead() async {
     await backend.markAllNotificationsRead();
-    _notifs = await backend.notifications();
+    _notifs = [
+      for (final notification in _notifs) notification.copyWith(unread: false),
+    ];
     notifyListeners();
+    unawaited(loadNotifications());
   }
 
-  Future<void> updateProfile({String? name, String? email, String? phone, String? avatarUrl}) async {
+  Future<void> updateProfile({
+    String? name,
+    String? email,
+    String? phone,
+    String? avatarUrl,
+  }) async {
     await backend.updateProfile(
-        name: name, email: email, phone: phone, avatarUrl: avatarUrl);
+      name: name,
+      email: email,
+      phone: phone,
+      avatarUrl: avatarUrl,
+    );
     if (name != null && name.trim().isNotEmpty) userName = name.trim();
-    if (email != null && email.trim().isNotEmpty) userEmail = email.trim();
-    if (phone != null && phone.trim().isNotEmpty) userPhone = phone.trim();
+    if (phone != null) userPhone = phone.trim();
     if (avatarUrl != null) userAvatarUrl = avatarUrl;
     notifyListeners();
+    unawaited(loadProfile());
   }
 
   Future<void> updateStore({
@@ -273,7 +1147,17 @@ class AppState extends ChangeNotifier {
     String? close,
     String? description,
     String? logoUrl,
+    double? latitude,
+    double? longitude,
   }) async {
+    final resolvedLatitude = latitude ?? storeLatitude;
+    final resolvedLongitude = longitude ?? storeLongitude;
+    if (!_validLocationCoordinates(resolvedLatitude, resolvedLongitude)) {
+      throw const BackendException(
+        'invalid_store_location',
+        'Alamat toko harus memiliki titik peta yang valid.',
+      );
+    }
     await backend.upsertStore(
       name: name ?? storeName,
       category: category ?? storeCategory,
@@ -282,39 +1166,53 @@ class AppState extends ChangeNotifier {
       close: close ?? closeTime,
       description: description ?? storeDescription,
       logoUrl: logoUrl ?? storeLogoUrl,
+      latitude: resolvedLatitude,
+      longitude: resolvedLongitude,
     );
     merchantSetupDone = true;
     if (name != null && name.trim().isNotEmpty) storeName = name.trim();
     if (category != null) storeCategory = category;
-    if (address != null && address.trim().isNotEmpty) storeAddress = address.trim();
+    if (address != null && address.trim().isNotEmpty) {
+      storeAddress = address.trim();
+    }
     if (open != null) openTime = open;
     if (close != null) closeTime = close;
     if (description != null) storeDescription = description;
     if (logoUrl != null) storeLogoUrl = logoUrl;
+    storeLatitude = resolvedLatitude;
+    storeLongitude = resolvedLongitude;
+    await _startRealtime(_sessionEpoch);
     notifyListeners();
   }
 
-  /// Upload gambar lewat backend (galeri → storage), kembalikan URL/path.
-  Future<String?> uploadImage(BackendBucket bucket) => backend.uploadImage(bucket);
+  Future<String?> uploadImage(BackendBucket bucket) =>
+      backend.uploadImage(bucket);
 
-  void setDefaultPaymentMethod(String m) {
-    defaultPaymentMethod = m;
+  void setDefaultPaymentMethod(String method) {
+    defaultPaymentMethod = method;
+    unawaited(
+      _prefs().then((prefs) => prefs?.setString(_paymentMethodKey, method)),
+    );
     notifyListeners();
   }
 
-  void setBank(String b) {
-    selectedBank = b;
+  Future<void> setBankAccount(BankAccount account) async {
+    await backend.setDefaultBankAccount(account.id);
+    _bankAccounts = [
+      for (final item in _bankAccounts)
+        item.copyWith(isDefault: item.id == account.id),
+    ];
+    selectedBank = account.label;
     notifyListeners();
   }
 
-  void setLocation(String value) {
-    location = value;
-    notifyListeners();
-  }
-
-  void rememberMode(String m) {
-    lastMode = m;
-    backend.setLastMode(m);
+  void rememberMode(String value) {
+    lastMode = value;
+    unawaited(
+      backend.setLastMode(value).catchError((Object error) {
+        if (kDebugMode) debugPrint('Mode preference was not persisted: $error');
+      }),
+    );
   }
 
   void switchToMerchant() {
@@ -327,16 +1225,149 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reset untuk test: backend baru (fake) + bersihkan cache.
+  Future<void> deleteAccount() async {
+    await backend.deleteAccount();
+    await clearSessionState();
+  }
+
+  Future<void> clearSessionState({bool notify = true}) async {
+    _sessionEpoch++;
+    _consumerRequestGeneration++;
+    await _cancelRealtime();
+    backend.clearSessionCache();
+    _checkoutKeys.clear();
+    _payoutKeys.clear();
+    final prefs = await _prefs();
+    await Future.wait([
+      if (prefs != null) prefs.remove(_checkoutIdempotencyKey),
+      if (prefs != null) prefs.remove(_payoutIdempotencyKey),
+    ]);
+    pendingMerchantIntent = null;
+    mode = AppMode.consumer;
+    lastMode = 'consumer';
+    merchantSetupDone = false;
+    userName = 'Pengguna';
+    userEmail = '';
+    userPhone = '';
+    userAvatarUrl = null;
+    storeName = '';
+    storeCategory = 'Bakery';
+    storeAddress = '';
+    openTime = '08.00';
+    closeTime = '21.00';
+    storeDescription = '';
+    storeLogoUrl = null;
+    storeLatitude = null;
+    storeLongitude = null;
+    _allNearby = [];
+    _nearby = [];
+    _favIds = {};
+    _favStores = [];
+    _active = [];
+    _history = [];
+    _notifs = [];
+    _bags = [];
+    _incoming = [];
+    _merchantReviews = [];
+    _tx = [];
+    _bankAccounts = [];
+    _payouts = [];
+    selectedBank = '';
+    businessConfig = const BusinessConfig();
+    balance = 0;
+    bagsSoldToday = 0;
+    incomeToday = 0;
+    incomeThisMonth = 0;
+    foodSavedKg = 0;
+    errorMessage = null;
+    await setPendingMerchantIntent(null);
+    if (notify) notifyListeners();
+  }
+
+  void clearError() {
+    if (errorMessage == null) return;
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  void reportError(Object error) {
+    _setError(error, _sessionEpoch);
+  }
+
+  void _applyProfile(Profile? profile) {
+    if (profile == null) return;
+    userName = profile.name;
+    userEmail = profile.email;
+    userPhone = profile.phone;
+    userAvatarUrl = profile.avatarUrl;
+    lastMode = profile.lastMode;
+  }
+
+  void _applyStore(StoreProfile? store) {
+    merchantSetupDone = store != null;
+    if (store == null) return;
+    storeName = store.name;
+    storeCategory = store.category;
+    storeAddress = store.address;
+    openTime = store.openTime;
+    closeTime = store.closeTime;
+    storeDescription = store.description;
+    storeLogoUrl = store.logoUrl;
+    storeLatitude = store.latitude;
+    storeLongitude = store.longitude;
+  }
+
+  void _applyStats(MerchantStats stats) {
+    bagsSoldToday = stats.bagsSoldToday;
+    incomeToday = stats.incomeToday;
+    incomeThisMonth = stats.incomeThisMonth;
+    foodSavedKg = stats.foodSavedKg;
+  }
+
+  void _setError(Object error, int epoch) {
+    if (epoch != _sessionEpoch) return;
+    errorMessage = _messageFor(error);
+    notifyListeners();
+  }
+
+  String _messageFor(
+    Object error, {
+    String fallback = 'Terjadi kendala. Silakan coba lagi.',
+  }) {
+    if (error is BackendException) return error.message;
+    if (kDebugMode) debugPrint('SaveBite error: $error');
+    return fallback;
+  }
+
   @visibleForTesting
   void resetSession() {
+    unawaited(_cancelRealtime());
     useFakeBackend();
+    _sessionEpoch++;
+    _consumerRequestGeneration++;
+    _checkoutKeys.clear();
+    _payoutKeys.clear();
     mode = AppMode.consumer;
+    onboardingSeen = false;
     location = 'Margonda, Depok';
+    userLatitude = -6.3725;
+    userLongitude = 106.8323;
+    userLocationIsFromDevice = false;
+    deviceLatitude = null;
+    deviceLongitude = null;
+    userLocationAccuracyMeters = null;
+    userLocationAccuracyReduced = false;
+    hasLocationPermission = false;
+    locationPermissionDeniedForever = false;
+    locationServicesEnabled = true;
+    isDeterminingLocation = false;
     merchantSetupDone = false;
     locationPrimed = false;
+    pendingMerchantIntent = null;
+    currentFilter = const BagFilter();
     defaultPaymentMethod = 'GoPay';
-    selectedBank = 'BCA · ••6789';
+    selectedBank = '';
+    businessConfig = const BusinessConfig();
     userName = 'Ilham Hidayat';
     userEmail = 'ilham@gmail.com';
     userPhone = '0812-3456-7890';
@@ -348,6 +1379,9 @@ class AppState extends ChangeNotifier {
     closeTime = '21.00';
     storeDescription = '';
     storeLogoUrl = null;
+    storeLatitude = -6.3720;
+    storeLongitude = 106.8318;
+    _allNearby = [];
     _nearby = [];
     _favIds = {};
     _favStores = [];
@@ -356,10 +1390,16 @@ class AppState extends ChangeNotifier {
     _notifs = [];
     _bags = [];
     _incoming = [];
+    _merchantReviews = [];
     _tx = [];
+    _bankAccounts = [];
+    _payouts = [];
     balance = 0;
     bagsSoldToday = 0;
     incomeToday = 0;
+    incomeThisMonth = 0;
+    foodSavedKg = 0;
+    errorMessage = null;
     notifyListeners();
   }
 }

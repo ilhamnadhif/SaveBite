@@ -36,8 +36,11 @@ class AppBottomNav extends StatelessWidget {
     NavItem(Icons.grid_view_outlined, Icons.grid_view_rounded, 'Dashboard'),
     NavItem(Icons.shopping_bag_outlined, Icons.shopping_bag_rounded, 'Bag'),
     NavItem(Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Pesanan'),
-    NavItem(Icons.account_balance_wallet_outlined,
-        Icons.account_balance_wallet_rounded, 'Saldo'),
+    NavItem(
+      Icons.account_balance_wallet_outlined,
+      Icons.account_balance_wallet_rounded,
+      'Saldo',
+    ),
     NavItem(Icons.person_outline_rounded, Icons.person_rounded, 'Profil'),
   ];
 
@@ -90,8 +93,10 @@ class _NavButton extends StatelessWidget {
         children: [
           Icon(active ? item.filled : item.outlined, size: 23, color: color),
           const SizedBox(height: 3),
-          Text(item.label,
-              style: AppText.ui(10.5, weight: active ? 700 : 600, color: color)),
+          Text(
+            item.label,
+            style: AppText.ui(10.5, weight: active ? 700 : 600, color: color),
+          ),
         ],
       ),
     );
