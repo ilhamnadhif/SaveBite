@@ -30,10 +30,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _load() async {
     try {
-      appState.clearError();
       await appState.loadNotifications();
       if (!mounted) return;
-      setState(() => _error = appState.errorMessage);
+      setState(() => _error = appState.notificationsError);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -117,6 +116,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: CircularProgressIndicator(color: AppColors.greenBright),
       );
     }
+    final error = _error ?? appState.notificationsError;
     return RefreshIndicator(
       color: AppColors.greenBright,
       onRefresh: _load,
@@ -124,8 +124,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          if (_error != null) ...[
-            _NotificationError(message: _error!, onRetry: _load),
+          if (error != null) ...[
+            _NotificationError(message: error, onRetry: _load),
             const SizedBox(height: 14),
           ],
           if (isEmpty)

@@ -182,9 +182,37 @@ OrderRecord orderRecordFromMap(Map<String, dynamic> m) {
     'preparing' => OrderStatus.pending,
     'ready' => OrderStatus.ready,
     'redeemed' => OrderStatus.done,
-    'cancelled' => OrderStatus.cancelled,
+    'cancelled' || 'refunded' => OrderStatus.cancelled,
     'expired' => OrderStatus.expired,
-    _ => OrderStatus.ready,
+    _ => OrderStatus.pending,
+  };
+  final rawPaymentStatus = _str(m['payment_status']).toLowerCase();
+  final rawFraudStatus = _str(m['fraud_status']).toLowerCase();
+  final paymentState = switch (rawPaymentStatus) {
+    'creating' || 'checkout_created' || 'new' => PaymentState.awaitingPayment,
+    'pending' => PaymentState.pending,
+    'capture' => switch (rawFraudStatus) {
+      'accept' => PaymentState.paid,
+      'deny' => PaymentState.failed,
+      _ => PaymentState.pending,
+    },
+    'settlement' || 'paid' => PaymentState.paid,
+    'deny' || 'failure' || 'failed' => PaymentState.failed,
+    'cancel' || 'cancelled' => PaymentState.cancelled,
+    'expire' || 'expired' => PaymentState.expired,
+    'refund' || 'refunded' => PaymentState.refunded,
+    'partial_refund' ||
+    'chargeback' ||
+    'partial_chargeback' ||
+    'disputed' => PaymentState.disputed,
+    // Legacy order tanpa payment_status boleh memakai timestamp pembayaran.
+    // Status provider yang tidak dikenal selalu fail-closed dan tidak pernah
+    // dianggap lunas hanya karena status fulfillment berubah.
+    _ =>
+      rawPaymentStatus.isEmpty &&
+              (m['payment_verified_at'] != null || m['paid_at'] != null)
+          ? PaymentState.paid
+          : PaymentState.awaitingPayment,
   };
   final subtotal = _asInt(m['subtotal'] ?? m['subtotal_amount']);
   final fee = _asInt(m['service_fee']);
@@ -201,7 +229,7 @@ OrderRecord orderRecordFromMap(Map<String, dynamic> m) {
     reviewed: m['reviewed'] == true || m['review_id'] != null,
     quantity: _asInt(m['quantity']) == 0 ? 1 : _asInt(m['quantity']),
     paymentMethod: _str(m['payment_method']).isEmpty
-        ? 'GoPay'
+        ? 'Midtrans'
         : _str(m['payment_method']),
     canRate:
         status == OrderStatus.done &&
@@ -217,6 +245,17 @@ OrderRecord orderRecordFromMap(Map<String, dynamic> m) {
     pickupToken: _str(m['pickup_token']).isEmpty
         ? null
         : _str(m['pickup_token']),
+    paymentState: paymentState,
+    paymentRedirectUrl: _str(m['payment_redirect_url']).isEmpty
+        ? null
+        : _str(m['payment_redirect_url']),
+    paymentExpiresAt: _asDate(m['payment_expires_at']),
+    providerPaymentType: _str(m['payment_type']).isEmpty
+        ? null
+        : _str(m['payment_type']),
+    providerOrderId: _str(m['midtrans_order_id']).isEmpty
+        ? null
+        : _str(m['midtrans_order_id']),
   );
 }
 
@@ -228,12 +267,15 @@ IncomingOrder incomingOrderFromMap(Map<String, dynamic> m) {
   final name = raw.isEmpty ? 'Pelanggan' : raw;
   final status = switch (_str(m['status'])) {
     'pending' => IncomingOrderStatus.pending,
+    'paid' => IncomingOrderStatus.paid,
     'preparing' => IncomingOrderStatus.preparing,
     'ready' => IncomingOrderStatus.ready,
     'redeemed' => IncomingOrderStatus.redeemed,
-    'cancelled' => IncomingOrderStatus.cancelled,
+    'cancelled' || 'refunded' => IncomingOrderStatus.cancelled,
     'expired' => IncomingOrderStatus.expired,
-    _ => IncomingOrderStatus.paid,
+    // Nilai baru/tidak dikenal tidak boleh menjadi order berbayar yang dapat
+    // diproses merchant. View server tetap menyaring pending-payment.
+    _ => IncomingOrderStatus.pending,
   };
   final image = _str(m['bag_image_url'] ?? m['image_url']);
   return IncomingOrder(

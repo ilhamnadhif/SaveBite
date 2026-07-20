@@ -213,8 +213,8 @@ class _MapScreenState extends State<MapScreen> {
         center.longitude,
       );
       if (!mounted) return;
-      if (appState.errorMessage != null) {
-        AppFeedback.snack(context, appState.errorMessage!);
+      if (appState.consumerError != null) {
+        AppFeedback.snack(context, appState.consumerError!);
         setState(() => _mapMovedByUser = true);
         return;
       }
@@ -226,7 +226,7 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         AppFeedback.snack(
           context,
-          appState.errorMessage ?? 'Bag di area ini gagal dimuat.',
+          appState.consumerError ?? 'Bag di area ini gagal dimuat.',
         );
       }
     } finally {
@@ -437,7 +437,7 @@ class _MapScreenState extends State<MapScreen> {
               ),
               if (appState.isLoadingConsumer && bags.isEmpty)
                 const Positioned.fill(child: _MapLoadingOverlay())
-              else if (appState.errorMessage != null && bags.isEmpty)
+              else if (appState.consumerError != null && bags.isEmpty)
                 Positioned(
                   left: 24,
                   right: 24,
@@ -445,7 +445,7 @@ class _MapScreenState extends State<MapScreen> {
                   child: _MapMessage(
                     icon: Icons.cloud_off_outlined,
                     title: 'Bag belum dapat dimuat',
-                    message: appState.errorMessage!,
+                    message: appState.consumerError!,
                     actionLabel: 'Coba lagi',
                     onAction: appState.loadConsumerHome,
                   ),

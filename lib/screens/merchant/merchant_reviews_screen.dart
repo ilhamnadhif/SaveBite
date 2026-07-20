@@ -67,8 +67,8 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
                             _summary(reviews),
                             const SizedBox(height: 18),
                           ],
-                          if (appState.errorMessage != null) ...[
-                            _errorCard(appState.errorMessage!),
+                          if (appState.merchantReviewsError != null) ...[
+                            _errorCard(appState.merchantReviewsError!),
                             const SizedBox(height: 14),
                           ],
                           if (appState.isLoadingMerchantReviews &&

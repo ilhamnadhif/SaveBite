@@ -1,115 +1,112 @@
 import 'package:flutter/material.dart';
 import '../../sb.dart';
-import '../../app_nav.dart';
 
 /// A1 Splash. Pola: LAYAR PENUH (Scaffold sendiri).
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-  @override
-  void initState() {
-    super.initState();
-    _start();
-  }
-
-  Future<void> _start() async {
-    // Pengguna lama dengan sesi aktif → langsung ke ekosistem terakhir.
-    if (AuthService.isConfigured && AuthService.isSignedIn) {
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (mounted) await AppNav.handleSignedIn(context);
-      return;
-    }
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
-    if (appState.onboardingSeen) {
-      AppNav.toForkRoot(context);
-    } else {
-      AppNav.toOnboarding(context);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return StatusBarStyle.light(
       child: Scaffold(
-        backgroundColor: AppColors.green,
-        body: Stack(
-          children: [
-            // Glow radial hijau terang di area atas.
-            const Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: Alignment(0, -0.24),
-                    radius: 0.6,
-                    colors: [Color(0x5927A36A), Color(0x0027A36A)],
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Semantics(
+                  image: true,
+                  label: 'SaveBite, Every Bite Matters',
+                  child: Image.asset(
+                    'assets/images/savebite_brand.png',
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
                   ),
                 ),
               ),
             ),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const AppLogo(size: 88, background: AppColors.greenDark),
-                  const SizedBox(height: 26),
-                  Column(
-                    children: [
-                      Text(
-                        'SaveBite',
-                        style: AppText.display(
-                          38,
-                          weight: 800,
-                          color: AppColors.cream,
-                          letterSpacing: -1,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Selamatkan makanan, hemat lebih.',
-                        style: AppText.ui(
-                          15,
-                          weight: 500,
-                          color: AppColors.greenMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // Tiga titik indikator di dekat bawah.
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 78,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _dot(AppColors.amber),
-                  const SizedBox(width: 7),
-                  _dot(Colors.white.withValues(alpha: 0.3)),
-                  const SizedBox(width: 7),
-                  _dot(Colors.white.withValues(alpha: 0.3)),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _dot(Color color) {
-    return Container(
-      width: 7,
-      height: 7,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+/// Build salah konfigurasi tidak boleh terlihat seperti login demo yang
+/// berhasil. Layar ini sengaja menjelaskan langkah perbaikan tanpa pernah
+/// menampilkan key atau nilai credential.
+class StartupConfigurationErrorScreen extends StatelessWidget {
+  final String message;
+
+  const StartupConfigurationErrorScreen({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return StatusBarStyle.dark(
+      child: Scaffold(
+        backgroundColor: AppColors.cream,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const AppLogo(size: 84),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Konfigurasi aplikasi belum lengkap',
+                      textAlign: TextAlign.center,
+                      style: AppText.display(
+                        25,
+                        weight: 800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: AppText.ui(
+                        14,
+                        color: AppColors.body,
+                        height: 1.55,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.inputBorder),
+                      ),
+                      child: Text(
+                        'Untuk build normal, isi assets/config/supabase.env. '
+                        'Mode data contoh hanya aktif dengan '
+                        'SAVEBITE_DEMO=true.',
+                        textAlign: TextAlign.center,
+                        style: AppText.ui(
+                          12.5,
+                          weight: 600,
+                          color: AppColors.body,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

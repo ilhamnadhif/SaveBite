@@ -306,15 +306,22 @@ class _VoucherScreenState extends State<VoucherScreen> {
           ),
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Referensi pesanan',
-                style: AppText.ui(11.5, color: AppColors.muted),
+              Expanded(
+                child: Text(
+                  'Referensi pesanan',
+                  style: AppText.ui(11.5, color: AppColors.muted),
+                ),
               ),
-              Text(
-                _order.code,
-                style: AppText.ui(12, weight: 700, color: AppColors.ink),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  _order.code,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: AppText.ui(12, weight: 700, color: AppColors.ink),
+                ),
               ),
             ],
           ),

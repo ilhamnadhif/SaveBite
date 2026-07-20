@@ -16,7 +16,8 @@
     <application
         android:label="SaveBite"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -45,6 +46,14 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="com.savebite" android:host="login-callback"/>
+            </intent-filter>
+            <!-- Midtrans finish/error callback. Query parameters only wake the
+                 app; payment status is always verified again on the server. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="com.savebite" android:host="payment-callback"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

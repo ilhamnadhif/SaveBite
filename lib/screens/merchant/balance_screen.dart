@@ -38,8 +38,8 @@ class _BalanceScreenState extends State<BalanceScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
                     children: [
-                      if (appState.errorMessage != null) ...[
-                        _errorCard(context, appState.errorMessage!),
+                      if (appState.balanceError != null) ...[
+                        _errorCard(context, appState.balanceError!),
                         const SizedBox(height: 14),
                       ],
                       _balanceCard(context),
@@ -188,7 +188,7 @@ class _BalanceScreenState extends State<BalanceScreen> {
                         _withdrawing
                             ? 'Mengajukan…'
                             : !payoutEnabled
-                            ? 'Payout nonaktif selama simulasi'
+                            ? 'Payout belum diaktifkan'
                             : verifiedAccount
                             ? 'Tarik dana'
                             : 'Atur rekening penarikan',

@@ -44,6 +44,47 @@ void main() {
       },
     );
 
+    test(
+      'idempotency key yang dipakai dengan parameter berbeda ditolak',
+      () async {
+        final before = await backend.activeOrders();
+        final placed = await backend.placeOrder(
+          SampleData.bagRoti,
+          1,
+          'GoPay',
+          idempotencyKey: 'checkout-conflict',
+        );
+
+        await expectLater(
+          backend.placeOrder(
+            SampleData.bagRoti,
+            2,
+            'GoPay',
+            idempotencyKey: 'checkout-conflict',
+          ),
+          throwsA(_backendError('idempotency_conflict')),
+        );
+        expect(await backend.activeOrders(), hasLength(before.length + 1));
+        expect(
+          (await backend.nearbyBags())
+              .singleWhere((bag) => bag.id == SampleData.bagRoti.id)
+              .quantityLeft,
+          SampleData.bagRoti.quantityLeft - 1,
+        );
+
+        await backend.markOrderReady(placed.id);
+        final retry = await backend.placeOrder(
+          SampleData.bagRoti,
+          1,
+          'GoPay',
+          idempotencyKey: 'checkout-conflict',
+        );
+        expect(retry.id, placed.id);
+        expect(retry.status, OrderStatus.ready);
+        expect(retry.pickupToken, isNull);
+      },
+    );
+
     test('jumlah nol, negatif, melebihi stok, dan sold out ditolak', () async {
       for (final quantity in [0, -1, SampleData.bagRoti.quantityLeft + 1]) {
         await expectLater(
@@ -102,6 +143,11 @@ void main() {
           'GoPay',
           idempotencyKey: 'pickup-order',
         );
+        expect(placed.pickupToken, isNull);
+        await expectLater(
+          backend.issuePickupToken(placed),
+          throwsA(_backendError('order_not_redeemable')),
+        );
         await backend.markOrderReady(placed.id);
         final ready = (await backend.activeOrders()).singleWhere(
           (order) => order.id == placed.id,
@@ -115,8 +161,104 @@ void main() {
         expect(redeemed, isNotNull);
         expect(redeemed!.status, IncomingOrderStatus.redeemed);
         expect(await backend.redeemOrder(issued.pickupToken!), isNull);
+        expect(
+          (await backend.activeOrders()).where(
+            (order) => order.id == placed.id,
+          ),
+          isEmpty,
+        );
+        expect(
+          (await backend.orderHistory())
+              .singleWhere((order) => order.id == placed.id)
+              .status,
+          OrderStatus.done,
+        );
       },
     );
+  });
+
+  group('favorite atomic', () {
+    test('toggle beruntun konsisten dan merchant asing ditolak', () async {
+      final backend = FakeBackend();
+
+      final results = await Future.wait([
+        backend.toggleFavorite('m3'),
+        backend.toggleFavorite('m3'),
+      ]);
+      expect(results, [true, false]);
+      expect(await backend.favoriteMerchantIds(), isNot(contains('m3')));
+
+      expect(await backend.toggleFavorite('m4'), isTrue);
+      expect(
+        (await backend.favoriteStores()).map((store) => store.merchant.id),
+        contains('m4'),
+      );
+
+      await expectLater(
+        backend.toggleFavorite('merchant-tidak-ada'),
+        throwsA(_backendError('merchant_not_found')),
+      );
+    });
+  });
+
+  group('discovery bag merchant demo', () {
+    test('bag yang baru dibuat tampil di browse dan detail toko', () async {
+      final backend = FakeBackend();
+      const latitude = -6.3718;
+      const longitude = 106.8318;
+      await backend.upsertStore(
+        name: 'Toko Demo SaveBite',
+        category: 'Bakery',
+        address: 'Jl. Demo No. 1, Depok',
+        open: '08.00',
+        close: '21.00',
+        latitude: latitude,
+        longitude: longitude,
+      );
+      final now = DateTime.now();
+      await backend.addBag(
+        title: 'Bag Baru Hari Ini',
+        salePrice: 15000,
+        pickupWindow: '18.00–20.00',
+        total: 3,
+        description: 'Bag lokal untuk uji discovery.',
+        contents: const ['Roti', 'Pastry'],
+        originalPrice: 45000,
+        availableOn: DateTime(now.year, now.month, now.day),
+        pickupStartsAt: now,
+        pickupEndsAt: now.add(const Duration(hours: 2)),
+      );
+      final created = (await backend.myBags()).first;
+
+      final nearby = await backend.nearbyBags(
+        latitude: latitude,
+        longitude: longitude,
+      );
+      final published = nearby.singleWhere((bag) => bag.id == created.id);
+      expect(published.merchant.id, 'store-me');
+      expect(published.merchant.name, 'Toko Demo SaveBite');
+      expect(published.merchant.distance, '0.0 km');
+      expect(
+        await backend.bagsByMerchant('store-me'),
+        contains(predicate<Bag>((bag) => bag.id == created.id)),
+      );
+
+      await expectLater(
+        backend.placeOrder(
+          published,
+          1,
+          'GoPay',
+          idempotencyKey: 'self-purchase-demo',
+        ),
+        throwsA(_backendError('self_purchase_forbidden')),
+      );
+
+      await backend.setBagActive(created, false);
+      expect(
+        (await backend.nearbyBags()).where((bag) => bag.id == created.id),
+        isEmpty,
+      );
+    });
   });
 
   group('pembatalan merchant', () {

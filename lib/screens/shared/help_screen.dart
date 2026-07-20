@@ -20,13 +20,15 @@ class HelpScreen extends StatelessWidget {
     ),
     _Faq(
       'Metode pembayaran apa saja?',
-      'Integrasi payment gateway belum diaktifkan. GoPay, OVO, dan Virtual '
-          'Account BCA yang tampil saat ini hanya pilihan simulasi pengembangan.',
+      'Pembayaran memakai Midtrans Snap. Metode yang tersedia—misalnya GoPay, '
+          'QRIS, atau virtual account—mengikuti channel yang aktif pada akun '
+          'Midtrans merchant aplikasi.',
     ),
     _Faq(
       'Bagaimana kalau saya tidak jadi ambil?',
-      'Buka Kebijakan Pembatalan & Pengembalian Dana di Profil. Kebijakan ini '
-          'masih berupa draf sampai alur pembayaran produksi diaktifkan.',
+      'Buka Kebijakan Pembatalan & Pengembalian Dana di Profil. Pembayaran yang '
+          'belum selesai akan kedaluwarsa otomatis; pesanan yang sudah dibayar '
+          'mengikuti proses pembatalan dan refund yang tercantum di sana.',
     ),
     _Faq(
       'Bisakah satu akun jadi penjual?',

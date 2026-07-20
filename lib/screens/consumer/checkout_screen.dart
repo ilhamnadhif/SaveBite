@@ -24,10 +24,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
-    selectedMethod =
-        AppState.paymentMethods.contains(appState.defaultPaymentMethod)
-        ? appState.defaultPaymentMethod
-        : AppState.paymentMethods.first;
+    selectedMethod = 'Midtrans';
   }
 
   Future<void> _continue() async {
@@ -36,6 +33,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       AppFeedback.snack(
         context,
         'Stok bag sudah berubah. Kembali dan muat ulang ketersediaan.',
+        icon: Icons.error_outline,
+      );
+      return;
+    }
+    if (appState.usesRemoteBackend &&
+        !appState.businessConfig.paymentsEnabled) {
+      AppFeedback.snack(
+        context,
+        'Pembayaran sedang dinonaktifkan oleh server. Coba beberapa saat lagi.',
         icon: Icons.error_outline,
       );
       return;
@@ -66,7 +72,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const SizedBox(height: 20),
                   Text('Metode pembayaran', style: AppText.ui(14, weight: 700)),
                   const SizedBox(height: 11),
-                  _simulationNotice(),
+                  _paymentNotice(),
                   const SizedBox(height: 11),
                   _methodsCard(),
                   const SizedBox(height: 20),
@@ -151,17 +157,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         border: Border.all(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
+      child: const Column(
         children: [
-          _methodRow('GoPay', AppColors.gopay, last: false),
-          _methodRow('OVO', AppColors.ovo, last: false),
-          _methodRow('Virtual Account BCA', AppColors.bca, last: true),
+          ListTile(
+            leading: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.green,
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+              ),
+              child: SizedBox.square(
+                dimension: 38,
+                child: Icon(
+                  Icons.account_balance_wallet_outlined,
+                  size: 21,
+                  color: AppColors.amber,
+                ),
+              ),
+            ),
+            title: Text('Midtrans Snap'),
+            subtitle: Text('GoPay, QRIS, virtual account, dan metode lainnya'),
+            trailing: Icon(
+              Icons.verified_user_outlined,
+              color: AppColors.greenBright,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _simulationNotice() {
+  Widget _paymentNotice() {
+    final demo = !appState.usesRemoteBackend;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -172,12 +198,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.science_outlined, size: 19, color: AppColors.brown),
+          Icon(
+            demo ? Icons.science_outlined : Icons.lock_outline_rounded,
+            size: 19,
+            color: AppColors.brown,
+          ),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
-              'Mode pengembangan: payment gateway belum aktif. Tidak ada saldo '
-              'atau rekening nyata yang akan didebit.',
+              demo
+                  ? 'Mode demo eksplisit: pembayaran tidak memindahkan dana nyata.'
+                  : 'Pembayaran diproses di halaman aman Midtrans. Status lunas '
+                        'hanya dikonfirmasi oleh server.',
               style: AppText.ui(
                 11.8,
                 weight: 650,
@@ -187,61 +219,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _methodRow(String name, Color boxColor, {required bool last}) {
-    final selected = selectedMethod == name;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: '$name, metode pembayaran simulasi',
-      child: InkWell(
-        onTap: _navigating ? null : () => setState(() => selectedMethod = name),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            border: last
-                ? null
-                : const Border(bottom: BorderSide(color: AppColors.divider)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: boxColor,
-                  borderRadius: BorderRadius.circular(9),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.ui(14, weight: 600),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected
-                        ? AppColors.greenBright
-                        : AppColors.inputBorder,
-                    width: selected ? 6 : 2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -304,7 +281,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ),
       child: PrimaryButton(
         label: _navigating
-            ? 'Membuka simulasi…'
+            ? 'Menyiapkan pembayaran…'
             : 'Lanjutkan · ${formatRupiah(total)}',
         onTap: _navigating || bag.soldOut || bag.quantityLeft < 1
             ? null

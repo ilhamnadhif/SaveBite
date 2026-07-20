@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../app_nav.dart';
 import '../../sb.dart';
-import 'processing_screen.dart';
 
 /// Pesanan gagal dikonfirmasi. Retry membawa kunci idempotensi yang sama untuk
 /// mencegah duplikasi jika server sebenarnya sudah menerima percobaan pertama.
@@ -32,15 +31,13 @@ class _PaymentFailedScreenState extends State<PaymentFailedScreen> {
   void _retry() {
     if (_navigating) return;
     setState(() => _navigating = true);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => ProcessingScreen(
-          bag: widget.bag,
-          qty: widget.qty,
-          method: widget.method,
-          idempotencyKey: widget.idempotencyKey,
-        ),
-      ),
+    AppNav.toProcessing(
+      context,
+      bag: widget.bag,
+      qty: widget.qty,
+      method: widget.method,
+      idempotencyKey: widget.idempotencyKey,
+      replace: true,
     );
   }
 
@@ -119,7 +116,9 @@ class _PaymentFailedScreenState extends State<PaymentFailedScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Mode simulasi tidak mendebit saldo atau rekening nyata.',
+                          appState.usesRemoteBackend
+                              ? 'Tidak ada status lunas yang dibuat dari aplikasi; server selalu memverifikasi Midtrans.'
+                              : 'Mode demo tidak mendebit saldo atau rekening nyata.',
                           textAlign: TextAlign.center,
                           style: AppText.ui(
                             11.8,
@@ -141,7 +140,7 @@ class _PaymentFailedScreenState extends State<PaymentFailedScreen> {
               ),
               const SizedBox(height: 8),
               GhostButton(
-                label: 'Pilih metode lain',
+                label: 'Kembali ke checkout',
                 onTap: _navigating
                     ? null
                     : () => Navigator.of(context).maybePop(),

@@ -246,27 +246,12 @@ class SupabaseBackend implements Backend {
 
   @override
   Future<bool> toggleFavorite(String merchantId) async {
-    final uid = _requireUid();
-    final existing = await _sb
-        .from('favorites')
-        .select()
-        .eq('consumer_id', uid)
-        .eq('merchant_id', merchantId)
-        .maybeSingle();
-    if (existing == null) {
-      await _sb.from('favorites').insert({
-        'consumer_id': uid,
-        'merchant_id': merchantId,
-      });
-      return true;
-    } else {
-      await _sb
-          .from('favorites')
-          .delete()
-          .eq('consumer_id', uid)
-          .eq('merchant_id', merchantId);
-      return false;
-    }
+    _requireUid();
+    return _guard(
+      () async => _rpcBool(
+        await _sb.rpc('toggle_favorite', params: {'p_merchant_id': merchantId}),
+      ),
+    );
   }
 
   @override
@@ -316,58 +301,31 @@ class SupabaseBackend implements Backend {
     if (qty <= 0) {
       throw const BackendException('invalid_quantity', 'Jumlah bag minimal 1.');
     }
-    return _guard(() async {
-      final res = await _sb.rpc(
-        'purchase_bag',
-        params: {
-          'p_bag_id': bag.id,
-          'p_qty': qty,
-          'p_method': method,
-          'p_idempotency_key': idempotencyKey,
-        },
+    final row = await _invokePaymentFunction(
+      'midtrans-create',
+      body: {
+        'bag_id': bag.id,
+        'quantity': qty,
+        'payment_method': method,
+        'idempotency_key': idempotencyKey,
+      },
+    );
+    return orderRecordFromMap(row).copyWith(bag: bag);
+  }
+
+  @override
+  Future<OrderRecord> refreshPayment(OrderRecord order) async {
+    if (order.id.isEmpty) {
+      throw const BackendException(
+        'order_not_found',
+        'Pesanan tidak ditemukan.',
       );
-      final row = _rpcMap(res);
-      final subtotal =
-          (row['subtotal'] as num?)?.toInt() ?? bag.salePrice * qty;
-      final fee = (row['service_fee'] as num?)?.toInt() ?? 1000;
-      final token = (row['pickup_code'] ?? '').toString();
-      final reference = (row['order_reference'] ?? '').toString();
-      final status = switch ((row['status'] ?? 'pending').toString()) {
-        'pending' || 'paid' => OrderStatus.pending,
-        'ready' => OrderStatus.ready,
-        'redeemed' => OrderStatus.done,
-        'cancelled' || 'refunded' => OrderStatus.cancelled,
-        'expired' => OrderStatus.expired,
-        _ => OrderStatus.pending,
-      };
-      return OrderRecord(
-        id: (row['order_id'] ?? row['id'] ?? '').toString(),
-        bag: bag,
-        code: reference.isEmpty
-            ? 'SB-${bag.id.substring(0, math.min(8, bag.id.length)).toUpperCase()}'
-            : reference,
-        dateLabel: dateLabel(row['created_at']).isEmpty
-            ? 'Hari ini'
-            : dateLabel(row['created_at']),
-        amount: (row['total_amount'] as num?)?.toInt() ?? subtotal + fee,
-        status: status,
-        quantity: (row['quantity'] as num?)?.toInt() ?? qty,
-        paymentMethod: method,
-        createdAt: DateTime.tryParse('${row['created_at']}')?.toLocal(),
-        pickupStartsAt: DateTime.tryParse(
-          '${row['pickup_start_at']}',
-        )?.toLocal(),
-        expiresAt: DateTime.tryParse('${row['expires_at']}')?.toLocal(),
-        subtotalAmount: subtotal,
-        serviceFee: fee,
-        merchantNetAmount:
-            (row['merchant_net_amount'] as num?)?.toInt() ??
-            (subtotal * .9).round(),
-        pickupToken: status == OrderStatus.ready && token.isNotEmpty
-            ? token
-            : null,
-      );
-    });
+    }
+    final row = await _invokePaymentFunction(
+      'midtrans-status',
+      body: {'order_id': order.id},
+    );
+    return orderRecordFromMap(row).copyWith(bag: order.bag);
   }
 
   @override
@@ -395,7 +353,7 @@ class SupabaseBackend implements Backend {
           .from('consumer_orders')
           .select()
           .eq('consumer_id', uid)
-          .inFilter('status', ['redeemed', 'expired', 'cancelled'])
+          .inFilter('status', ['redeemed', 'expired', 'cancelled', 'refunded'])
           .order('created_at', ascending: false)
           .range(from, to),
     );
@@ -755,28 +713,35 @@ class SupabaseBackend implements Backend {
         'QR pickup tidak valid.',
       );
     }
-    return _guard(() async {
-      final res = await _sb.rpc(
-        'redeem_order',
-        params: {'p_code': code.trim()},
-      );
-      if (res == null || (res is List && res.isEmpty)) return null;
-      final row = _rpcMap(res);
-      final name = (row['customer_name'] ?? 'Pelanggan').toString();
-      return IncomingOrder(
-        id: (row['order_id'] ?? '').toString(),
-        customer: name,
-        initial: initials2(name),
-        time: timeLabel(row['created_at']),
-        bags: (row['quantity'] as num?)?.toInt() ?? 1,
-        code: (row['pickup_code'] ?? '').toString(),
-        needsAction: false,
-        redeemed: true,
-        status: IncomingOrderStatus.redeemed,
-        bagTitle: (row['bag_title'] ?? '').toString(),
-        redeemedAt: DateTime.tryParse('${row['redeemed_at']}')?.toLocal(),
-      );
-    });
+    try {
+      return await _guard(() async {
+        final res = await _sb.rpc(
+          'redeem_order',
+          params: {'p_code': code.trim()},
+        );
+        if (res == null || (res is List && res.isEmpty)) return null;
+        final row = _rpcMap(res);
+        final name = (row['customer_name'] ?? 'Pelanggan').toString();
+        return IncomingOrder(
+          id: (row['order_id'] ?? '').toString(),
+          customer: name,
+          initial: initials2(name),
+          time: timeLabel(row['created_at']),
+          bags: (row['quantity'] as num?)?.toInt() ?? 1,
+          code: (row['pickup_code'] ?? '').toString(),
+          needsAction: false,
+          redeemed: true,
+          status: IncomingOrderStatus.redeemed,
+          bagTitle: (row['bag_title'] ?? '').toString(),
+          redeemedAt: DateTime.tryParse('${row['redeemed_at']}')?.toLocal(),
+        );
+      });
+    } on BackendException catch (error) {
+      // Unknown, already rotated, or already used tokens intentionally look
+      // identical to the scanner instead of becoming a generic server error.
+      if (error.code == 'order_not_found') return null;
+      rethrow;
+    }
   }
 
   @override
@@ -1128,6 +1093,112 @@ class SupabaseBackend implements Backend {
     );
   }
 
+  Future<Map<String, dynamic>> _invokePaymentFunction(
+    String name, {
+    required Map<String, dynamic> body,
+  }) async {
+    _requireUid();
+    try {
+      final response = await _sb.functions.invoke(name, body: body);
+      final payload = response.data;
+      if (payload is! Map) {
+        throw const BackendException(
+          'invalid_response',
+          'Respons pembayaran tidak valid.',
+        );
+      }
+      final data = Map<String, dynamic>.from(payload);
+      final rawOrder = data['order'] ?? data;
+      if (rawOrder is! Map) {
+        throw const BackendException(
+          'invalid_response',
+          'Data pesanan dari pembayaran tidak valid.',
+        );
+      }
+      return Map<String, dynamic>.from(rawOrder);
+    } on BackendException {
+      rethrow;
+    } on FunctionException catch (error) {
+      final details = error.details;
+      final detailMap = details is Map
+          ? Map<String, dynamic>.from(details)
+          : const <String, dynamic>{};
+      final code = (detailMap['code'] ?? '').toString();
+      final message = (detailMap['message'] ?? detailMap['error'] ?? details)
+          .toString();
+      throw _paymentException(code, message, error.status);
+    } catch (_) {
+      throw const BackendException(
+        'payment_unreachable',
+        'Layanan pembayaran belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
+      );
+    }
+  }
+
+  BackendException _paymentException(String code, String message, int status) {
+    final normalized = '$code $message'.toLowerCase();
+    if (status == 401 || normalized.contains('not authenticated')) {
+      return const BackendException(
+        'not_authenticated',
+        'Sesi berakhir. Silakan masuk kembali.',
+      );
+    }
+    if (normalized.contains('midtrans') &&
+        (normalized.contains('credential') ||
+            normalized.contains('server key') ||
+            normalized.contains('not configured'))) {
+      return const BackendException(
+        'payment_not_configured',
+        'Credential Midtrans belum dikonfigurasi di server.',
+      );
+    }
+    if (normalized.contains('insufficient stock')) {
+      return const BackendException(
+        'insufficient_stock',
+        'Stok bag sudah berubah. Silakan cek kembali.',
+      );
+    }
+    if (normalized.contains('idempotency')) {
+      return const BackendException(
+        'idempotency_conflict',
+        'Permintaan pembayaran sudah diproses dengan data berbeda.',
+      );
+    }
+    if (normalized.contains('expired') || normalized.contains('expire')) {
+      return const BackendException(
+        'payment_expired',
+        'Waktu pembayaran sudah berakhir. Silakan buat pesanan baru.',
+      );
+    }
+    if (normalized.contains('cancel') || normalized.contains('deny')) {
+      return const BackendException(
+        'payment_cancelled',
+        'Pembayaran dibatalkan atau ditolak oleh penyedia pembayaran.',
+      );
+    }
+    if (normalized.contains('order not found')) {
+      return const BackendException(
+        'order_not_found',
+        'Pesanan tidak ditemukan.',
+      );
+    }
+    return BackendException(
+      code.isEmpty ? 'payment_failed' : code,
+      message.trim().isEmpty
+          ? 'Pembayaran belum dapat diproses. Coba lagi.'
+          : message,
+    );
+  }
+
+  bool _rpcBool(dynamic value) {
+    final result = value is List ? (value.isEmpty ? null : value.first) : value;
+    if (result is bool) return result;
+    throw const BackendException(
+      'invalid_response',
+      'Respons server tidak valid.',
+    );
+  }
+
   Future<T> _guard<T>(Future<T> Function() action) async {
     try {
       return await action();
@@ -1153,10 +1224,47 @@ class SupabaseBackend implements Backend {
           'Merchant tidak dapat membeli bag dari tokonya sendiri.',
         );
       }
+      if (raw.contains('merchant not found')) {
+        throw const BackendException(
+          'merchant_not_found',
+          'Toko tidak ditemukan atau sudah tidak aktif.',
+        );
+      }
+      if (raw.contains('order not found')) {
+        throw const BackendException(
+          'order_not_found',
+          'Pesanan tidak ditemukan.',
+        );
+      }
+      if (raw.contains('invalid pickup token')) {
+        throw const BackendException(
+          'invalid_pickup_code',
+          'QR pickup tidak valid.',
+        );
+      }
+      if (raw.contains('pickup window has not started')) {
+        throw const BackendException(
+          'pickup_not_started',
+          'Waktu pickup pesanan belum dimulai.',
+        );
+      }
+      if (raw.contains('only paid orders can be marked ready')) {
+        throw const BackendException(
+          'invalid_order_status',
+          'Status pesanan sudah berubah. Muat ulang daftar pesanan.',
+        );
+      }
+      if (raw.contains('order is not ready for pickup') ||
+          raw.contains('order is not redeemable')) {
+        throw const BackendException(
+          'order_not_redeemable',
+          'QR baru tersedia setelah merchant menandai pesanan siap.',
+        );
+      }
       if (raw.contains('payouts are disabled')) {
         throw const BackendException(
           'payout_disabled',
-          'Penarikan dinonaktifkan selama pembayaran konsumen masih simulasi.',
+          'Fitur penarikan dana belum diaktifkan oleh operator.',
         );
       }
       if (raw.contains('idempotency')) {

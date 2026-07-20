@@ -34,6 +34,153 @@ class _CommitThenLoseResponseBackend extends FakeBackend {
   }
 }
 
+class _PendingWithMatchingHistoryBackend extends FakeBackend {
+  final keys = <String>[];
+  OrderRecord? _pending;
+  Bag? _bag;
+
+  @override
+  bool get isRemote => true;
+
+  @override
+  Future<OrderRecord> placeOrder(
+    Bag bag,
+    int qty,
+    String method, {
+    required String idempotencyKey,
+  }) async {
+    keys.add(idempotencyKey);
+    _bag = bag;
+    return _pending ??= OrderRecord(
+      id: 'pending-repeat-order',
+      bag: bag,
+      code: 'SB-PENDING',
+      dateLabel: 'Hari ini',
+      amount: bag.salePrice * qty + 1000,
+      status: OrderStatus.pending,
+      quantity: qty,
+      paymentMethod: method,
+      paymentState: PaymentState.pending,
+    );
+  }
+
+  @override
+  Future<List<OrderRecord>> activeOrders() async => [?_pending];
+
+  @override
+  Future<List<OrderRecord>> orderHistory() async {
+    final bag = _bag;
+    if (bag == null) return [];
+    return [
+      OrderRecord(
+        id: 'older-completed-order',
+        bag: bag,
+        code: 'SB-OLD',
+        dateLabel: 'Kemarin',
+        amount: bag.salePrice + 1000,
+        status: OrderStatus.done,
+        quantity: 1,
+        paymentMethod: 'Midtrans',
+        paymentState: PaymentState.paid,
+      ),
+    ];
+  }
+}
+
+class _AmbiguousWithMatchingHistoryBackend extends FakeBackend {
+  final keys = <String>[];
+  Bag? _bag;
+  String? _committedKey;
+  OrderRecord? _committed;
+  bool _committedVisible = false;
+  bool _committedResolved = false;
+  int _freshOrderNumber = 0;
+
+  @override
+  bool get isRemote => true;
+
+  OrderRecord _pendingOrder(
+    Bag bag,
+    int qty,
+    String method, {
+    required String id,
+  }) => OrderRecord(
+    id: id,
+    bag: bag,
+    code: 'SB-${id.toUpperCase()}',
+    dateLabel: 'Hari ini',
+    amount: bag.salePrice * qty + 1000,
+    status: OrderStatus.pending,
+    quantity: qty,
+    paymentMethod: method,
+    paymentState: PaymentState.pending,
+  );
+
+  @override
+  Future<OrderRecord> placeOrder(
+    Bag bag,
+    int qty,
+    String method, {
+    required String idempotencyKey,
+  }) async {
+    keys.add(idempotencyKey);
+    _bag = bag;
+    if (_committedKey == null) {
+      _committedKey = idempotencyKey;
+      _committed = _pendingOrder(bag, qty, method, id: 'ambiguous-order');
+      throw const BackendException(
+        'response_lost',
+        'Respons hilang sementara server masih menyelesaikan order.',
+      );
+    }
+    if (idempotencyKey == _committedKey) {
+      _committedVisible = true;
+      return _committed!;
+    }
+    _freshOrderNumber++;
+    return _pendingOrder(
+      bag,
+      qty,
+      method,
+      id: 'fresh-order-$_freshOrderNumber',
+    );
+  }
+
+  void resolveCommittedOrder() {
+    _committedResolved = true;
+    _committedVisible = false;
+    _committed = _committed!.copyWith(
+      status: OrderStatus.done,
+      paymentState: PaymentState.paid,
+    );
+  }
+
+  @override
+  Future<List<OrderRecord>> activeOrders() async => [
+    if (_committedVisible && !_committedResolved) _committed!,
+  ];
+
+  @override
+  Future<List<OrderRecord>> orderHistory() async {
+    final bag = _bag;
+    if (bag == null) return [];
+    return [
+      OrderRecord(
+        id: 'unrelated-old-order',
+        bag: bag,
+        code: 'SB-UNRELATED',
+        dateLabel: 'Minggu lalu',
+        amount: bag.salePrice + 1000,
+        status: OrderStatus.done,
+        quantity: 1,
+        paymentMethod: 'Midtrans',
+        paymentState: PaymentState.paid,
+      ),
+      if (_committedResolved) _committed!,
+    ];
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -123,6 +270,16 @@ void main() {
         open: '08.00',
         close: '20.00',
       );
+      await appState.setLocationWithCoordinates(
+        'Lokasi Akun Lama',
+        -6.2,
+        106.8,
+        reload: false,
+        fromDevice: true,
+        accuracyMeters: 12,
+      );
+      await appState.markLocationPrimed();
+      appState.setDefaultPaymentMethod('OVO');
       appState.switchToMerchant();
 
       expect(appState.nearbyBags, isNotEmpty);
@@ -159,6 +316,20 @@ void main() {
       expect(appState.payoutRequests, isEmpty);
       expect(appState.balance, 0);
       expect(appState.pendingMerchantIntent, isNull);
+      expect(appState.locationPrimed, isFalse);
+      expect(appState.location, 'Lokasi belum dipilih');
+      expect(appState.userLatitude, isNull);
+      expect(appState.userLongitude, isNull);
+      expect(appState.deviceLatitude, isNull);
+      expect(appState.deviceLongitude, isNull);
+      expect(appState.defaultPaymentMethod, 'Midtrans');
+
+      final restoredForNextAccount = AppState();
+      await restoredForNextAccount.restoreLocalState();
+      expect(restoredForNextAccount.locationPrimed, isFalse);
+      expect(restoredForNextAccount.userLatitude, isNull);
+      expect(restoredForNextAccount.deviceLatitude, isNull);
+      expect(restoredForNextAccount.defaultPaymentMethod, 'Midtrans');
     },
   );
 
@@ -170,14 +341,14 @@ void main() {
     final bag = (await backend.nearbyBags()).first;
 
     await expectLater(
-      firstState.placeOrder(bag, 1, 'Simulasi'),
+      firstState.placeOrder(bag, 1, 'Midtrans'),
       throwsA(isA<BackendException>()),
     );
     final afterCommit = await backend.activeOrders();
 
     final restartedState = AppState();
     await restartedState.restoreLocalState();
-    final recovered = await restartedState.placeOrder(bag, 1, 'Simulasi');
+    final recovered = await restartedState.placeOrder(bag, 1, 'Midtrans');
     final afterRetry = await backend.activeOrders();
 
     expect(recovered.id, afterCommit.first.id);
@@ -185,7 +356,65 @@ void main() {
     app_backend.useFakeBackend();
   });
 
-  test('payout fail-closed selama checkout masih simulasi', () async {
+  test(
+    'riwayat dengan signature sama tidak menghapus key order yang masih pending',
+    () async {
+      final backend = _PendingWithMatchingHistoryBackend();
+      app_backend.backend = backend;
+      final firstState = AppState();
+      await firstState.restoreLocalState();
+      final bag = (await backend.nearbyBags()).first;
+
+      await firstState.placeOrder(bag, 1, 'Midtrans');
+      await firstState.loadOrders();
+
+      final restartedState = AppState();
+      await restartedState.restoreLocalState();
+      await restartedState.placeOrder(bag, 1, 'Midtrans');
+
+      expect(backend.keys, hasLength(2));
+      expect(backend.keys[1], backend.keys[0]);
+      app_backend.useFakeBackend();
+    },
+  );
+
+  test(
+    'respons ambigu tidak dikaitkan ke riwayat lama dan exact order membersihkan key',
+    () async {
+      final backend = _AmbiguousWithMatchingHistoryBackend();
+      app_backend.backend = backend;
+      final firstState = AppState();
+      await firstState.restoreLocalState();
+      final bag = (await backend.nearbyBags()).first;
+
+      await expectLater(
+        firstState.placeOrder(bag, 1, 'Midtrans'),
+        throwsA(isA<BackendException>()),
+      );
+      await firstState.loadOrders();
+
+      final retryState = AppState();
+      await retryState.restoreLocalState();
+      final recovered = await retryState.placeOrder(bag, 1, 'Midtrans');
+
+      expect(recovered.id, 'ambiguous-order');
+      expect(backend.keys, hasLength(2));
+      expect(backend.keys[1], backend.keys[0]);
+
+      backend.resolveCommittedOrder();
+      await retryState.loadOrders();
+
+      final nextCheckoutState = AppState();
+      await nextCheckoutState.restoreLocalState();
+      await nextCheckoutState.placeOrder(bag, 1, 'Midtrans');
+
+      expect(backend.keys, hasLength(3));
+      expect(backend.keys[2], isNot(backend.keys[1]));
+      app_backend.useFakeBackend();
+    },
+  );
+
+  test('payout fail-closed ketika operator belum mengaktifkannya', () async {
     await appState.loadBalance();
 
     await expectLater(

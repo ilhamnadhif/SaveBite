@@ -1,15 +1,21 @@
 # SaveBite × Supabase — Setup dan Operasi
 
-Dokumen ini menyiapkan backend online SaveBite. Untuk demo tanpa Supabase,
-jalankan `flutter run`; aplikasi akan memilih `FakeBackend` secara otomatis.
+Dokumen ini menyiapkan backend online SaveBite. Run/build normal membaca
+konfigurasi public Supabase dari `assets/config/supabase.env`. Demo offline hanya
+aktif bila diminta eksplisit dengan `SAVEBITE_DEMO=true`; konfigurasi online yang
+hilang atau tidak valid akan menampilkan layar error, bukan berpindah diam-diam
+ke data contoh.
 
-> Payment gateway belum terhubung. RPC checkout saat ini membuat order berbayar
-> sebagai kontrak sementara untuk simulasi UI. Sebelum menerima uang riil,
-> status `paid` harus hanya berasal dari webhook gateway yang terverifikasi.
+Pembayaran menggunakan Midtrans Snap. Order dimulai sebagai reservation
+`pending`; hanya webhook atau Get Status yang diverifikasi oleh server yang dapat
+mengubahnya menjadi `paid`. Deep link dan parameter callback di aplikasi hanya
+memicu refresh, bukan menjadi bukti pembayaran.
 
 ## 1. Prasyarat
 
 - satu project Supabase;
+- Supabase CLI yang sudah login dan mempunyai akses deploy ke project tersebut;
+- akun Midtrans sandbox atau production beserta **Server Key**;
 - Flutter SDK yang kompatibel dengan Dart `^3.11.4`;
 - Google OAuth client dan/atau konfigurasi Sign in with Apple;
 - Android Studio untuk Android, serta macOS + Xcode untuk iOS;
@@ -36,6 +42,10 @@ migration Supabase:
 8. `supabase/migrations/0008_simulation_safety.sql`
 9. `supabase/migrations/0009_operational_hardening.sql`
 10. `supabase/migrations/0010_cli_seed_support.sql`
+11. `supabase/migrations/0011_backend_integrity.sql`
+12. `supabase/migrations/0012_midtrans_payments.sql`
+13. `supabase/migrations/0013_rls_performance.sql`
+14. `supabase/migrations/0014_security_advisor_hardening.sql`
 
 Migration kedua bergantung pada skema pertama. Ia menambahkan lifecycle order,
 snapshot nilai transaksi, RPC idempoten, token pickup hash-only, review per
@@ -45,13 +55,22 @@ Migration ketiga menambahkan publisher notifikasi bag terjadwal, vault nomor
 rekening terenkripsi dengan audit akses, serta penghapusan akun dua fase yang
 aman untuk diulang.
 Migration berikutnya menambahkan pembatalan order/review merchant, TTL token
-pickup, konfigurasi biaya publik yang aman, input isi perkiraan bag, serta
-fail-closed ledger/payout selama checkout masih simulasi.
+pickup, konfigurasi biaya publik yang aman, input isi perkiraan bag, serta guard
+fail-closed yang dibutuhkan oleh alur transaksi.
 Migration kesembilan memastikan order `preparing` ikut kedaluwarsa, menutup
 kolom owner merchant dari query katalog, menyediakan RPC owner-only untuk profil
 toko, dan mewajibkan actor+reason pada setiap akses plaintext rekening.
 Migration kesepuluh mengizinkan sesi operator resmi Supabase CLI menjalankan
 seed tanpa mengendurkan guard mutasi untuk role aplikasi.
+Migration kesebelas memperketat invariant backend dan integritas mutasi yang
+dipakai aplikasi. Migration kedua belas menggantikan kontrak checkout simulasi
+dengan reservation pembayaran Midtrans, tabel attempt dan state-machine,
+webhook/Get Status terverifikasi, serta expiry reservation yang idempoten.
+Migration ketiga belas mengoptimalkan evaluation helper Auth pada policy RLS
+tanpa mengubah izin. Migration keempat belas mengunci `search_path` dan mencabut
+akses RPC langsung ke fungsi yang hanya boleh dipanggil oleh trigger.
+Pembayaran masuk aktif setelah fungsi dan credential dikonfigurasi, tetapi rail
+payout keluar tetap dinonaktifkan.
 
 `supabase/seed.sql` adalah fixture khusus local/staging dan tidak boleh dijalankan
 di production. Seed membuat delapan principal Auth owner dengan ID tetap,
@@ -101,41 +120,118 @@ diaktifkan.
 
 ## 4. Konfigurasi runtime
 
-Salin template lokal:
-
-```bash
-cp .env.example .env
-```
-
-Isi hanya konfigurasi klien:
+Isi konfigurasi public klien yang dibundle di
+`assets/config/supabase.env`:
 
 ```dotenv
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-publishable-or-anon-key
+SUPABASE_PUBLISHABLE_KEY=your-publishable-or-anon-key
 ```
 
-Jalankan:
+Project URL dan publishable/anon key memang public untuk aplikasi mobile dan
+tetap dibatasi RLS. Jangan pernah memasukkan `service_role`, `sb_secret_`, atau
+Midtrans Server Key ke asset, source Flutter, log, maupun binary aplikasi.
+
+Run normal tidak membutuhkan dart-define:
 
 ```bash
 flutter pub get
+flutter run
+```
+
+File root `.env` tetap dapat dipakai sebagai override build opsional. Jika salah
+satu define Supabase diberikan, keduanya harus lengkap dan akan menang atas
+asset:
+
+```bash
+cp .env.example .env
 flutter run --dart-define-from-file=.env
 ```
 
-`.env` sudah masuk `.gitignore`, tidak tercantum sebagai asset di `pubspec.yaml`,
-dan tidak dibaca oleh `flutter_dotenv`. Nilainya masuk sebagai compile-time
-define; file `.env` itu sendiri tidak dibundle. Untuk CI, sediakan file sementara
-dari secret store atau gunakan:
+Untuk demo offline deterministik, gunakan flag yang eksplisit:
 
 ```bash
-flutter run \
-  --dart-define=SUPABASE_URL=https://your-project.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=your-publishable-or-anon-key
+flutter run --dart-define=SAVEBITE_DEMO=true
 ```
 
-Tanpa kedua nilai tersebut aplikasi sengaja berjalan offline dengan
-`FakeBackend`.
+Tanpa konfigurasi valid dan tanpa flag tersebut, aplikasi menampilkan error
+konfigurasi. `FakeBackend` tidak pernah dipilih otomatis pada build normal.
 
-## 5. Izin perangkat dan peta
+## 5. Integrasi Midtrans
+
+Kode database, Edge Function, deep link, dan UI pembayaran sudah tersedia.
+Aktivasi sandbox hanya membutuhkan Midtrans Server Key pada server serta deploy
+empat fungsi; aplikasi mobile tidak membutuhkan Midtrans Client Key maupun
+Server Key.
+
+Buat file secret lokal dari template yang tidak memuat credential asli:
+
+```bash
+cp supabase/midtrans.env.example supabase/.env.midtrans.local
+```
+
+Isi Server Key. Environment bersifat opsional dan default-nya `sandbox`:
+
+```dotenv
+MIDTRANS_SERVER_KEY=your-midtrans-server-key
+MIDTRANS_ENVIRONMENT=sandbox
+```
+
+File nyata `supabase/.env.midtrans.local` tercakup `.gitignore`. Hubungkan CLI,
+kirim secret, lalu deploy keempat fungsi dari root repository:
+
+```bash
+supabase login
+supabase link --project-ref <project-ref>
+supabase secrets set --env-file supabase/.env.midtrans.local
+supabase functions deploy midtrans-create
+supabase functions deploy midtrans-status
+supabase functions deploy midtrans-webhook
+supabase functions deploy midtrans-return
+```
+
+Pada staging yang fungsi-fungsinya sudah terpasang, cukup jalankan
+`supabase secrets set MIDTRANS_SERVER_KEY='...'`; perubahan secret tersedia
+langsung tanpa deploy ulang. Sandbox adalah default.
+
+`SUPABASE_URL`, publishable/anon key, dan service-role/secret key disediakan oleh
+host Supabase untuk Edge Functions. Jangan menyalinnya ke aplikasi mobile atau
+ke template Midtrans. Untuk production, gunakan Server Key production dan ubah
+`MIDTRANS_ENVIRONMENT=production`, lalu kirim ulang secret sebelum deploy/retest.
+
+URL notifikasi adalah:
+
+```text
+https://<project-ref>.supabase.co/functions/v1/midtrans-webhook
+```
+
+`midtrans-create` menurunkan URL tersebut dari `SUPABASE_URL` dan mengirimkannya
+sebagai header `X-Override-Notification` pada setiap transaksi Snap. Karena itu
+tidak ada URL webhook yang perlu ditanam di mobile; URL yang sama boleh dipasang
+di dashboard Midtrans sebagai fallback operasional.
+
+Keempat fungsi sengaja memakai `verify_jwt = false` di `supabase/config.toml` agar
+gateway Supabase tidak menolak token dari project yang memakai signing key
+asimetris. Ini tidak membuat create/status anonim: kedua handler tetap
+mewajibkan bearer token dan memvalidasi user dengan `auth.getUser()`. Endpoint
+webhook memang tidak membawa JWT pengguna; handler memverifikasi signature
+SHA-512 Midtrans dan selalu mengambil Get Status otoritatif sebelum memutasi
+order. `midtrans-return` hanya mengembalikan redirect HTTPS-ke-deep-link; endpoint
+ini tidak membaca atau mengubah status pembayaran.
+
+Callback selesai/error sudah didaftarkan pada Android dan iOS sebagai:
+
+```text
+com.savebite://payment-callback/
+```
+
+Callback hanya membangunkan aplikasi dan memicu sinkronisasi status. Uji sandbox
+minimal untuk status pending, settlement/capture, deny/failure, cancel, expiry,
+refund, serta callback ketika aplikasi aktif, background, dan sebelumnya
+ditutup. Jangan beralih ke production sebelum hasil webhook, Get Status, stok,
+dan ledger sudah direkonsiliasi.
+
+## 6. Izin perangkat dan peta
 
 Android sudah mendeklarasikan Internet, kamera, coarse location, dan fine
 location. iOS sudah mempunyai usage description untuk kamera, lokasi saat app
@@ -156,33 +252,29 @@ Uji pada perangkat nyata:
 - izin kamera ditolak/diberikan dan scan QR pickup;
 - pemilihan gambar dari galeri serta penolakan file di atas 2 MB.
 
-## 6. Cron order dan bag terjadwal
+## 7. Cron order dan bag terjadwal
 
-`public.expire_orders(limit)` dan
-`public.publish_due_bag_notifications(limit)` harus dipanggil periodik oleh
-konteks tepercaya. Fungsi pertama mengubah order `paid`/`preparing`/`ready` yang
-melewati `expires_at` menjadi `expired`. Fungsi kedua menerbitkan notifikasi terdeduplikasi
-untuk follower ketika bag terjadwal memasuki tanggal tersedia di zona Jakarta.
-Keduanya tidak dapat dieksekusi oleh klien `anon`/`authenticated`.
+`public.expire_orders(limit)` melepaskan reservation pembayaran yang melewati
+`payment_expires_at`, lalu mengakhiri order `paid`/`preparing`/`ready` yang
+melewati jendela pickup. `public.publish_due_bag_notifications(limit)`
+menerbitkan notifikasi terdeduplikasi untuk follower ketika bag terjadwal
+memasuki tanggal tersedia di zona Jakarta. Keduanya hanya boleh dipanggil oleh
+konteks tepercaya, bukan klien `anon`/`authenticated`.
 
-Rekomendasi: aktifkan **Supabase Cron** dan buat job setiap lima menit dengan
-perintah:
+Migration `0012` mengaktifkan `pg_cron` dan memasang ulang job
+`savebite-expire-orders` secara idempoten setiap lima menit. Jangan membuat job
+expiry kedua. Verifikasi otomatisasi setelah migration:
 
 ```sql
-select public.expire_orders(500);
-select public.publish_due_bag_notifications(1000);
+select jobid, jobname, schedule, command, active
+from cron.job
+where jobname = 'savebite-expire-orders';
 ```
 
-Jika menggunakan SQL `pg_cron`, aktifkan extension dari dashboard lalu jadwalkan
-ekuivalennya:
+Publisher notifikasi bag tetap perlu dijadwalkan satu kali. Bila job dengan nama
+ini belum ada, jalankan:
 
 ```sql
-select cron.schedule(
-  'savebite-expire-orders',
-  '*/5 * * * *',
-  'select public.expire_orders(500)'
-);
-
 select cron.schedule(
   'savebite-publish-due-bags',
   '*/5 * * * *',
@@ -190,19 +282,19 @@ select cron.schedule(
 );
 ```
 
-Pantau hasil job dan alert bila berulang kali gagal. Worker eksternal juga boleh
-memanggil RPC dengan `service_role`, tetapi key tersebut harus tetap berada di
-server/secret manager.
+Pantau `cron.job_run_details` dan buat alert bila job berulang kali gagal.
+Worker eksternal juga boleh memanggil RPC dengan `service_role`, tetapi key
+tersebut harus tetap berada di server/secret manager.
 
-## 7. Rekening dan payout manual
+## 8. Rekening dan payout manual
 
 Payout di aplikasi adalah workflow manual, bukan bukti transfer selesai:
 
-> Migration `0008` menetapkan `payouts_enabled = 0` selama checkout belum
-> diverifikasi payment gateway. Karena payment gateway memang ditunda, request
-> payout baru akan ditolak fail-closed dan pendapatan simulasi tidak masuk saldo
-> yang dapat ditarik. Langkah di bawah adalah runbook operasional yang sudah
-> disiapkan untuk data non-simulasi ketika fitur uang riil kelak diaktifkan.
+> Migration `0012` mengaktifkan pembayaran masuk Midtrans yang terverifikasi,
+> tetapi tetap menetapkan `payouts_enabled = 0`. Request payout baru akan ditolak
+> fail-closed sampai rail transfer keluar serta prosedur refund/chargeback
+> operasional tersedia. Langkah di bawah adalah runbook yang sudah disiapkan
+> untuk diaktifkan setelah batas eksternal tersebut diselesaikan.
 
 1. merchant mendaftarkan rekening; skema publik hanya menyimpan hash ber-pepper
    yang mencakup kode bank, empat digit terakhir, dan metadata aman. Nomor penuh
@@ -281,7 +373,7 @@ berhasil. RPC final juga memeriksa ketiga bucket dan menolak penghapusan Auth
 selama masih ada objek dengan prefix UID, sehingga file publik tidak menjadi
 orphan tanpa pemilik.
 
-## 8. Build release
+## 9. Build release
 
 ### Android
 
@@ -297,7 +389,7 @@ sengaja gagal bila konfigurasi signing ini tidak tersedia sehingga artifact
 distribusi tidak pernah diam-diam memakai debug key.
 
 ```bash
-flutter build appbundle --release --dart-define-from-file=.env
+flutter build appbundle --release
 ```
 
 ### iOS
@@ -312,20 +404,20 @@ Ganti `DEVELOPMENT_TEAM`, pilih certificate/provisioning profile yang benar di
 Xcode, aktifkan capability Sign in with Apple bila provider digunakan, lalu:
 
 ```bash
-flutter build ipa --release --dart-define-from-file=.env
+flutter build ipa --release
 ```
 
 Sebelum upload store, naikkan `version`/build number di `pubspec.yaml`, tes
 artifact release pada perangkat, dan verifikasi OAuth callback, kamera, lokasi,
 galeri, serta account deletion.
 
-## 9. Quality gate
+## 10. Quality gate
 
 ```bash
 flutter analyze
 flutter test
 flutter test --coverage
-flutter build apk --debug --dart-define-from-file=.env
+flutter build apk --debug
 ```
 
 Untuk validasi backend, gunakan sedikitnya dua akun konsumen dan dua akun
@@ -334,11 +426,14 @@ retry dengan idempotency key yang sama, rotasi dan penggunaan ulang QR,
 redeem di luar waktu pickup, review order orang lain, baca order lintas merchant,
 payout melebihi saldo, serta hapus akun saat payout masih berjalan.
 
-## 10. Setup eksternal sebelum produksi
+## 11. Setup eksternal sebelum produksi
 
-- **Payment gateway:** pilih provider, buat status `pending`, endpoint webhook
-  bertanda tangan, rekonsiliasi, refund/cancel/expiry, dan hanya ubah ke `paid`
-  setelah callback server terverifikasi.
+- **Midtrans:** implementasi kode sudah lengkap. Pengelola tinggal memasukkan
+  Server Key server-side, memilih environment, deploy keempat Edge Function, dan
+  menyelesaikan uji sandbox end-to-end sebelum memakai credential production.
+- **Supabase Auth:** aplikasi hanya mengekspos login OAuth. Bila email/password
+  diaktifkan di kemudian hari, aktifkan Leaked Password Protection pada Auth
+  Attack Protection dan ulangi Security Advisor.
 - **OS push:** notifikasi realtime saat aplikasi terbuka sudah bekerja melalui
   Supabase. Background/terminated push memerlukan project FCM, APNs key,
   capability iOS, registrasi token perangkat, dan worker/Edge Function pengirim.

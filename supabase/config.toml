@@ -382,6 +382,23 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# Gateway verification is disabled for all four functions so projects using
+# asymmetric Supabase signing keys are not rejected by the legacy gateway JWT
+# verifier.  Create/status still authenticate authoritatively inside the
+# handler with `auth.getUser()`.  The webhook instead verifies Midtrans SHA-512
+# and independently fetches provider status.
+[functions.midtrans-create]
+verify_jwt = false
+
+[functions.midtrans-status]
+verify_jwt = false
+
+[functions.midtrans-webhook]
+verify_jwt = false
+
+[functions.midtrans-return]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

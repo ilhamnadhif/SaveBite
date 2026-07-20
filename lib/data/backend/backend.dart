@@ -16,7 +16,7 @@ class BackendException implements Exception {
 }
 
 /// Kontrak akses data SaveBite. Dua implementasi:
-/// - [FakeBackend] (data contoh in-memory, untuk offline/test)
+/// - [FakeBackend] (data contoh in-memory, untuk demo eksplisit/test)
 /// - [SupabaseBackend] (Postgres + Storage + Auth)
 abstract class Backend {
   bool get isRemote;
@@ -63,6 +63,10 @@ abstract class Backend {
     String method, {
     required String idempotencyKey,
   });
+
+  /// Meminta backend menyinkronkan status pembayaran dari provider. Client
+  /// tidak pernah dipercaya untuk menandai order sebagai lunas.
+  Future<OrderRecord> refreshPayment(OrderRecord order);
   Future<List<OrderRecord>> activeOrders();
   Future<List<OrderRecord>> orderHistory();
   Future<OrderRecord> issuePickupToken(OrderRecord order);

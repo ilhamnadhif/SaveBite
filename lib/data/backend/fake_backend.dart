@@ -6,8 +6,9 @@ import '../models.dart';
 import '../sample_data.dart';
 import 'backend.dart';
 
-/// Backend in-memory berbasis [SampleData]. Dipakai saat kredensial Supabase
-/// tidak ada (offline/demo) dan untuk test. Semua perubahan bertahan selama sesi.
+/// Backend in-memory berbasis [SampleData]. Dipakai hanya untuk demo eksplisit
+/// dan test deterministik; credential production yang hilang tidak jatuh ke
+/// backend ini. Semua perubahan bertahan selama sesi.
 class FakeBackend implements Backend {
   @override
   bool get isRemote => false;
@@ -24,8 +25,11 @@ class FakeBackend implements Backend {
       'savebite-pickup:${_id('token-')}:${DateTime.now().microsecondsSinceEpoch}';
 
   final Map<String, OrderRecord> _ordersByIdempotencyKey = {};
+  final Map<String, String> _orderSignaturesByIdempotencyKey = {};
   final Map<String, int> _remainingStock = {};
   final Map<String, String> _pickupTokens = {};
+  final Map<String, DateTime> _pickupTokenExpiries = {};
+  final Set<String> _locallyPublishedBagIds = {};
   final StreamController<void> _notificationChanges =
       StreamController<void>.broadcast();
   final StreamController<void> _incomingChanges =
@@ -33,10 +37,43 @@ class FakeBackend implements Backend {
   final StreamController<void> _transactionChanges =
       StreamController<void>.broadcast();
 
+  /// `async*` yang berhenti pada yield pertama dapat membuat `cancel()`
+  /// menunggu event berikutnya di fake-async test. Controller ini meneruskan
+  /// cancellation langsung ke broadcast source sehingga logout/reset selalu
+  /// selesai dan tidak meninggalkan listener sesi lama.
+  Stream<List<T>> _watchSnapshots<T>(
+    List<T> Function() snapshot,
+    Stream<void> changes,
+  ) {
+    StreamSubscription<void>? changesSubscription;
+    late final StreamController<List<T>> controller;
+    controller = StreamController<List<T>>(
+      onListen: () {
+        controller.add(snapshot());
+        changesSubscription = changes.listen(
+          (_) => controller.add(snapshot()),
+          onError: controller.addError,
+          onDone: controller.close,
+        );
+      },
+      onPause: () => changesSubscription?.pause(),
+      onResume: () => changesSubscription?.resume(),
+      onCancel: () => changesSubscription?.cancel(),
+    );
+    return controller.stream;
+  }
+
   @override
   void clearSessionCache() {
     _ordersByIdempotencyKey.clear();
+    _orderSignaturesByIdempotencyKey.clear();
     _pickupTokens.clear();
+    _pickupTokenExpiries.clear();
+    for (var i = 0; i < _active.length; i++) {
+      if (_active[i].pickupToken != null) {
+        _active[i] = _active[i].copyWith(clearPickupToken: true);
+      }
+    }
     _bankByIdempotencyKey.clear();
     _payoutByIdempotencyKey.clear();
   }
@@ -146,7 +183,7 @@ class FakeBackend implements Backend {
     double? longitude,
     BagFilter filter = const BagFilter(),
   }) async {
-    final bags = SampleData.nearbyBags
+    final bags = [...SampleData.nearbyBags, ..._locallyPublishedBags()]
         .map((bag) {
           final remaining = _remainingStock[bag.id] ?? bag.quantityLeft;
           var updated = bag.copyWith(
@@ -204,6 +241,62 @@ class FakeBackend implements Backend {
     return bags;
   }
 
+  List<Bag> _locallyPublishedBags() {
+    final merchant = _localMerchant();
+    if (merchant == null || _locallyPublishedBagIds.isEmpty) return const [];
+
+    return _bags
+        .where(
+          (bag) =>
+              _locallyPublishedBagIds.contains(bag.id) &&
+              bag.active &&
+              bag.quantityLeft > 0,
+        )
+        .map(
+          (bag) => Bag(
+            id: bag.id,
+            merchant: merchant,
+            title: bag.title,
+            description: bag.description,
+            originalPrice: math.max(bag.originalPrice, bag.salePrice),
+            salePrice: bag.salePrice,
+            quantityLeft: bag.quantityLeft,
+            quantityTotal: bag.total,
+            pickupWindow: bag.pickupWindow,
+            image: bag.image,
+            contents: bag.contents,
+            availableOn: bag.availableOn,
+            pickupStartsAt: bag.pickupStartsAt,
+            pickupEndsAt: bag.pickupEndsAt,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Merchant? _localMerchant() {
+    final store = _store;
+    if (store == null) return null;
+    final storeName = store.name.trim();
+    return Merchant(
+      id: store.id,
+      name: storeName,
+      initial: storeName.isEmpty
+          ? 'T'
+          : storeName.substring(0, 1).toUpperCase(),
+      avatarColor: SampleData.rotiNyaman.avatarColor,
+      category: store.category,
+      rating: 0,
+      reviewCount: 0,
+      distance: 'Lokasi toko',
+      address: store.address,
+      hours: '${store.openTime}–${store.closeTime}',
+      coverImage: store.logoUrl ?? SampleData.img1,
+      bagsSaved: 0,
+      latitude: store.latitude,
+      longitude: store.longitude,
+    );
+  }
+
   double _distanceKm(double lat1, double lng1, double lat2, double lng2) {
     const earthRadiusKm = 6371.0;
     double radians(double value) => value * math.pi / 180;
@@ -254,15 +347,54 @@ class FakeBackend implements Backend {
 
   @override
   Future<bool> toggleFavorite(String merchantId) async {
-    final added = _favorites.add(merchantId);
-    if (!added) _favorites.remove(merchantId);
-    return added;
+    if (_favorites.remove(merchantId)) return false;
+
+    final merchantExists = SampleData.merchants.any(
+      (merchant) => merchant.id == merchantId,
+    );
+    if (!merchantExists && _store?.id != merchantId) {
+      throw const BackendException(
+        'merchant_not_found',
+        'Toko tidak ditemukan atau sudah tidak aktif.',
+      );
+    }
+    _favorites.add(merchantId);
+    return true;
   }
 
   @override
-  Future<List<FavoriteStore>> favoriteStores() async => SampleData.favorites
-      .where((f) => _favorites.contains(f.merchant.id))
-      .toList();
+  Future<List<FavoriteStore>> favoriteStores() async {
+    final availableBags = await nearbyBags();
+    final merchants = <String, Merchant>{
+      for (final merchant in SampleData.merchants) merchant.id: merchant,
+      for (final bag in availableBags) bag.merchant.id: bag.merchant,
+    };
+    final localMerchant = _localMerchant();
+    if (localMerchant != null) {
+      merchants[localMerchant.id] = localMerchant;
+    }
+    final quantities = <String, int>{};
+    for (final bag in availableBags) {
+      quantities[bag.merchant.id] =
+          (quantities[bag.merchant.id] ?? 0) + bag.quantityLeft;
+    }
+
+    return _favorites
+        .map((merchantId) {
+          final merchant = merchants[merchantId];
+          if (merchant == null) return null;
+          final quantity = quantities[merchantId] ?? 0;
+          return FavoriteStore(
+            merchant: merchant,
+            availability: quantity > 0
+                ? '$quantity bag tersedia'
+                : 'Habis hari ini',
+            soldOut: quantity == 0,
+          );
+        })
+        .whereType<FavoriteStore>()
+        .toList(growable: false);
+  }
 
   @override
   Future<OrderRecord> placeOrder(
@@ -271,10 +403,42 @@ class FakeBackend implements Backend {
     String method, {
     required String idempotencyKey,
   }) async {
+    final normalizedMethod = method.trim();
+    if (qty < 1 || qty > 100) {
+      throw const BackendException(
+        'invalid_quantity',
+        'Jumlah bag harus antara 1 dan 100.',
+      );
+    }
+    if (normalizedMethod.isEmpty || normalizedMethod.length > 64) {
+      throw const BackendException(
+        'invalid_payment_method',
+        'Metode pembayaran tidak valid.',
+      );
+    }
+    if (idempotencyKey.length < 8 || idempotencyKey.length > 128) {
+      throw const BackendException(
+        'invalid_idempotency_key',
+        'Identitas permintaan checkout tidak valid.',
+      );
+    }
+
+    final signature = '${bag.id}|$qty|$normalizedMethod';
     final existing = _ordersByIdempotencyKey[idempotencyKey];
-    if (existing != null) return existing;
-    if (qty <= 0) {
-      throw const BackendException('invalid_quantity', 'Jumlah bag minimal 1.');
+    if (existing != null) {
+      if (_orderSignaturesByIdempotencyKey[idempotencyKey] != signature) {
+        throw const BackendException(
+          'idempotency_conflict',
+          'Permintaan yang sama sudah diproses dengan data berbeda.',
+        );
+      }
+      return existing;
+    }
+    if (_store?.id == bag.merchant.id) {
+      throw const BackendException(
+        'self_purchase_forbidden',
+        'Merchant tidak dapat membeli bag dari tokonya sendiri.',
+      );
     }
     final remaining = _remainingStock[bag.id] ?? bag.quantityLeft;
     if (remaining < qty || bag.soldOut) {
@@ -287,7 +451,6 @@ class FakeBackend implements Backend {
     const serviceFee = 1000;
     final now = DateTime.now();
     final code = _code();
-    final token = _token();
     final order = OrderRecord(
       id: _id('order-'),
       bag: bag,
@@ -296,17 +459,17 @@ class FakeBackend implements Backend {
       amount: subtotal + serviceFee,
       status: OrderStatus.pending,
       quantity: qty,
-      paymentMethod: method,
+      paymentMethod: normalizedMethod,
       createdAt: now,
       expiresAt: bag.pickupEndsAt ?? now.add(const Duration(hours: 4)),
       subtotalAmount: subtotal,
       serviceFee: serviceFee,
       merchantNetAmount: (subtotal * .9).round(),
-      pickupToken: token,
     );
     _remainingStock[bag.id] = remaining - qty;
     _active.insert(0, order);
     _ordersByIdempotencyKey[idempotencyKey] = order;
+    _orderSignaturesByIdempotencyKey[idempotencyKey] = signature;
     _incoming.insert(
       0,
       IncomingOrder(
@@ -329,9 +492,16 @@ class FakeBackend implements Backend {
         expiresAt: order.expiresAt,
       ),
     );
-    _pickupTokens[token] = order.id;
     _incomingChanges.add(null);
     return order;
+  }
+
+  @override
+  Future<OrderRecord> refreshPayment(OrderRecord order) async {
+    for (final candidate in [..._active, ..._history]) {
+      if (candidate.id == order.id) return candidate;
+    }
+    throw const BackendException('order_not_found', 'Pesanan tidak ditemukan.');
   }
 
   @override
@@ -342,19 +512,59 @@ class FakeBackend implements Backend {
 
   @override
   Future<OrderRecord> issuePickupToken(OrderRecord order) async {
-    if (order.status != OrderStatus.ready) {
+    final index = _active.indexWhere((item) => item.id == order.id);
+    if (index < 0) {
+      throw const BackendException(
+        'order_not_found',
+        'Pesanan tidak ditemukan.',
+      );
+    }
+    final current = _active[index];
+    if (current.status != OrderStatus.ready) {
       throw const BackendException(
         'order_not_redeemable',
-        'Pesanan ini tidak lagi dapat diambil.',
+        'QR baru tersedia setelah merchant menandai pesanan siap.',
+      );
+    }
+    final now = DateTime.now();
+    if (current.expiresAt != null && !current.expiresAt!.isAfter(now)) {
+      throw const BackendException(
+        'order_expired',
+        'Masa pickup pesanan sudah berakhir.',
       );
     }
     final token = _token();
-    final refreshed = order.copyWith(pickupToken: token);
-    final index = _active.indexWhere((item) => item.id == order.id);
-    if (index >= 0) _active[index] = refreshed;
-    _pickupTokens.removeWhere((_, orderId) => orderId == order.id);
+    final refreshed = current.copyWith(pickupToken: token);
+    _active[index] = refreshed;
+    _removePickupTokensForOrder(order.id);
     _pickupTokens[token] = order.id;
+    final tokenDeadline = now.add(const Duration(seconds: 90));
+    _pickupTokenExpiries[token] =
+        current.expiresAt != null && current.expiresAt!.isBefore(tokenDeadline)
+        ? current.expiresAt!
+        : tokenDeadline;
+    _cacheOrderRecord(refreshed);
     return refreshed;
+  }
+
+  void _cacheOrderRecord(OrderRecord record) {
+    final safeRecord = record.copyWith(clearPickupToken: true);
+    for (final entry in _ordersByIdempotencyKey.entries.toList()) {
+      if (entry.value.id == record.id) {
+        _ordersByIdempotencyKey[entry.key] = safeRecord;
+      }
+    }
+  }
+
+  void _removePickupTokensForOrder(String orderId) {
+    final tokens = _pickupTokens.entries
+        .where((entry) => entry.value == orderId)
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    for (final token in tokens) {
+      _pickupTokens.remove(token);
+      _pickupTokenExpiries.remove(token);
+    }
   }
 
   @override
@@ -427,12 +637,8 @@ class FakeBackend implements Backend {
   }
 
   @override
-  Stream<List<AppNotification>> watchNotifications() async* {
-    yield await notifications();
-    await for (final _ in _notificationChanges.stream) {
-      yield await notifications();
-    }
-  }
+  Stream<List<AppNotification>> watchNotifications() =>
+      _watchSnapshots(() => [..._notifs], _notificationChanges.stream);
 
   @override
   Future<StoreProfile?> myStore() async => _store;
@@ -493,10 +699,11 @@ class FakeBackend implements Backend {
         'Periksa nama, harga, dan jumlah bag.',
       );
     }
+    final id = _id('mb');
     _bags.insert(
       0,
       MerchantBag(
-        id: _id('mb'),
+        id: id,
         title: title,
         salePrice: salePrice,
         pickupWindow: pickupWindow,
@@ -513,6 +720,7 @@ class FakeBackend implements Backend {
         pickupEndsAt: pickupEndsAt,
       ),
     );
+    _locallyPublishedBagIds.add(id);
   }
 
   @override
@@ -584,10 +792,11 @@ class FakeBackend implements Backend {
             value.minute,
             value.second,
           );
+    final id = _id('mb');
     _bags.insert(
       0,
       bag.copyWith(
-        id: _id('mb'),
+        id: id,
         sold: 0,
         quantityLeft: bag.total,
         active: true,
@@ -597,18 +806,15 @@ class FakeBackend implements Backend {
         pickupEndsAt: moveToTomorrow(bag.pickupEndsAt),
       ),
     );
+    _locallyPublishedBagIds.add(id);
   }
 
   @override
   Future<List<IncomingOrder>> incomingOrders() async => [..._incoming];
 
   @override
-  Stream<List<IncomingOrder>> watchIncomingOrders() async* {
-    yield await incomingOrders();
-    await for (final _ in _incomingChanges.stream) {
-      yield await incomingOrders();
-    }
-  }
+  Stream<List<IncomingOrder>> watchIncomingOrders() =>
+      _watchSnapshots(() => [..._incoming], _incomingChanges.stream);
 
   @override
   Future<void> markOrderReady(String orderId) async {
@@ -633,9 +839,11 @@ class FakeBackend implements Backend {
     );
     final consumerIndex = _active.indexWhere((item) => item.id == orderId);
     if (consumerIndex >= 0) {
-      _active[consumerIndex] = _active[consumerIndex].copyWith(
+      final readyOrder = _active[consumerIndex].copyWith(
         status: OrderStatus.ready,
       );
+      _active[consumerIndex] = readyOrder;
+      _cacheOrderRecord(readyOrder);
     }
     _notifs.insert(
       0,
@@ -696,11 +904,7 @@ class FakeBackend implements Backend {
         clearPickupToken: true,
       );
       _history.insert(0, historyOrder);
-      for (final entry in _ordersByIdempotencyKey.entries.toList()) {
-        if (entry.value.id == orderId) {
-          _ordersByIdempotencyKey[entry.key] = historyOrder;
-        }
-      }
+      _cacheOrderRecord(historyOrder);
     }
 
     final bagIndex = _bags.indexWhere((bag) => bag.title == source.bagTitle);
@@ -715,7 +919,7 @@ class FakeBackend implements Backend {
       );
     }
 
-    _pickupTokens.removeWhere((_, mappedOrderId) => mappedOrderId == orderId);
+    _removePickupTokensForOrder(orderId);
     _notifs.insert(
       0,
       AppNotification(
@@ -743,8 +947,18 @@ class FakeBackend implements Backend {
         'QR pickup tidak valid.',
       );
     }
-    final orderId = _pickupTokens[code];
+    final token = code.trim();
+    final orderId = _pickupTokens[token];
     if (orderId == null) return null;
+    final tokenExpiry = _pickupTokenExpiries[token];
+    if (tokenExpiry == null || !tokenExpiry.isAfter(DateTime.now())) {
+      _pickupTokens.remove(token);
+      _pickupTokenExpiries.remove(token);
+      throw const BackendException(
+        'pickup_token_expired',
+        'QR sudah diperbarui. Minta pembeli menampilkan QR terbaru.',
+      );
+    }
     final idx = _incoming.indexWhere((o) => o.id == orderId && !o.redeemed);
     if (idx == -1) return null;
     final source = _incoming[idx];
@@ -762,13 +976,10 @@ class FakeBackend implements Backend {
         'Waktu pickup pesanan belum dimulai.',
       );
     }
-    if (source.status == IncomingOrderStatus.cancelled ||
-        source.status == IncomingOrderStatus.expired ||
-        (source.status != IncomingOrderStatus.paid &&
-            source.status != IncomingOrderStatus.ready)) {
+    if (source.status != IncomingOrderStatus.ready) {
       throw const BackendException(
         'invalid_order_status',
-        'Pesanan dibatalkan atau sudah kedaluwarsa.',
+        'Pesanan belum siap atau sudah tidak dapat diambil.',
       );
     }
     final redeemed = source.copyWith(
@@ -778,7 +989,19 @@ class FakeBackend implements Backend {
       redeemedAt: DateTime.now(),
     );
     _incoming[idx] = redeemed;
-    _pickupTokens.remove(code);
+    _removePickupTokensForOrder(orderId);
+    final consumerIndex = _active.indexWhere((order) => order.id == orderId);
+    if (consumerIndex >= 0) {
+      final consumerOrder = _active
+          .removeAt(consumerIndex)
+          .copyWith(
+            status: OrderStatus.done,
+            canRate: true,
+            clearPickupToken: true,
+          );
+      _history.insert(0, consumerOrder);
+      _cacheOrderRecord(consumerOrder);
+    }
     _soldToday += redeemed.bags;
     _incomeToday += redeemed.merchantNetAmount;
     _balance += redeemed.merchantNetAmount;
@@ -818,12 +1041,8 @@ class FakeBackend implements Backend {
   Future<List<TxRecord>> transactions() async => [..._tx];
 
   @override
-  Stream<List<TxRecord>> watchTransactions() async* {
-    yield await transactions();
-    await for (final _ in _transactionChanges.stream) {
-      yield await transactions();
-    }
-  }
+  Stream<List<TxRecord>> watchTransactions() =>
+      _watchSnapshots(() => [..._tx], _transactionChanges.stream);
 
   @override
   Future<List<BankAccount>> bankAccounts() async => [..._bankAccounts];
@@ -958,6 +1177,7 @@ class FakeBackend implements Backend {
     _bankAccounts.clear();
     _payouts.clear();
     _remainingStock.clear();
+    _locallyPublishedBagIds.clear();
     _balance = 0;
     _soldToday = 0;
     _incomeToday = 0;

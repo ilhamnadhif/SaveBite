@@ -28,7 +28,7 @@ void main() {
     view.resetDevicePixelRatio();
   });
 
-  testWidgets('checkout menjelaskan simulasi payment gateway dengan total', (
+  testWidgets('checkout menjelaskan Midtrans dan menampilkan total', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -40,7 +40,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('Checkout'), findsOneWidget);
-    expect(find.textContaining('payment gateway belum aktif'), findsOneWidget);
+    expect(find.text('Midtrans Snap'), findsOneWidget);
+    expect(find.textContaining('Mode demo eksplisit'), findsOneWidget);
     expect(find.text('Biaya layanan'), findsOneWidget);
     expect(find.text('Lanjutkan · Rp16.000'), findsOneWidget);
     expect(find.textContaining('Bayar'), findsNothing);

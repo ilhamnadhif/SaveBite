@@ -151,6 +151,34 @@ class Bag {
 
 enum OrderStatus { pending, ready, done, cancelled, expired }
 
+/// Status pembayaran dipisahkan dari status pemenuhan pesanan. Sebuah order
+/// dapat sudah dibayar tetapi masih berstatus [OrderStatus.pending] karena
+/// merchant belum menyiapkannya.
+enum PaymentState {
+  awaitingPayment,
+  pending,
+  paid,
+  failed,
+  cancelled,
+  expired,
+  refunded,
+  disputed,
+}
+
+extension PaymentStateX on PaymentState {
+  bool get isPaid => this == PaymentState.paid;
+
+  bool get isAwaitingCustomer =>
+      this == PaymentState.awaitingPayment || this == PaymentState.pending;
+
+  bool get isTerminalFailure =>
+      this == PaymentState.failed ||
+      this == PaymentState.cancelled ||
+      this == PaymentState.expired ||
+      this == PaymentState.refunded ||
+      this == PaymentState.disputed;
+}
+
 class OrderRecord {
   final String id;
   final Bag bag;
@@ -170,6 +198,11 @@ class OrderRecord {
   final int serviceFee;
   final int merchantNetAmount;
   final String? pickupToken;
+  final PaymentState paymentState;
+  final String? paymentRedirectUrl;
+  final DateTime? paymentExpiresAt;
+  final String? providerPaymentType;
+  final String? providerOrderId;
 
   const OrderRecord({
     this.id = '',
@@ -181,7 +214,7 @@ class OrderRecord {
     this.reviewed = false,
     this.canRate = false,
     this.quantity = 1,
-    this.paymentMethod = 'GoPay',
+    this.paymentMethod = 'Midtrans',
     this.createdAt,
     this.pickupStartsAt,
     this.expiresAt,
@@ -190,17 +223,29 @@ class OrderRecord {
     this.serviceFee = 0,
     this.merchantNetAmount = 0,
     this.pickupToken,
+    this.paymentState = PaymentState.paid,
+    this.paymentRedirectUrl,
+    this.paymentExpiresAt,
+    this.providerPaymentType,
+    this.providerOrderId,
   });
 
   OrderRecord copyWith({
+    Bag? bag,
     OrderStatus? status,
     bool? reviewed,
     bool? canRate,
     String? pickupToken,
     bool clearPickupToken = false,
+    PaymentState? paymentState,
+    String? paymentRedirectUrl,
+    bool clearPaymentRedirectUrl = false,
+    DateTime? paymentExpiresAt,
+    String? providerPaymentType,
+    String? providerOrderId,
   }) => OrderRecord(
     id: id,
-    bag: bag,
+    bag: bag ?? this.bag,
     code: code,
     dateLabel: dateLabel,
     amount: amount,
@@ -217,6 +262,13 @@ class OrderRecord {
     serviceFee: serviceFee,
     merchantNetAmount: merchantNetAmount,
     pickupToken: clearPickupToken ? null : (pickupToken ?? this.pickupToken),
+    paymentState: paymentState ?? this.paymentState,
+    paymentRedirectUrl: clearPaymentRedirectUrl
+        ? null
+        : (paymentRedirectUrl ?? this.paymentRedirectUrl),
+    paymentExpiresAt: paymentExpiresAt ?? this.paymentExpiresAt,
+    providerPaymentType: providerPaymentType ?? this.providerPaymentType,
+    providerOrderId: providerOrderId ?? this.providerOrderId,
   );
 }
 

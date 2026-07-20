@@ -110,8 +110,11 @@ class DashboardScreen extends StatelessWidget {
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
                       children: [
-                        if (appState.errorMessage != null) ...[
-                          _errorCard(appState.errorMessage!),
+                        if (appState.merchantError != null ||
+                            appState.storeError != null) ...[
+                          _errorCard(
+                            appState.merchantError ?? appState.storeError!,
+                          ),
                           const SizedBox(height: 14),
                         ],
                         if (appState.isLoadingMerchant &&

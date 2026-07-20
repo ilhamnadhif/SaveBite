@@ -114,8 +114,11 @@ class _MerchantProfileScreenState extends State<MerchantProfileScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
                   children: [
-                    if (appState.errorMessage != null) ...[
-                      _errorCard(appState.errorMessage!),
+                    if (appState.storeError != null ||
+                        appState.merchantError != null) ...[
+                      _errorCard(
+                        appState.storeError ?? appState.merchantError!,
+                      ),
                       const SizedBox(height: 14),
                     ],
                     _roleSwitch(context),

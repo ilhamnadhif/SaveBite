@@ -19,8 +19,8 @@ Dart adalah sumber kebenaran untuk perilaku aplikasi.
 - Ikon memakai Material Icons, bukan emoji.
 - Semua aksi async wajib mempunyai busy state, feedback error yang dapat dibaca,
   dan guard agar submit ganda tidak menghasilkan mutasi berulang.
-- Jangan menampilkan integrasi yang belum ada sebagai transaksi nyata. Checkout
-  harus tetap berlabel simulasi sampai gateway dan webhook benar-benar aktif.
+- Status lunas hanya boleh berasal dari state pembayaran server yang sudah
+  direkonsiliasi ke Midtrans. Deep link client hanya memicu refresh status.
 
 ## Warna (lib/theme/app_colors.dart) — `AppColors.*`
 cream `#FBF7EF`, green `#0F3D2C`, greenDark `#16442F`, greenBright `#27A36A`,
@@ -96,33 +96,35 @@ lib/
 ├── main.dart                    bootstrap environment, auth listener, app
 ├── app_state.dart               state + orkestrasi use case
 ├── app_nav.dart                 satu pintu navigasi
-├── config/env.dart              compile-time Supabase config
+├── config/env.dart              public Supabase config + explicit demo flag
 ├── data/
 │   ├── models.dart              model domain
 │   ├── mappers.dart             map row Supabase ke model
 │   ├── sample_data.dart         fixture FakeBackend
 │   └── backend/
 │       ├── backend.dart         kontrak backend
-│       ├── fake_backend.dart    offline/test implementation
+│       ├── fake_backend.dart    explicit demo/test implementation
 │       └── supabase_backend.dart online implementation
-├── services/                    pemilih backend + Supabase Auth
+├── services/                    backend, Auth, antrean, payment deep-link
 ├── screens/{onboarding,consumer,merchant,shared}/
 ├── theme/                       color, typography, Material theme
 └── widgets/                     komponen UI reusable
 ```
 
-`main()` memilih `SupabaseBackend` hanya bila `SUPABASE_URL` dan
-`SUPABASE_ANON_KEY` tersedia melalui dart-define. Tanpa keduanya, global
-`backend` tetap berupa `FakeBackend`. Jangan menambahkan pemeriksaan environment
-sendiri di layar.
+`main()` membaca URL + publishable/anon key publik dari
+`assets/config/supabase.env`; dart-define yang lengkap dapat mengoverride asset.
+Konfigurasi hilang/salah menampilkan layar error. `FakeBackend` hanya aktif
+dengan `--dart-define=SAVEBITE_DEMO=true`, sehingga error produksi tidak pernah
+tersamar sebagai login demo.
 
 ## Model dan kontrak backend
 
 Model domain berada di `lib/data/models.dart`. `Bag` dipakai katalog konsumen,
 sedangkan `MerchantBag` menyertakan data pengelolaan seperti status, stok,
-tanggal tersedia, serta waktu pickup. `OrderRecord` adalah perspektif konsumen;
-`IncomingOrder` adalah perspektif merchant. Status cancelled dan expired harus
-tetap dibedakan.
+tanggal tersedia, serta waktu pickup. `OrderRecord` memisahkan `OrderStatus`
+(fulfillment) dari `PaymentState` (awaiting/pending/paid/terminal), sedangkan
+`IncomingOrder` adalah perspektif merchant. Nilai tidak dikenal, refund, dan
+chargeback wajib fail-closed dan tidak boleh jatuh ke status paid.
 
 `lib/data/backend/backend.dart` adalah batas I/O. Fitur baru harus ditambahkan
 ke interface, lalu diimplementasikan pada **keduanya**:
@@ -134,7 +136,8 @@ Kelompok use case yang tersedia:
 
 - profil, mode terakhir, dan hapus akun;
 - nearby/search/filter, toko, favorit;
-- place order idempoten, daftar order, issue token pickup, review;
+- checkout idempoten, refresh status Midtrans, daftar order, token pickup,
+  review;
 - notifikasi dan stream realtime;
 - profil toko, CRUD/duplikasi/aktivasi bag beserta jadwal;
 - order merchant, mark ready, redeem token, statistik;
@@ -159,8 +162,11 @@ ListenableBuilder(
 
 State lokal berikut dipersist melalui `SharedPreferences`: onboarding selesai,
 location priming, lokasi/koordinat terakhir, metode pembayaran default, dan
-intent login merchant. Mode terakhir disimpan pada profil backend. Filter aktif
-hanya berlaku selama proses aplikasi. Data akun, order, saldo, rekening, serta
+intent login merchant. Onboarding adalah preference tingkat perangkat. State
+lokasi, koordinat, metode pembayaran, dan intent merchant hanya dipakai dalam
+konteks sesi terkait serta dibersihkan saat sign-out agar tidak bocor ke akun
+berikutnya. Mode terakhir disimpan pada profil backend. Filter aktif hanya
+berlaku selama proses aplikasi. Data akun, order, saldo, rekening, serta
 notifikasi selalu dimuat ulang dari backend per sesi.
 
 Operasi penting:
@@ -169,7 +175,8 @@ Operasi penting:
 - `bootstrap()` memuat profil dan data peran setelah auth;
 - `determineLocation()` menangani service/permission GPS dan memperbarui katalog;
 - `setBagFilter()` dan `search()` meneruskan filter serta koordinat aktif;
-- `placeOrder()`, `withdraw()`, dan backend RPC memakai idempotency key;
+- `placeOrder()`, `refreshPayment()`, `withdraw()`, dan backend RPC memakai
+  idempotency/lifecycle yang sesuai;
 - `loadConsumerHome()`, `loadOrders()`, `loadMerchantData()`, dan
   `loadBalance()` menyegarkan snapshot terkait;
 - `clearSessionState()` membatalkan subscription, menaikkan session epoch, dan
@@ -182,10 +189,14 @@ Jangan mempertahankan `BuildContext` melewati `await` tanpa memeriksa `mounted`.
 ## Auth dan routing
 
 `AuthService` menangani Google/Apple OAuth dengan callback
-`com.savebite://login-callback`. Listener auth global di `main.dart` melakukan
-bootstrap saat `signedIn`, membersihkan state saat `signedOut`, dan menampilkan
-layar retry bila startup gagal. Di mode offline, login meneruskan langsung ke
-bootstrap FakeBackend.
+`com.savebite://login-callback`. Sesi Supabase yang tersimpan dipulihkan dan
+token kedaluwarsa direfresh sebelum bootstrap. Listener auth global
+mendeduplikasi event startup, membersihkan state saat `signedOut`, dan
+menampilkan retry bila startup gagal. Login lokal hanya ada pada build demo.
+
+Startup menampilkan satu branded Flutter splash. Native Android/iOS launch
+screen hanya menjadi transisi hitam tanpa artwork. Tiga indikator pager hanya
+milik onboarding carousel saat pertama instalasi, bukan bagian dari splash.
 
 Semua navigasi lintas fitur memakai `AppNav`. Signature yang sering dipakai:
 
@@ -194,7 +205,8 @@ Semua navigasi lintas fitur memakai `AppNav`. Signature yang sering dipakai:
 - root: `toConsumerHome`, `toMerchantHome`, `toStoreSetup`,
   `toLocationPriming`, `toOrders`;
 - konsumen: `toDetail`, `toSearch`, `showFilter`, `toCheckout`,
-  `toProcessing(bag:, qty:, method:)`, `toVoucher(OrderRecord)`,
+  `toProcessing(bag:, qty:, method:)`, `toResumePayment(OrderRecord)`,
+  `toVoucher(OrderRecord)`,
   `toRating(order:)`, `toNotifications`, `toEditProfile`, `toHelp`, dan
   `toLegal`;
 - merchant: `toCreateBag`, `toEditBag`, `toOrderDetail`, `toEditStore`,
@@ -223,16 +235,28 @@ atribusi yang dapat dibuka.
 ### Checkout dan order
 
 1. Validasi quantity dan stok di UI untuk feedback cepat.
-2. Backend tetap menjadi otoritas dan mengurangi stok atomik.
-3. Harga, service fee, komisi, snapshot bag/toko, dan expiry dihitung server.
-4. Retry memakai idempotency key yang sama agar tidak membuat order ganda.
-5. Dalam versi ini metode pembayaran hanya simulasi dan harus selalu dilabeli
-   demikian. Jangan menambahkan kegagalan provider palsu.
-6. Merchant menandai order siap sebelum konsumen dapat meminta token pickup.
-7. Token pickup acak boleh dirotasi, disimpan server sebagai hash, terikat
+2. RPC server menghitung harga/snapshot dan menahan stok secara atomik selama
+   jendela bayar yang terpisah dari jendela pickup.
+3. Edge Function membuat Snap memakai Server Key yang hanya berada di secret,
+   lalu aplikasi membuka redirect HTTPS Midtrans di browser sistem.
+4. Retry ambigu memakai idempotency key yang sama. Pembayaran tertunda dapat
+   dilanjutkan setelah restart aplikasi tanpa membuat order baru.
+5. Webhook diverifikasi dan hasilnya direkonsiliasi lewat Get Status. Hanya
+   `settlement` atau `capture` dengan fraud `accept` yang menjadi paid.
+6. Deep link `com.savebite://payment-callback/` dan query result tidak menjadi
+   bukti lunas; keduanya hanya memicu refresh server.
+7. Satu Snap order dapat memuat beberapa percobaan channel pembayaran. Status
+   awal `deny`/`failure` dari satu percobaan hanya diagnostik dan effective state
+   tetap `pending`; jangan melepas stok karena pengguna masih dapat mencoba
+   channel lain pada Snap order yang sama.
+8. Provider `cancel`/`expire` atau deadline pembayaran lokal bersifat terminal
+   dan melepas reservation tepat satu kali. Status negatif setelah pembayaran
+   terverifikasi tidak boleh menulis ulang histori paid secara diam-diam;
+   refund, partial refund, dan chargeback masuk alur terminal/manual-review.
+9. Merchant menandai order siap sebelum konsumen dapat meminta token pickup.
+10. Token pickup acak boleh dirotasi, disimpan server sebagai hash, terikat
    order/window, dan hanya dapat diredeem satu kali.
-8. Review hanya dapat dikirim pemilik order yang sudah selesai, satu review per
-   order.
+11. Review hanya dapat dikirim pemilik order selesai, satu review per order.
 
 ### Merchant dan inventory
 
@@ -247,10 +271,9 @@ Saldo berasal dari ledger transaksi tepercaya, bukan angka lokal. Redeem order
 mencatat pendapatan bersih satu kali. Payout hanya dapat diajukan ke rekening
 `verified`, minimum Rp50.000, biaya Rp2.500, dan dana langsung direservasi.
 Transfer masih diproses manual; hanya worker/operator `service_role` yang boleh
-memverifikasi rekening atau menyelesaikan payout. Aplikasi tidak boleh
-menampilkan request `pending` sebagai transfer sukses. Selama checkout masih
-simulasi, ledger order dipaksa `untrusted` dan database menolak payout baru;
-rail payout hanya boleh diaktifkan bersama sumber pembayaran terverifikasi.
+memverifikasi rekening atau menyelesaikan payout. Rail payout tetap
+dinonaktifkan sampai transfer keluar dan prosedur refund/chargeback operasional
+tersedia; aktivasi pembayaran Midtrans inbound tidak otomatis mengaktifkannya.
 
 ### Privasi dan sesi
 
@@ -322,7 +345,7 @@ dart format lib test
 flutter analyze
 flutter test
 flutter test --coverage
-flutter build apk --debug --dart-define-from-file=.env
+flutter build apk --debug
 ```
 
 Tambahkan test FakeBackend/AppState untuk invariant bisnis dan widget test untuk
@@ -331,7 +354,6 @@ dengan sedikitnya dua user per peran untuk memverifikasi isolasi RLS.
 
 ## Batas yang disengaja
 
-- Payment gateway dan webhook pembayaran ditunda; checkout masih simulasi.
 - Payout provider otomatis ditunda; verifikasi dan transfer memakai operasi
   manual tepercaya.
 - In-app realtime tersedia, tetapi background/terminated OS push memerlukan
@@ -339,4 +361,4 @@ dengan sedikitnya dua user per peran untuk memverifikasi isolasi RLS.
 - Naskah legal adalah draf produk dan memerlukan review hukum sebelum rilis.
 
 Jangan menghilangkan disclosure tersebut dari UI atau dokumentasi sampai
-integrasi masing-masing benar-benar selesai dan telah diuji end-to-end.
+integrasi eksternal masing-masing selesai dan telah diuji end-to-end.

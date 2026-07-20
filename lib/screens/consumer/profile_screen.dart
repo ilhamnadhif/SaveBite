@@ -224,6 +224,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
                   children: [
+                    if (appState.profileError != null) ...[
+                      _profileErrorCard(appState.profileError!),
+                      const SizedBox(height: 14),
+                    ],
                     _sectionLabel('Akun'),
                     _accountCard(),
                     const SizedBox(height: 18),
@@ -279,6 +283,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _profileErrorCard(String message) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: AppColors.dangerBg,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              message,
+              style: AppText.ui(12.5, color: AppColors.danger),
+            ),
+          ),
+          TextButton(
+            onPressed: appState.loadProfile,
+            child: const Text('Coba lagi'),
+          ),
+        ],
       ),
     );
   }

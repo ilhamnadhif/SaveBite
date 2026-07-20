@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'app_state.dart';
 import 'data/backend/backend.dart';
@@ -37,15 +39,32 @@ import 'screens/shared/legal_screen.dart';
 class AppNav {
   AppNav._();
 
-  static Future<T?> _push<T>(BuildContext c, Widget page) =>
-      Navigator.of(c).push<T>(MaterialPageRoute(builder: (_) => page));
+  static const _checkoutRouteName = '/consumer/checkout';
+  static const _processingRouteName = '/consumer/checkout/processing';
+  static final Map<NavigatorState, Route<void>> _checkoutRoutes = {};
 
-  static void _replace(BuildContext c, Widget page) =>
-      Navigator.of(c).pushReplacement(MaterialPageRoute(builder: (_) => page));
+  static Future<void>? _signedInFlow;
+  static String? _signedInHandledIdentity;
+  static Future<void>? _signedOutFlow;
+  static bool _signedOutHandled = false;
 
-  static void _root(BuildContext c, Widget page) => Navigator.of(
-    c,
-  ).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => page), (r) => false);
+  static MaterialPageRoute<T> _route<T>(Widget page, {String? name}) =>
+      MaterialPageRoute<T>(
+        settings: RouteSettings(name: name),
+        builder: (_) => page,
+      );
+
+  static Future<T?> _push<T>(BuildContext c, Widget page, {String? name}) =>
+      Navigator.of(c).push<T>(_route<T>(page, name: name));
+
+  static void _replace(BuildContext c, Widget page, {String? name}) =>
+      Navigator.of(c).pushReplacement(_route<void>(page, name: name));
+
+  static void _root(BuildContext c, Widget page) =>
+      _rootWithNavigator(Navigator.of(c), page);
+
+  static void _rootWithNavigator(NavigatorState navigator, Widget page) =>
+      navigator.pushAndRemoveUntil(_route<void>(page), (r) => false);
 
   // ── Onboarding & akun ──
   static void toOnboarding(BuildContext c) =>
@@ -55,38 +74,101 @@ class AppNav {
   static void toLogin(BuildContext c, {required bool merchant}) =>
       _push(c, LoginScreen(merchant: merchant));
 
-  /// Dipanggil dari LoginScreen untuk mode offline (Supabase tak dikonfigurasi):
-  /// langsung bootstrap data (fake) lalu arahkan. Saat online, routing dipicu
-  /// oleh listener auth (lihat main.dart) -> [handleSignedIn].
+  /// Login lokal hanya tersedia pada build demo yang secara eksplisit memakai
+  /// `--dart-define=SAVEBITE_DEMO=true`.
   static Future<void> completeLogin(
     BuildContext c, {
     required bool merchant,
   }) async {
+    if (!AuthService.isConfigured && !AuthService.isDemoMode) {
+      throw const BackendException(
+        'missing_client_configuration',
+        'Konfigurasi Supabase belum tersedia pada build ini.',
+      );
+    }
     await appState.setPendingMerchantIntent(merchant);
     if (!c.mounted) return;
     await handleSignedIn(c);
   }
 
   /// Sesudah sesi aktif: muat profil/toko lalu arahkan ke ekosistem yang tepat.
-  static Future<void> handleSignedIn(BuildContext c) async {
-    try {
+  /// Event `initialSession`, `signedIn`, dan fallback splash dapat datang
+  /// berdekatan. Satu Future bersama memastikan bootstrap dan root navigation
+  /// hanya berjalan sekali untuk identitas sesi yang sama.
+  static Future<void> handleSignedIn(BuildContext c) {
+    final navigator = Navigator.of(c);
+    final identity =
+        AuthService.currentUser?.id ??
+        (AuthService.isDemoMode ? 'demo' : 'local-test');
+    if (_signedInHandledIdentity == identity) return Future<void>.value();
+    final activeFlow = _signedInFlow;
+    if (activeFlow != null) return activeFlow;
+
+    final completer = Completer<void>();
+    _signedInFlow = completer.future;
+    Future<void>.sync(() async {
+      if (AuthService.isConfigured) {
+        try {
+          final session = await AuthService.restoreValidSession();
+          if (session == null) {
+            await _beginSignedOutFlowWithNavigator(navigator);
+            return;
+          }
+        } catch (error) {
+          if (AuthService.currentSession == null) {
+            await _beginSignedOutFlowWithNavigator(navigator);
+            return;
+          }
+          appState.reportError(error);
+          rethrow;
+        }
+      }
+
+      // Sesi baru boleh memiliki siklus logout baru. Flag ini hanya mencegah
+      // event signedOut duplikat pada sesi yang sama.
+      _signedOutHandled = false;
       await appState.bootstrap();
-      if (!c.mounted) return;
-      routeAfterLogin(c);
-    } catch (_) {
-      if (!c.mounted) return;
-      _root(
-        c,
-        _StartupErrorScreen(
-          message:
-              appState.errorMessage ??
-              'Data akun belum dapat dimuat. Periksa koneksi lalu coba lagi.',
-        ),
-      );
+      if (!navigator.mounted) return;
+      _routeAfterLoginWithNavigator(navigator);
+      _signedInHandledIdentity = identity;
+    }).then(
+      (_) {
+        _signedInFlow = null;
+        completer.complete();
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        _signedInFlow = null;
+        if (navigator.mounted) {
+          _rootWithNavigator(
+            navigator,
+            _StartupErrorScreen(
+              message:
+                  appState.errorMessage ??
+                  'Data akun belum dapat dimuat. Periksa koneksi lalu coba lagi.',
+            ),
+          );
+        }
+        completer.complete();
+      },
+    );
+    return completer.future;
+  }
+
+  /// Root startup untuk kondisi tanpa sesi. Ini berbeda dari event logout:
+  /// pengguna baru tetap harus menyelesaikan onboarding satu kali.
+  static void routeLoggedOutAtStartup(BuildContext c) {
+    _signedInHandledIdentity = null;
+    if (appState.onboardingSeen) {
+      toForkRoot(c);
+    } else {
+      _root(c, const OnboardingScreen());
     }
   }
 
-  static void routeAfterLogin(BuildContext c) {
+  static void routeAfterLogin(BuildContext c) =>
+      _routeAfterLoginWithNavigator(Navigator.of(c));
+
+  static void _routeAfterLoginWithNavigator(NavigatorState navigator) {
     // Pilihan eksplisit dari Fork (true/false) menang; jika null pakai lastMode.
     final wantMerchant =
         appState.consumePendingMerchantIntent() ??
@@ -95,25 +177,79 @@ class AppNav {
       appState.switchToMerchant();
       appState.rememberMode('merchant');
       if (appState.merchantSetupDone) {
-        toMerchantHome(c);
+        _rootWithNavigator(navigator, const MerchantShell());
       } else {
-        _root(c, const StoreSetupScreen());
+        _rootWithNavigator(navigator, const StoreSetupScreen());
       }
     } else {
       appState.switchToConsumer();
       appState.rememberMode('consumer');
       if (!appState.locationPrimed) {
-        _root(c, const LocationPrimingScreen());
+        _rootWithNavigator(navigator, const LocationPrimingScreen());
       } else {
-        toConsumerHome(c);
+        _rootWithNavigator(navigator, const ConsumerShell());
       }
     }
   }
 
   static Future<void> logout(BuildContext c) async {
-    await AuthService.signOut();
-    await appState.clearSessionState();
-    if (c.mounted) _root(c, const ForkScreen());
+    await _beginSignedOutFlow(c, requestRemoteSignOut: true);
+  }
+
+  /// Menangani event auth signedOut dari listener global. Alur eksplisit
+  /// [logout]/[deleteAccount] dan event Supabase berbagi Future yang sama agar
+  /// sesi hanya dibersihkan dan root route hanya diganti satu kali.
+  static Future<void> handleSignedOut(BuildContext c) => _beginSignedOutFlow(c);
+
+  static Future<void> _beginSignedOutFlow(
+    BuildContext c, {
+    bool requestRemoteSignOut = false,
+    bool sessionAlreadyCleared = false,
+  }) => _beginSignedOutFlowWithNavigator(
+    Navigator.of(c),
+    requestRemoteSignOut: requestRemoteSignOut,
+    sessionAlreadyCleared: sessionAlreadyCleared,
+  );
+
+  static Future<void> _beginSignedOutFlowWithNavigator(
+    NavigatorState navigator, {
+    bool requestRemoteSignOut = false,
+    bool sessionAlreadyCleared = false,
+  }) {
+    if (_signedOutHandled) return Future<void>.value();
+    final activeFlow = _signedOutFlow;
+    if (activeFlow != null) return activeFlow;
+
+    final completer = Completer<void>();
+    _signedOutFlow = completer.future;
+
+    Future<void>(() async {
+      _signedInHandledIdentity = null;
+      if (requestRemoteSignOut) {
+        try {
+          await AuthService.signOut();
+        } catch (_) {
+          // Pembersihan lokal tetap wajib berjalan agar sesi lama tidak
+          // tertinggal ketika koneksi putus saat logout.
+        }
+      }
+      if (!sessionAlreadyCleared) await appState.clearSessionState();
+      _signedOutHandled = true;
+      if (navigator.mounted) {
+        _rootWithNavigator(navigator, const ForkScreen());
+      }
+    }).then(
+      (_) {
+        _signedOutFlow = null;
+        completer.complete();
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        _signedOutFlow = null;
+        completer.completeError(error, stackTrace);
+      },
+    );
+
+    return completer.future;
   }
 
   static Future<void> switchToMerchant(BuildContext c) async {
@@ -121,7 +257,7 @@ class AppNav {
     appState.rememberMode('merchant');
     appState.clearError();
     await appState.loadStore();
-    final error = appState.errorMessage;
+    final error = appState.storeError;
     if (error != null) {
       appState.switchToConsumer();
       appState.rememberMode('consumer');
@@ -142,13 +278,24 @@ class AppNav {
   }
 
   static Future<void> deleteAccount(BuildContext c) async {
+    // Profil dapat terlepas saat state akun dibersihkan; simpan navigator root
+    // terlebih dulu agar logout tetap dapat menyelesaikan transisi.
+    final navigator = Navigator.of(c);
     await appState.deleteAccount();
-    try {
-      // Akun server sudah terhapus. Kegagalan membersihkan sesi lokal tidak
-      // boleh dilaporkan sebagai kegagalan penghapusan data.
-      await AuthService.signOut();
-    } catch (_) {}
-    if (c.mounted) _root(c, const ForkScreen());
+    await _beginSignedOutFlowWithNavigator(
+      navigator,
+      requestRemoteSignOut: true,
+      sessionAlreadyCleared: true,
+    );
+  }
+
+  @visibleForTesting
+  static void resetAuthRoutingForTest() {
+    _signedInFlow = null;
+    _signedInHandledIdentity = null;
+    _signedOutFlow = null;
+    _signedOutHandled = false;
+    _checkoutRoutes.clear();
   }
 
   // ── Root ekosistem ──
@@ -181,23 +328,68 @@ class AppNav {
         builder: (_) => const FilterSheet(),
       );
 
-  static void toCheckout(BuildContext c, Bag bag) =>
-      _push(c, CheckoutScreen(bag: bag));
+  static void toCheckout(BuildContext c, Bag bag) {
+    final navigator = Navigator.of(c);
+    final route = _route<void>(
+      CheckoutScreen(bag: bag),
+      name: _checkoutRouteName,
+    );
+    _checkoutRoutes[navigator] = route;
+    navigator.push<void>(route).whenComplete(() {
+      if (identical(_checkoutRoutes[navigator], route)) {
+        _checkoutRoutes.remove(navigator);
+      }
+    });
+  }
 
   static void toProcessing(
     BuildContext c, {
     required Bag bag,
     required int qty,
     required String method,
-  }) => _push(c, ProcessingScreen(bag: bag, qty: qty, method: method));
+    String? idempotencyKey,
+    bool replace = false,
+  }) {
+    final page = ProcessingScreen(
+      bag: bag,
+      qty: qty,
+      method: method,
+      idempotencyKey: idempotencyKey,
+    );
+    replace
+        ? _replace(c, page, name: _processingRouteName)
+        : _push(c, page, name: _processingRouteName);
+  }
+
+  static void toResumePayment(BuildContext c, OrderRecord order) => _push(
+    c,
+    ProcessingScreen(
+      bag: order.bag,
+      qty: order.quantity,
+      method: order.paymentMethod,
+      existingOrder: order,
+    ),
+    name: _processingRouteName,
+  );
 
   static void toVoucher(
     BuildContext c,
     OrderRecord order, {
     bool replace = false,
+    bool completeCheckout = false,
   }) {
+    assert(!(replace && completeCheckout));
     final page = VoucherScreen(order: order);
-    replace ? _replace(c, page) : _push(c, page);
+    if (completeCheckout) {
+      final navigator = Navigator.of(c);
+      final checkoutRoute = _checkoutRoutes[navigator];
+      if (checkoutRoute?.isActive == true) {
+        navigator.removeRoute(checkoutRoute!);
+      }
+      navigator.pushReplacement<void, void>(_route<void>(page));
+    } else {
+      replace ? _replace(c, page) : _push(c, page);
+    }
   }
 
   static void toPaymentFailed(

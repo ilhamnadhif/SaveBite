@@ -1,21 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app_nav.dart';
 import '../../data/backend/backend.dart';
 import '../../sb.dart';
 import 'payment_failed_screen.dart';
 
-/// Menyimpan pesanan dalam mode simulasi pembayaran. Kunci idempotensi dibuat
-/// satu kali per instance dan dipertahankan saat retry agar respons yang hilang
-/// tidak menghasilkan pesanan ganda.
+/// Membuat satu reservation idempoten, membuka halaman Snap di browser sistem,
+/// lalu hanya melanjutkan setelah backend memverifikasi status ke Midtrans.
 class ProcessingScreen extends StatefulWidget {
   final Bag bag;
   final int qty;
   final String method;
   final String? idempotencyKey;
+  final OrderRecord? existingOrder;
 
-  /// Dipertahankan hanya agar pemanggil lama tetap source-compatible. Nilainya
-  /// sengaja diabaikan; tidak ada lagi metode yang dibuat gagal secara palsu.
+  /// Dipertahankan agar pemanggil lama tetap source-compatible.
   @Deprecated('Kegagalan simulasi buatan sudah dihapus')
   final bool willFail;
 
@@ -25,6 +27,7 @@ class ProcessingScreen extends StatefulWidget {
     required this.qty,
     required this.method,
     this.idempotencyKey,
+    this.existingOrder,
     this.willFail = false,
   });
 
@@ -32,172 +35,328 @@ class ProcessingScreen extends StatefulWidget {
   State<ProcessingScreen> createState() => _ProcessingScreenState();
 }
 
-class _ProcessingScreenState extends State<ProcessingScreen> {
-  late final String _idempotencyKey =
-      widget.idempotencyKey ??
-      'order-${DateTime.now().microsecondsSinceEpoch}-${widget.bag.id}';
-  bool _busy = false;
+class _ProcessingScreenState extends State<ProcessingScreen>
+    with WidgetsBindingObserver {
+  OrderRecord? _order;
+  Timer? _pollTimer;
+  bool _creating = false;
+  bool _opening = false;
+  bool _checking = false;
+  bool _navigated = false;
+  String? _error;
+
+  bool get _busy => _creating || _opening || _checking;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _process());
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _createPayment());
   }
 
-  Future<void> _process() async {
-    if (_busy || !mounted) return;
-    setState(() => _busy = true);
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_order != null) {
+        _startPolling();
+        unawaited(_checkStatus());
+      }
+      return;
+    }
+    // Jangan polling ketika browser/payment app sedang berada di depan.
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  Future<void> _createPayment() async {
+    if (_creating || _order != null || !mounted) return;
+    setState(() {
+      _creating = true;
+      _error = null;
+    });
     try {
-      // Sedikit jeda hanya untuk memberi waktu UI menjelaskan bahwa ini mode
-      // simulasi; tidak ada koneksi palsu ke penyedia pembayaran.
-      await Future<void>.delayed(const Duration(milliseconds: 650));
+      final existing = widget.existingOrder;
+      if (existing != null) {
+        _order = existing;
+        await _handleStatus(existing, openWhenPending: true);
+        return;
+      }
+      // FakeBackend tetap menyelesaikan alur deterministik untuk widget test
+      // dan demo eksplisit. Backend remote selalu memakai Edge Function.
+      if (!appState.usesRemoteBackend) {
+        await Future<void>.delayed(const Duration(milliseconds: 650));
+      }
       final order = await appState.placeOrder(
         widget.bag,
         widget.qty,
         widget.method,
-        idempotencyKey: _idempotencyKey,
+        // Bila null, AppState mengambil atau membuat key yang dipersist. Ini
+        // memastikan retry setelah process death tetap menuju order yang sama.
+        idempotencyKey: widget.idempotencyKey,
       );
       if (!mounted) return;
-      AppNav.toVoucher(context, order, replace: true);
+      _order = order;
+      await _handleStatus(order, openWhenPending: true);
     } on BackendException catch (error) {
-      if (!mounted) return;
-      _showFailure(error.message);
+      if (mounted) _showFailure(error.message, retrySameRequest: true);
     } catch (_) {
-      if (!mounted) return;
-      _showFailure(
-        'Pesanan belum dapat dikonfirmasi. Periksa koneksi lalu coba lagi.',
-      );
+      if (mounted) {
+        _showFailure(
+          'Pembayaran belum dapat dibuat. Periksa koneksi lalu coba lagi.',
+          retrySameRequest: true,
+        );
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _creating = false);
     }
   }
 
-  void _showFailure(String message) {
+  Future<void> _handleStatus(
+    OrderRecord order, {
+    bool openWhenPending = false,
+  }) async {
+    if (!mounted || _navigated) return;
+    setState(() {
+      _order = order;
+      _error = null;
+    });
+    if (order.paymentState.isPaid) {
+      _navigated = true;
+      _pollTimer?.cancel();
+      AppNav.toVoucher(context, order, completeCheckout: true);
+      return;
+    }
+    if (order.paymentState.isTerminalFailure) {
+      _showFailure(_terminalMessage(order), retrySameRequest: false);
+      return;
+    }
+    _startPolling();
+    if (openWhenPending) await _openPayment();
+  }
+
+  void _startPolling() {
+    if (!appState.usesRemoteBackend || _pollTimer?.isActive == true) return;
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted) unawaited(_checkStatus());
+    });
+  }
+
+  Future<void> _openPayment() async {
+    final order = _order;
+    if (_opening || order == null || !mounted) return;
+    final rawUrl = order.paymentRedirectUrl;
+    final uri = rawUrl == null ? null : Uri.tryParse(rawUrl);
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        !(uri.host == 'midtrans.com' || uri.host.endsWith('.midtrans.com'))) {
+      setState(() {
+        _error =
+            'Tautan pembayaran belum tersedia. Tekan “Cek status” untuk mencoba lagi.';
+      });
+      return;
+    }
+    setState(() {
+      _opening = true;
+      _error = null;
+    });
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        setState(() {
+          _error = 'Browser pembayaran tidak dapat dibuka. Coba lagi.';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = 'Browser pembayaran tidak dapat dibuka. Coba lagi.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  Future<void> _checkStatus() async {
+    final order = _order;
+    if (_checking || order == null || _navigated || !mounted) return;
+    setState(() {
+      _checking = true;
+      _error = null;
+    });
+    try {
+      final refreshed = await appState.refreshPayment(order);
+      if (!mounted) return;
+      await _handleStatus(refreshed);
+    } on BackendException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = 'Status pembayaran belum dapat diperiksa. Coba lagi.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  String _terminalMessage(OrderRecord order) => switch (order.paymentState) {
+    PaymentState.expired =>
+      'Waktu pembayaran berakhir. Stok yang ditahan sudah dikembalikan.',
+    PaymentState.cancelled => 'Pembayaran dibatalkan.',
+    PaymentState.refunded => 'Pembayaran telah dikembalikan.',
+    PaymentState.disputed =>
+      'Pembayaran sedang ditinjau. Hubungi bantuan jika memerlukan informasi.',
+    _ => 'Pembayaran ditolak atau tidak berhasil.',
+  };
+
+  void _showFailure(String message, {required bool retrySameRequest}) {
+    if (_navigated) return;
+    _navigated = true;
+    _pollTimer?.cancel();
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => PaymentFailedScreen(
           bag: widget.bag,
           method: widget.method,
           qty: widget.qty,
-          idempotencyKey: _idempotencyKey,
+          // Key eksplisit lama tetap diteruskan. Bila null, AppState sudah
+          // menyimpan key efektif berdasarkan signature checkout.
+          idempotencyKey: retrySameRequest ? widget.idempotencyKey : null,
           message: message,
         ),
       ),
     );
   }
 
+  String get _expiryLabel {
+    final expiresAt = _order?.paymentExpiresAt?.toLocal();
+    if (expiresAt == null) return 'Selesaikan pembayaran di halaman Midtrans.';
+    final remaining = expiresAt.difference(DateTime.now());
+    if (remaining <= Duration.zero) return 'Waktu pembayaran telah berakhir.';
+    final minutes = remaining.inMinutes;
+    return 'Selesaikan dalam sekitar $minutes menit.';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final waitingForPayment = _order?.paymentState.isAwaitingCustomer == true;
     return PopScope(
-      canPop: !_busy,
+      canPop: !_creating,
       child: StatusBarStyle.light(
         child: Scaffold(
           backgroundColor: AppColors.green,
-          body: Stack(
-            children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: const Alignment(0, -.16),
-                      radius: .62,
-                      colors: [
-                        AppColors.greenBright.withValues(alpha: .3),
-                        AppColors.greenBright.withValues(alpha: 0),
-                      ],
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+              child: Column(
+                children: [
+                  const Spacer(),
+                  _statusIcon(waitingForPayment),
+                  const SizedBox(height: 28),
+                  Text(
+                    waitingForPayment
+                        ? 'Selesaikan pembayaran'
+                        : 'Menyiapkan pembayaran…',
+                    textAlign: TextAlign.center,
+                    style: AppText.display(23, color: AppColors.cream),
+                  ),
+                  const SizedBox(height: 9),
+                  Text(
+                    waitingForPayment
+                        ? _expiryLabel
+                        : 'Pesanan dan total sedang diverifikasi secara aman.',
+                    textAlign: TextAlign.center,
+                    style: AppText.ui(
+                      14,
+                      color: AppColors.greenMuted,
+                      height: 1.5,
                     ),
                   ),
-                ),
-              ),
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 36),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _loader(),
-                      const SizedBox(height: 28),
-                      Text(
-                        'Menyimpan pesanan…',
-                        textAlign: TextAlign.center,
-                        style: AppText.display(22, color: AppColors.cream),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Mode simulasi ${widget.method}. Tidak ada dana nyata '
-                        'yang dipindahkan.',
-                        textAlign: TextAlign.center,
-                        style: AppText.ui(
-                          14,
-                          color: AppColors.greenMuted,
-                          height: 1.5,
+                  if (_error != null) ...[
+                    const SizedBox(height: 18),
+                    Semantics(
+                      liveRegion: true,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(13),
+                        decoration: BoxDecoration(
+                          color: AppColors.dangerBg,
+                          borderRadius: BorderRadius.circular(13),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 32,
-                right: 32,
-                bottom: 32 + MediaQuery.of(context).padding.bottom,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.science_outlined,
-                      size: 15,
-                      color: AppColors.greenMutedDeep,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Payment gateway belum diaktifkan',
-                        textAlign: TextAlign.center,
-                        style: AppText.ui(
-                          12.5,
-                          color: AppColors.greenMutedDeep,
+                        child: Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: AppText.ui(12.5, color: AppColors.danger),
                         ),
                       ),
                     ),
                   ],
-                ),
+                  const Spacer(),
+                  if (waitingForPayment) ...[
+                    PrimaryButton(
+                      label: _opening
+                          ? 'Membuka Midtrans…'
+                          : 'Buka halaman pembayaran',
+                      onTap: _busy ? null : _openPayment,
+                    ),
+                    const SizedBox(height: 10),
+                    GhostButton(
+                      label: _checking ? 'Memeriksa…' : 'Cek status pembayaran',
+                      color: AppColors.greenMuted,
+                      onTap: _busy ? null : _checkStatus,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Status hanya dikonfirmasi dari server Midtrans, bukan dari tautan kembali.',
+                      textAlign: TextAlign.center,
+                      style: AppText.ui(
+                        11.5,
+                        color: AppColors.greenMutedDeep,
+                        height: 1.4,
+                      ),
+                    ),
+                  ] else
+                    const SizedBox(
+                      width: 30,
+                      height: 30,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: AppColors.amber,
+                      ),
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _loader() {
-    return SizedBox(
-      width: 84,
-      height: 84,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.greenDark, width: 5),
-            ),
-          ),
-          const SizedBox(
-            width: 84,
-            height: 84,
-            child: CircularProgressIndicator(
-              strokeWidth: 5,
-              color: AppColors.amber,
-              backgroundColor: Colors.transparent,
-            ),
-          ),
-          const Icon(
-            Icons.shopping_bag_outlined,
-            size: 30,
-            color: AppColors.greenMuted,
-          ),
-        ],
+  Widget _statusIcon(bool waitingForPayment) {
+    return Container(
+      width: 88,
+      height: 88,
+      decoration: BoxDecoration(
+        color: AppColors.greenDark,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.amber, width: 4),
+      ),
+      child: Icon(
+        waitingForPayment
+            ? Icons.open_in_browser_rounded
+            : Icons.lock_clock_outlined,
+        size: 38,
+        color: AppColors.amber,
       ),
     );
   }

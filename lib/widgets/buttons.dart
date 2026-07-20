@@ -69,20 +69,26 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                       widget.onTap!();
                     }
                   : null,
-              child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (widget.icon != null) ...[
                       widget.icon!,
                       const SizedBox(width: 9),
                     ],
-                    Text(
-                      widget.label,
-                      style: AppText.ui(
-                        widget.fontSize,
-                        weight: 700,
-                        color: widget.foreground,
+                    Flexible(
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: AppText.ui(
+                          widget.fontSize,
+                          weight: 700,
+                          color: widget.foreground,
+                        ),
                       ),
                     ),
                   ],

@@ -111,8 +111,8 @@ class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
                     children: [
-                      if (appState.errorMessage != null) ...[
-                        _errorCard(appState.errorMessage!),
+                      if (appState.merchantError != null) ...[
+                        _errorCard(appState.merchantError!),
                         const SizedBox(height: 14),
                       ],
                       if (orders.isEmpty)

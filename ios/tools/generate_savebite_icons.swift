@@ -1,4 +1,10 @@
-import AppKit
+import CoreGraphics
+import Foundation
+import ImageIO
+
+// From the repository root:
+// swiftc ios/tools/generate_savebite_icons.swift -o /tmp/savebite-icons &&
+// /tmp/savebite-icons
 
 private let scriptURL = URL(fileURLWithPath: #filePath)
 private let repositoryRoot = scriptURL
@@ -6,90 +12,62 @@ private let repositoryRoot = scriptURL
     .deletingLastPathComponent()
     .deletingLastPathComponent()
 
-private let green = NSColor(
-    calibratedRed: 15.0 / 255.0,
-    green: 61.0 / 255.0,
-    blue: 44.0 / 255.0,
-    alpha: 1
-)
-private let leafGreen = NSColor(
-    calibratedRed: 39.0 / 255.0,
-    green: 163.0 / 255.0,
-    blue: 106.0 / 255.0,
-    alpha: 1
-)
-private let amber = NSColor(
-    calibratedRed: 239.0 / 255.0,
-    green: 166.0 / 255.0,
-    blue: 60.0 / 255.0,
-    alpha: 1
-)
+private let markURL = repositoryRoot
+    .appendingPathComponent("assets/images/savebite_mark.png")
 
-private func drawIcon(size: Int, destination: URL) throws {
+private func loadImage(_ url: URL) -> CGImage? {
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+        return nil
+    }
+    return CGImageSourceCreateImageAtIndex(source, 0, nil)
+}
+
+guard let mark = loadImage(markURL) else {
+    fatalError("The master app-mark asset is missing from assets/images.")
+}
+
+/// Renders an opaque RGB PNG. App Store icons may not contain an alpha channel.
+private func render(
+    image: CGImage,
+    width: Int,
+    height: Int,
+    destination: URL,
+    inset: CGFloat = 0
+) throws {
     guard let context = CGContext(
         data: nil,
-        width: size,
-        height: size,
+        width: width,
+        height: height,
         bitsPerComponent: 8,
-        bytesPerRow: size * 4,
+        bytesPerRow: width * 4,
         space: CGColorSpaceCreateDeviceRGB(),
         bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
     ) else {
         throw CocoaError(.fileWriteUnknown)
     }
 
-    let side = CGFloat(size)
-
-    context.setFillColor(green.cgColor)
-    context.fill(CGRect(x: 0, y: 0, width: side, height: side))
-
-    let leafX = side * 0.20
-    let leafY = side * 0.21
-    let leafSide = side * 0.38
-    let radius = side * 0.30
-    let leafPath = CGMutablePath()
-    leafPath.move(to: CGPoint(x: leafX, y: leafY + leafSide))
-    leafPath.addLine(to: CGPoint(x: leafX + leafSide - radius, y: leafY + leafSide))
-    leafPath.addArc(
-        center: CGPoint(x: leafX + leafSide - radius, y: leafY + leafSide - radius),
-        radius: radius,
-        startAngle: .pi / 2,
-        endAngle: 0,
-        clockwise: true
-    )
-    leafPath.addLine(to: CGPoint(x: leafX + leafSide, y: leafY))
-    leafPath.addLine(to: CGPoint(x: leafX + radius, y: leafY))
-    leafPath.addArc(
-        center: CGPoint(x: leafX + radius, y: leafY + radius),
-        radius: radius,
-        startAngle: -.pi / 2,
-        endAngle: -.pi,
-        clockwise: true
-    )
-    leafPath.closeSubpath()
-    context.addPath(leafPath)
-    context.setFillColor(leafGreen.cgColor)
-    context.fillPath()
-
-    let dotSide = side * 0.31
-    context.setFillColor(amber.cgColor)
-    context.fillEllipse(
-        in: CGRect(
-            x: side * (1 - 0.19) - dotSide,
-            y: side * (1 - 0.20) - dotSide,
-            width: dotSide,
-            height: dotSide
-        )
+    let canvas = CGRect(x: 0, y: 0, width: width, height: height)
+    context.setFillColor(CGColor(gray: 0, alpha: 1))
+    context.fill(canvas)
+    context.interpolationQuality = .high
+    context.draw(
+        image,
+        in: canvas.insetBy(dx: inset, dy: inset)
     )
 
-    guard let image = context.makeImage() else {
+    guard let rendered = context.makeImage(),
+          let output = CGImageDestinationCreateWithURL(
+              destination as CFURL,
+              "public.png" as CFString,
+              1,
+              nil
+          ) else {
         throw CocoaError(.fileWriteUnknown)
     }
-    let bitmap = NSBitmapImageRep(cgImage: image)
-    guard let png = bitmap.representation(using: .png, properties: [:]) else {
+    CGImageDestinationAddImage(output, rendered, nil)
+    guard CGImageDestinationFinalize(output) else {
         throw CocoaError(.fileWriteUnknown)
     }
-    try png.write(to: destination, options: .atomic)
 }
 
 private let iosIconDirectory = repositoryRoot
@@ -113,7 +91,12 @@ private let iosIcons: [String: Int] = [
 ]
 
 for (filename, size) in iosIcons {
-    try drawIcon(size: size, destination: iosIconDirectory.appendingPathComponent(filename))
+    try render(
+        image: mark,
+        width: size,
+        height: size,
+        destination: iosIconDirectory.appendingPathComponent(filename)
+    )
 }
 
 private let androidIcons: [(String, Int)] = [
@@ -128,5 +111,21 @@ for (density, size) in androidIcons {
         .appendingPathComponent("android/app/src/main/res")
         .appendingPathComponent(density)
         .appendingPathComponent("ic_launcher.png")
-    try drawIcon(size: size, destination: destination)
+    try render(image: mark, width: size, height: size, destination: destination)
 }
+
+// Android adaptive icons need additional safe-zone padding because launchers
+// may mask the foreground into circles, squircles, or other shapes.
+try render(
+    image: mark,
+    width: 432,
+    height: 432,
+    destination: repositoryRoot.appendingPathComponent(
+        "android/app/src/main/res/drawable-xxxhdpi/ic_launcher_foreground_image.png"
+    ),
+    inset: 40
+)
+
+// Native launch screens intentionally render only a black background. The
+// descriptive brand artwork lives in Flutter's SplashScreen, so users never
+// see the same splash content twice during startup.

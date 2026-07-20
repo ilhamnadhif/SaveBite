@@ -13,6 +13,18 @@ import 'services/app_backend.dart';
 
 enum AppMode { consumer, merchant }
 
+enum _LoadScope {
+  profile,
+  consumer,
+  orders,
+  favorites,
+  notifications,
+  store,
+  merchant,
+  merchantReviews,
+  balance,
+}
+
 /// Cache reaktif di atas backend aktif. Seluruh cache user dihapus ketika sesi
 /// berubah, dan hasil request lama diabaikan memakai [_sessionEpoch].
 class AppState extends ChangeNotifier {
@@ -30,15 +42,27 @@ class AppState extends ChangeNotifier {
   static const _paymentMethodKey = 'default_payment_method';
   static const _merchantIntentKey = 'pending_merchant_intent';
   static const _checkoutIdempotencyKey = 'pending_checkout_idempotency_v1';
+  static const _checkoutOrderIdKey = 'pending_checkout_order_ids_v1';
   static const _payoutIdempotencyKey = 'pending_payout_idempotency_v1';
 
   SharedPreferences? _preferences;
   int _sessionEpoch = 0;
   int _consumerRequestGeneration = 0;
+  int _profileRequestGeneration = 0;
+  int _ordersRequestGeneration = 0;
+  int _favoritesRequestGeneration = 0;
+  int _notificationsRequestGeneration = 0;
+  int _storeRequestGeneration = 0;
+  int _merchantRequestGeneration = 0;
+  int _merchantReviewsRequestGeneration = 0;
+  int _balanceRequestGeneration = 0;
   StreamSubscription<List<AppNotification>>? _notificationSubscription;
   StreamSubscription<List<IncomingOrder>>? _incomingSubscription;
   StreamSubscription<List<TxRecord>>? _transactionSubscription;
+  bool _isSyncingPendingPayments = false;
   final Map<String, String> _checkoutKeys = {};
+  final Map<String, String> _checkoutOrderIds = {};
+  final Map<String, int> _checkoutRequestsInFlight = {};
   final Map<String, String> _payoutKeys = {};
 
   AppMode mode = AppMode.consumer;
@@ -69,15 +93,30 @@ class AppState extends ChangeNotifier {
   bool isLoadingMerchantReviews = false;
   bool isLoadingBalance = false;
   bool isLoadingNotifications = false;
+
+  /// Error global hanya untuk bootstrap, lokasi, dan operasi lintas-domain.
+  /// Loader tab memakai error per-scope agar request paralel tidak saling
+  /// menghapus atau menampilkan pesan di layar yang keliru.
   String? errorMessage;
+  final Map<_LoadScope, String> _loadErrors = {};
+
+  String? get profileError => _loadErrors[_LoadScope.profile];
+  String? get consumerError => _loadErrors[_LoadScope.consumer];
+  String? get ordersError => _loadErrors[_LoadScope.orders];
+  String? get favoritesError => _loadErrors[_LoadScope.favorites];
+  String? get notificationsError => _loadErrors[_LoadScope.notifications];
+  String? get storeError => _loadErrors[_LoadScope.store];
+  String? get merchantError => _loadErrors[_LoadScope.merchant];
+  String? get merchantReviewsError => _loadErrors[_LoadScope.merchantReviews];
+  String? get balanceError => _loadErrors[_LoadScope.balance];
 
   static const cities = [
     'Margonda, Depok',
     'Cibinong, Bogor',
     'Kemang, Jakarta',
   ];
-  static const paymentMethods = ['GoPay', 'OVO', 'Virtual Account BCA'];
-  String defaultPaymentMethod = 'GoPay';
+  static const paymentMethods = ['Midtrans'];
+  String defaultPaymentMethod = 'Midtrans';
   String selectedBank = '';
   BusinessConfig businessConfig = const BusinessConfig();
 
@@ -160,6 +199,7 @@ class AppState extends ChangeNotifier {
   List<String> get bankAccounts =>
       _bankAccounts.map((account) => account.label).toList(growable: false);
   List<PayoutRequest> get payoutRequests => List.unmodifiable(_payouts);
+  bool get usesRemoteBackend => backend.isRemote;
 
   BankAccount? get selectedBankAccount {
     for (final account in _bankAccounts) {
@@ -201,8 +241,10 @@ class AppState extends ChangeNotifier {
       userLocationAccuracyReduced =
           deviceLatitude != null &&
           (prefs.getBool(_locationReducedAccuracyKey) ?? false);
-      defaultPaymentMethod =
-          prefs.getString(_paymentMethodKey) ?? defaultPaymentMethod;
+      final storedPaymentMethod = prefs.getString(_paymentMethodKey);
+      defaultPaymentMethod = paymentMethods.contains(storedPaymentMethod)
+          ? storedPaymentMethod!
+          : 'Midtrans';
       final intent = prefs.getString(_merchantIntentKey);
       pendingMerchantIntent = switch (intent) {
         'merchant' => true,
@@ -212,6 +254,10 @@ class AppState extends ChangeNotifier {
       _checkoutKeys
         ..clear()
         ..addAll(_decodeStringMap(prefs.getString(_checkoutIdempotencyKey)));
+      _checkoutOrderIds
+        ..clear()
+        ..addAll(_decodeStringMap(prefs.getString(_checkoutOrderIdKey)))
+        ..removeWhere((signature, _) => !_checkoutKeys.containsKey(signature));
       _payoutKeys
         ..clear()
         ..addAll(_decodeStringMap(prefs.getString(_payoutIdempotencyKey)));
@@ -247,6 +293,8 @@ class AppState extends ChangeNotifier {
     await Future.wait([
       if (prefs != null)
         prefs.setString(_checkoutIdempotencyKey, jsonEncode(_checkoutKeys)),
+      if (prefs != null)
+        prefs.setString(_checkoutOrderIdKey, jsonEncode(_checkoutOrderIds)),
       if (prefs != null)
         prefs.setString(_payoutIdempotencyKey, jsonEncode(_payoutKeys)),
     ]);
@@ -559,14 +607,19 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadProfile() async {
     final epoch = _sessionEpoch;
-    errorMessage = null;
+    final generation = ++_profileRequestGeneration;
+    _clearLoadError(_LoadScope.profile);
     try {
       final profile = await backend.currentProfile();
-      if (epoch != _sessionEpoch) return;
+      if (epoch != _sessionEpoch || generation != _profileRequestGeneration) {
+        return;
+      }
       _applyProfile(profile);
       notifyListeners();
     } catch (error) {
-      _setError(error, epoch);
+      if (generation == _profileRequestGeneration) {
+        _setLoadError(_LoadScope.profile, error, epoch);
+      }
     }
   }
 
@@ -586,7 +639,7 @@ class AppState extends ChangeNotifier {
     final epoch = _sessionEpoch;
     final generation = ++_consumerRequestGeneration;
     isLoadingConsumer = true;
-    errorMessage = null;
+    _loadErrors.remove(_LoadScope.consumer);
     notifyListeners();
     try {
       final results = await Future.wait<dynamic>([
@@ -607,7 +660,7 @@ class AppState extends ChangeNotifier {
       _favIds = results[1] as Set<String>;
     } catch (error) {
       if (generation == _consumerRequestGeneration) {
-        _setError(error, epoch);
+        _setLoadError(_LoadScope.consumer, error, epoch);
       }
     } finally {
       if (epoch == _sessionEpoch && generation == _consumerRequestGeneration) {
@@ -619,21 +672,61 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadOrders() async {
     final epoch = _sessionEpoch;
+    final generation = ++_ordersRequestGeneration;
+    final checkoutKeysAtRequestStart = Map<String, String>.from(_checkoutKeys);
+    final checkoutOrderIdsAtRequestStart = Map<String, String>.from(
+      _checkoutOrderIds,
+    );
     isLoadingOrders = true;
-    errorMessage = null;
+    _loadErrors.remove(_LoadScope.orders);
     notifyListeners();
     try {
       final results = await Future.wait([
         backend.activeOrders(),
         backend.orderHistory(),
       ]);
-      if (epoch != _sessionEpoch) return;
-      _active = results[0];
-      _history = results[1];
+      if (epoch != _sessionEpoch || generation != _ordersRequestGeneration) {
+        return;
+      }
+      final loadedActive = results[0];
+      _active = loadedActive
+          .where((order) => !order.paymentState.isTerminalFailure)
+          .toList(growable: false);
+      _history = [...results[1]];
+      for (final terminal in loadedActive.where(
+        (order) => order.paymentState.isTerminalFailure,
+      )) {
+        if (!_history.any((order) => order.id == terminal.id)) {
+          _history.add(terminal);
+        }
+      }
+      if (checkoutKeysAtRequestStart.isNotEmpty) {
+        for (final resolved in <OrderRecord>[
+          ..._active,
+          ..._history,
+        ].where((order) => !order.paymentState.isAwaitingCustomer)) {
+          final signature = _checkoutSignatureForOrder(resolved);
+          final expectedKey = checkoutKeysAtRequestStart[signature];
+          final expectedOrderId = checkoutOrderIdsAtRequestStart[signature];
+          if (expectedKey != null && expectedOrderId == resolved.id) {
+            await _clearCompletedCheckoutKey(
+              resolved,
+              expectedKey: expectedKey,
+              expectedOrderId: expectedOrderId,
+            );
+          }
+        }
+      }
+      if (backend.isRemote &&
+          _active.any((order) => order.paymentState.isAwaitingCustomer)) {
+        unawaited(_syncPendingPayments(epoch));
+      }
     } catch (error) {
-      _setError(error, epoch);
+      if (generation == _ordersRequestGeneration) {
+        _setLoadError(_LoadScope.orders, error, epoch);
+      }
     } finally {
-      if (epoch == _sessionEpoch) {
+      if (epoch == _sessionEpoch && generation == _ordersRequestGeneration) {
         isLoadingOrders = false;
         notifyListeners();
       }
@@ -642,34 +735,46 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadFavorites() async {
     final epoch = _sessionEpoch;
-    errorMessage = null;
+    final generation = ++_favoritesRequestGeneration;
+    _clearLoadError(_LoadScope.favorites);
     try {
       final results = await Future.wait<dynamic>([
         backend.favoriteMerchantIds(),
         backend.favoriteStores(),
       ]);
-      if (epoch != _sessionEpoch) return;
+      if (epoch != _sessionEpoch || generation != _favoritesRequestGeneration) {
+        return;
+      }
       _favIds = results[0] as Set<String>;
       _favStores = results[1] as List<FavoriteStore>;
       notifyListeners();
     } catch (error) {
-      _setError(error, epoch);
+      if (generation == _favoritesRequestGeneration) {
+        _setLoadError(_LoadScope.favorites, error, epoch);
+      }
     }
   }
 
   Future<void> loadNotifications() async {
     final epoch = _sessionEpoch;
+    final generation = ++_notificationsRequestGeneration;
     isLoadingNotifications = true;
-    errorMessage = null;
+    _loadErrors.remove(_LoadScope.notifications);
     notifyListeners();
     try {
       final values = await backend.notifications();
-      if (epoch != _sessionEpoch) return;
+      if (epoch != _sessionEpoch ||
+          generation != _notificationsRequestGeneration) {
+        return;
+      }
       _notifs = values;
     } catch (error) {
-      _setError(error, epoch);
+      if (generation == _notificationsRequestGeneration) {
+        _setLoadError(_LoadScope.notifications, error, epoch);
+      }
     } finally {
-      if (epoch == _sessionEpoch) {
+      if (epoch == _sessionEpoch &&
+          generation == _notificationsRequestGeneration) {
         isLoadingNotifications = false;
         notifyListeners();
       }
@@ -678,21 +783,27 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadStore() async {
     final epoch = _sessionEpoch;
-    errorMessage = null;
+    final generation = ++_storeRequestGeneration;
+    _clearLoadError(_LoadScope.store);
     try {
       final store = await backend.myStore();
-      if (epoch != _sessionEpoch) return;
+      if (epoch != _sessionEpoch || generation != _storeRequestGeneration) {
+        return;
+      }
       _applyStore(store);
       notifyListeners();
     } catch (error) {
-      _setError(error, epoch);
+      if (generation == _storeRequestGeneration) {
+        _setLoadError(_LoadScope.store, error, epoch);
+      }
     }
   }
 
   Future<void> loadMerchantData() async {
     final epoch = _sessionEpoch;
+    final generation = ++_merchantRequestGeneration;
     isLoadingMerchant = true;
-    errorMessage = null;
+    _loadErrors.remove(_LoadScope.merchant);
     notifyListeners();
     try {
       final results = await Future.wait<dynamic>([
@@ -700,14 +811,18 @@ class AppState extends ChangeNotifier {
         backend.incomingOrders(),
         backend.merchantStats(),
       ]);
-      if (epoch != _sessionEpoch) return;
+      if (epoch != _sessionEpoch || generation != _merchantRequestGeneration) {
+        return;
+      }
       _bags = results[0] as List<MerchantBag>;
       _incoming = results[1] as List<IncomingOrder>;
       _applyStats(results[2] as MerchantStats);
     } catch (error) {
-      _setError(error, epoch);
+      if (generation == _merchantRequestGeneration) {
+        _setLoadError(_LoadScope.merchant, error, epoch);
+      }
     } finally {
-      if (epoch == _sessionEpoch) {
+      if (epoch == _sessionEpoch && generation == _merchantRequestGeneration) {
         isLoadingMerchant = false;
         notifyListeners();
       }
@@ -716,17 +831,24 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadMerchantReviews() async {
     final epoch = _sessionEpoch;
+    final generation = ++_merchantReviewsRequestGeneration;
     isLoadingMerchantReviews = true;
-    errorMessage = null;
+    _loadErrors.remove(_LoadScope.merchantReviews);
     notifyListeners();
     try {
       final values = await backend.merchantReviews();
-      if (epoch != _sessionEpoch) return;
+      if (epoch != _sessionEpoch ||
+          generation != _merchantReviewsRequestGeneration) {
+        return;
+      }
       _merchantReviews = values;
     } catch (error) {
-      _setError(error, epoch);
+      if (generation == _merchantReviewsRequestGeneration) {
+        _setLoadError(_LoadScope.merchantReviews, error, epoch);
+      }
     } finally {
-      if (epoch == _sessionEpoch) {
+      if (epoch == _sessionEpoch &&
+          generation == _merchantReviewsRequestGeneration) {
         isLoadingMerchantReviews = false;
         notifyListeners();
       }
@@ -735,8 +857,9 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadBalance() async {
     final epoch = _sessionEpoch;
+    final generation = ++_balanceRequestGeneration;
     isLoadingBalance = true;
-    errorMessage = null;
+    _loadErrors.remove(_LoadScope.balance);
     notifyListeners();
     try {
       final results = await Future.wait<dynamic>([
@@ -745,7 +868,9 @@ class AppState extends ChangeNotifier {
         backend.bankAccounts(),
         backend.payoutRequests(),
       ]);
-      if (epoch != _sessionEpoch) return;
+      if (epoch != _sessionEpoch || generation != _balanceRequestGeneration) {
+        return;
+      }
       balance = results[0] as int;
       _tx = results[1] as List<TxRecord>;
       _bankAccounts = results[2] as List<BankAccount>;
@@ -762,9 +887,11 @@ class AppState extends ChangeNotifier {
                 .label;
       }
     } catch (error) {
-      _setError(error, epoch);
+      if (generation == _balanceRequestGeneration) {
+        _setLoadError(_LoadScope.balance, error, epoch);
+      }
     } finally {
-      if (epoch == _sessionEpoch) {
+      if (epoch == _sessionEpoch && generation == _balanceRequestGeneration) {
         isLoadingBalance = false;
         notifyListeners();
       }
@@ -774,54 +901,67 @@ class AppState extends ChangeNotifier {
   Future<void> _startRealtime(int epoch) async {
     await _cancelRealtime();
     if (epoch != _sessionEpoch) return;
-    _notificationSubscription = backend.watchNotifications().listen((values) {
-      if (epoch != _sessionEpoch) return;
-      final previous = {
-        for (final notification in _notifs)
-          notification.id: notification.unread,
-      };
-      final changed = values.where(
-        (notification) =>
-            !previous.containsKey(notification.id) ||
-            previous[notification.id] != notification.unread,
-      );
-      _notifs = values;
-      notifyListeners();
-      final routes = changed.map((value) => value.route).whereType<String>();
-      if (routes.any(
-        (route) => route == 'orders' || route.startsWith('order:'),
-      )) {
-        unawaited(loadOrders());
-      }
-      if (merchantSetupDone && routes.contains('merchant_orders')) {
-        unawaited(loadMerchantData());
-      }
-      if (merchantSetupDone && routes.contains('merchant_reviews')) {
-        unawaited(loadMerchantReviews());
-      }
-      if (merchantSetupDone && routes.contains('merchant_balance')) {
-        unawaited(loadBalance());
-      }
-      if (routes.contains('consumer_home')) {
-        unawaited(loadConsumerHome());
-      }
-    }, onError: (Object error) => _setError(error, epoch));
+    _notificationSubscription = backend.watchNotifications().listen(
+      (values) {
+        if (epoch != _sessionEpoch) return;
+        final previous = {
+          for (final notification in _notifs)
+            notification.id: notification.unread,
+        };
+        final changed = values.where(
+          (notification) =>
+              !previous.containsKey(notification.id) ||
+              previous[notification.id] != notification.unread,
+        );
+        _notifs = values;
+        notifyListeners();
+        final routes = changed.map((value) => value.route).whereType<String>();
+        if (routes.any(
+          (route) => route == 'orders' || route.startsWith('order:'),
+        )) {
+          unawaited(loadOrders());
+        }
+        if (merchantSetupDone && routes.contains('merchant_orders')) {
+          unawaited(loadMerchantData());
+        }
+        if (merchantSetupDone && routes.contains('merchant_reviews')) {
+          unawaited(loadMerchantReviews());
+        }
+        if (merchantSetupDone && routes.contains('merchant_balance')) {
+          unawaited(loadBalance());
+        }
+        if (routes.contains('consumer_home')) {
+          unawaited(loadConsumerHome());
+        }
+      },
+      onError: (Object error) {
+        _setLoadError(_LoadScope.notifications, error, epoch);
+      },
+    );
     if (!merchantSetupDone) return;
-    _incomingSubscription = backend.watchIncomingOrders().listen((values) {
-      if (epoch != _sessionEpoch) return;
-      _incoming = values;
-      notifyListeners();
-    }, onError: (Object error) => _setError(error, epoch));
-    _transactionSubscription = backend.watchTransactions().listen((
-      values,
-    ) async {
-      if (epoch != _sessionEpoch) return;
-      _tx = values;
-      try {
-        balance = await backend.balance();
-      } catch (_) {}
-      if (epoch == _sessionEpoch) notifyListeners();
-    }, onError: (Object error) => _setError(error, epoch));
+    _incomingSubscription = backend.watchIncomingOrders().listen(
+      (values) {
+        if (epoch != _sessionEpoch) return;
+        _incoming = values;
+        notifyListeners();
+      },
+      onError: (Object error) {
+        _setLoadError(_LoadScope.merchant, error, epoch);
+      },
+    );
+    _transactionSubscription = backend.watchTransactions().listen(
+      (values) async {
+        if (epoch != _sessionEpoch) return;
+        _tx = values;
+        try {
+          balance = await backend.balance();
+        } catch (_) {}
+        if (epoch == _sessionEpoch) notifyListeners();
+      },
+      onError: (Object error) {
+        _setLoadError(_LoadScope.balance, error, epoch);
+      },
+    );
   }
 
   Future<void> _cancelRealtime() async {
@@ -847,42 +987,150 @@ class AppState extends ChangeNotifier {
     String method, {
     String? idempotencyKey,
   }) async {
-    if (quantity < 1 || quantity > bag.quantityLeft) {
+    final requestEpoch = _sessionEpoch;
+    // Snapshot bag dari order lama sengaja tidak membawa stok katalog terbaru.
+    // Pada backend remote, PostgreSQL tetap menjadi validator stok otoritatif.
+    if (quantity < 1 || (!backend.isRemote && quantity > bag.quantityLeft)) {
       throw const BackendException(
         'invalid_quantity',
         'Jumlah bag tidak sesuai stok yang tersedia.',
       );
     }
-    final requestSignature = '${bag.id}|$quantity|$method';
-    final key =
-        idempotencyKey ?? _checkoutKeys.putIfAbsent(requestSignature, _uuid.v4);
+    final requestSignature = _checkoutSignature(bag, quantity, method);
+    final previousKey = _checkoutKeys[requestSignature];
+    final key = idempotencyKey ?? previousKey ?? _uuid.v4();
+    if (previousKey != null && previousKey != key) {
+      _checkoutOrderIds.remove(requestSignature);
+    }
     _checkoutKeys[requestSignature] = key;
-    await _persistIdempotencyKeys();
-    final order = await backend.placeOrder(
-      bag,
-      quantity,
-      method,
-      idempotencyKey: key,
+    _checkoutRequestsInFlight.update(
+      requestSignature,
+      (count) => count + 1,
+      ifAbsent: () => 1,
     );
+    try {
+      await _persistIdempotencyKeys();
+      final order = await backend.placeOrder(
+        bag,
+        quantity,
+        method,
+        idempotencyKey: key,
+      );
+      _cacheOrder(order);
+      if (_checkoutKeys[requestSignature] == key) {
+        if (order.paymentState.isAwaitingCustomer && order.id.isNotEmpty) {
+          _checkoutOrderIds[requestSignature] = order.id;
+        } else if (!order.paymentState.isAwaitingCustomer) {
+          _checkoutKeys.remove(requestSignature);
+          _checkoutOrderIds.remove(requestSignature);
+        }
+        try {
+          await _persistIdempotencyKeys();
+        } catch (_) {
+          // Order sudah committed dan key telah dipersist sebelum request.
+          // Asosiasi/cleanup dapat dipulihkan lewat retry berikutnya.
+        }
+      }
+      notifyListeners();
+      return order;
+    } finally {
+      if (requestEpoch == _sessionEpoch) {
+        final remaining =
+            (_checkoutRequestsInFlight[requestSignature] ?? 1) - 1;
+        if (remaining <= 0) {
+          _checkoutRequestsInFlight.remove(requestSignature);
+        } else {
+          _checkoutRequestsInFlight[requestSignature] = remaining;
+        }
+      }
+    }
+  }
+
+  /// Sinkronisasi eksplisit setelah pengguna kembali dari halaman Midtrans.
+  /// Query callback tidak pernah dipakai sebagai bukti pembayaran; backend
+  /// mengambil status resmi provider terlebih dahulu.
+  Future<OrderRecord> refreshPayment(OrderRecord order) async {
+    final epoch = _sessionEpoch;
+    final refreshed = await backend.refreshPayment(order);
+    if (epoch != _sessionEpoch) return refreshed;
+    _cacheOrder(refreshed);
+    await _clearCompletedCheckoutKey(refreshed);
+    notifyListeners();
+    return refreshed;
+  }
+
+  Future<void> _syncPendingPayments(int epoch) async {
+    if (_isSyncingPendingPayments || epoch != _sessionEpoch) return;
+    _isSyncingPendingPayments = true;
+    try {
+      final pending = _active
+          .where((order) => order.paymentState.isAwaitingCustomer)
+          .take(5)
+          .toList(growable: false);
+      for (final order in pending) {
+        if (epoch != _sessionEpoch) return;
+        try {
+          final refreshed = await backend.refreshPayment(order);
+          if (epoch != _sessionEpoch) return;
+          _cacheOrder(refreshed);
+          await _clearCompletedCheckoutKey(refreshed);
+        } catch (_) {
+          // Daftar tetap dapat dipakai ketika provider sementara tidak dapat
+          // dijangkau. Pengguna dapat mencoba cek status secara manual.
+        }
+      }
+      if (epoch == _sessionEpoch) notifyListeners();
+    } finally {
+      _isSyncingPendingPayments = false;
+    }
+  }
+
+  void _cacheOrder(OrderRecord order) {
     _active.removeWhere((item) => item.id == order.id);
     _history.removeWhere((item) => item.id == order.id);
     if (order.status == OrderStatus.done ||
         order.status == OrderStatus.cancelled ||
-        order.status == OrderStatus.expired) {
+        order.status == OrderStatus.expired ||
+        order.paymentState.isTerminalFailure) {
       _history.insert(0, order);
     } else {
       _active.insert(0, order);
     }
-    if (_checkoutKeys[requestSignature] == key) {
-      _checkoutKeys.remove(requestSignature);
-      try {
-        await _persistIdempotencyKeys();
-      } catch (_) {
-        // Order sudah committed; kegagalan cleanup lokal bukan kegagalan order.
-      }
+  }
+
+  String _checkoutSignature(Bag bag, int quantity, String method) =>
+      '${bag.id}|$quantity|$method';
+
+  String _checkoutSignatureForOrder(OrderRecord order) =>
+      _checkoutSignature(order.bag, order.quantity, order.paymentMethod);
+
+  Future<void> _clearCompletedCheckoutKey(
+    OrderRecord order, {
+    String? expectedKey,
+    String? expectedOrderId,
+  }) async {
+    if (order.paymentState.isAwaitingCustomer) return;
+    final signature = _checkoutSignatureForOrder(order);
+    final associatedOrderId = _checkoutOrderIds[signature];
+    if (associatedOrderId == null || associatedOrderId != order.id) return;
+    if (expectedOrderId != null && associatedOrderId != expectedOrderId) return;
+    if ((_checkoutRequestsInFlight[signature] ?? 0) > 0) return;
+    if (_active.any(
+      (active) =>
+          active.paymentState.isAwaitingCustomer &&
+          _checkoutSignatureForOrder(active) == signature,
+    )) {
+      return;
     }
-    notifyListeners();
-    return order;
+    if (expectedKey != null && _checkoutKeys[signature] != expectedKey) return;
+    if (_checkoutKeys.remove(signature) == null) return;
+    _checkoutOrderIds.remove(signature);
+    try {
+      await _persistIdempotencyKeys();
+    } catch (_) {
+      // Status provider sudah tersimpan di server. Cleanup lokal boleh dicoba
+      // lagi saat sesi berikutnya tanpa mengubah hasil pembayaran.
+    }
   }
 
   Future<OrderRecord> issuePickupToken(OrderRecord order) async {
@@ -1078,7 +1326,7 @@ class AppState extends ChangeNotifier {
     if (!businessConfig.payoutsEnabled) {
       throw const BackendException(
         'payout_disabled',
-        'Penarikan dinonaktifkan selama pembayaran konsumen masih simulasi.',
+        'Fitur penarikan dana belum diaktifkan oleh operator.',
       );
     }
     final account = selectedBankAccount;
@@ -1232,19 +1480,47 @@ class AppState extends ChangeNotifier {
 
   Future<void> clearSessionState({bool notify = true}) async {
     _sessionEpoch++;
-    _consumerRequestGeneration++;
+    _invalidateLoadRequests();
     await _cancelRealtime();
     backend.clearSessionCache();
     _checkoutKeys.clear();
+    _checkoutOrderIds.clear();
+    _checkoutRequestsInFlight.clear();
     _payoutKeys.clear();
+    _isSyncingPendingPayments = false;
     final prefs = await _prefs();
     await Future.wait([
       if (prefs != null) prefs.remove(_checkoutIdempotencyKey),
+      if (prefs != null) prefs.remove(_checkoutOrderIdKey),
       if (prefs != null) prefs.remove(_payoutIdempotencyKey),
+      if (prefs != null) prefs.remove(_locationPrimedKey),
+      if (prefs != null) prefs.remove(_locationLabelKey),
+      if (prefs != null) prefs.remove(_latitudeKey),
+      if (prefs != null) prefs.remove(_longitudeKey),
+      if (prefs != null) prefs.remove(_locationFromDeviceKey),
+      if (prefs != null) prefs.remove(_deviceLatitudeKey),
+      if (prefs != null) prefs.remove(_deviceLongitudeKey),
+      if (prefs != null) prefs.remove(_locationAccuracyKey),
+      if (prefs != null) prefs.remove(_locationReducedAccuracyKey),
+      if (prefs != null) prefs.remove(_paymentMethodKey),
     ]);
     pendingMerchantIntent = null;
     mode = AppMode.consumer;
     lastMode = 'consumer';
+    locationPrimed = false;
+    location = 'Lokasi belum dipilih';
+    userLatitude = null;
+    userLongitude = null;
+    userLocationIsFromDevice = false;
+    deviceLatitude = null;
+    deviceLongitude = null;
+    userLocationAccuracyMeters = null;
+    userLocationAccuracyReduced = false;
+    hasLocationPermission = false;
+    locationPermissionDeniedForever = false;
+    locationServicesEnabled = true;
+    currentFilter = const BagFilter();
+    defaultPaymentMethod = 'Midtrans';
     merchantSetupDone = false;
     userName = 'Pengguna';
     userEmail = '';
@@ -1279,7 +1555,9 @@ class AppState extends ChangeNotifier {
     incomeToday = 0;
     incomeThisMonth = 0;
     foodSavedKg = 0;
+    _resetLoadingState();
     errorMessage = null;
+    _loadErrors.clear();
     await setPendingMerchantIntent(null);
     if (notify) notifyListeners();
   }
@@ -1330,6 +1608,39 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _setLoadError(_LoadScope scope, Object error, int epoch) {
+    if (epoch != _sessionEpoch) return;
+    _loadErrors[scope] = _messageFor(error);
+    notifyListeners();
+  }
+
+  void _clearLoadError(_LoadScope scope) {
+    if (_loadErrors.remove(scope) != null) notifyListeners();
+  }
+
+  void _invalidateLoadRequests() {
+    _consumerRequestGeneration++;
+    _profileRequestGeneration++;
+    _ordersRequestGeneration++;
+    _favoritesRequestGeneration++;
+    _notificationsRequestGeneration++;
+    _storeRequestGeneration++;
+    _merchantRequestGeneration++;
+    _merchantReviewsRequestGeneration++;
+    _balanceRequestGeneration++;
+  }
+
+  void _resetLoadingState() {
+    isBootstrapping = false;
+    isLoadingConsumer = false;
+    isLoadingOrders = false;
+    isLoadingMerchant = false;
+    isLoadingMerchantReviews = false;
+    isLoadingBalance = false;
+    isLoadingNotifications = false;
+    isDeterminingLocation = false;
+  }
+
   String _messageFor(
     Object error, {
     String fallback = 'Terjadi kendala. Silakan coba lagi.',
@@ -1344,8 +1655,10 @@ class AppState extends ChangeNotifier {
     unawaited(_cancelRealtime());
     useFakeBackend();
     _sessionEpoch++;
-    _consumerRequestGeneration++;
+    _invalidateLoadRequests();
     _checkoutKeys.clear();
+    _checkoutOrderIds.clear();
+    _checkoutRequestsInFlight.clear();
     _payoutKeys.clear();
     mode = AppMode.consumer;
     onboardingSeen = false;
@@ -1365,7 +1678,7 @@ class AppState extends ChangeNotifier {
     locationPrimed = false;
     pendingMerchantIntent = null;
     currentFilter = const BagFilter();
-    defaultPaymentMethod = 'GoPay';
+    defaultPaymentMethod = 'Midtrans';
     selectedBank = '';
     businessConfig = const BusinessConfig();
     userName = 'Ilham Hidayat';
@@ -1399,7 +1712,9 @@ class AppState extends ChangeNotifier {
     incomeToday = 0;
     incomeThisMonth = 0;
     foodSavedKg = 0;
+    _resetLoadingState();
     errorMessage = null;
+    _loadErrors.clear();
     notifyListeners();
   }
 }

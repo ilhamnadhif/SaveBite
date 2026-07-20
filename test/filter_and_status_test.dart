@@ -137,6 +137,81 @@ void main() {
     expect(cancelled.canRate, isFalse);
   });
 
+  test('status pembayaran Midtrans tidak pernah jatuh ke siap/paid', () {
+    Map<String, dynamic> row(String paymentStatus) => {
+      'id': 'order-$paymentStatus',
+      'status': paymentStatus == 'settlement' ? 'paid' : 'pending',
+      'payment_status': paymentStatus,
+      'order_reference': 'SB-${paymentStatus.toUpperCase()}',
+      'quantity': 1,
+      'subtotal': 15000,
+      'service_fee': 1000,
+      'total_amount': 16000,
+      'bag_id': 'bag-1',
+      'bag_title': 'Surprise Bag',
+      'unit_price': 15000,
+      'original_price_snapshot': 45000,
+      'merchant_id': 'merchant-1',
+      'merchant_name': 'Toko Uji',
+    };
+
+    expect(
+      orderRecordFromMap(row('pending')).paymentState,
+      PaymentState.pending,
+    );
+    expect(
+      orderRecordFromMap(row('settlement')).paymentState,
+      PaymentState.paid,
+    );
+    final captureChallenge = row('capture')..['fraud_status'] = 'challenge';
+    final captureAccepted = row('capture')..['fraud_status'] = 'accept';
+    expect(
+      orderRecordFromMap(captureChallenge).paymentState,
+      PaymentState.pending,
+    );
+    expect(orderRecordFromMap(captureAccepted).paymentState, PaymentState.paid);
+    expect(orderRecordFromMap(row('deny')).paymentState, PaymentState.failed);
+    expect(
+      orderRecordFromMap(row('refund')).paymentState,
+      PaymentState.refunded,
+    );
+    expect(
+      orderRecordFromMap(row('chargeback')).paymentState,
+      PaymentState.disputed,
+    );
+    expect(
+      orderRecordFromMap(row('partial_refund')).paymentState,
+      PaymentState.disputed,
+    );
+    expect(orderRecordFromMap(row('refund')).status, OrderStatus.pending);
+    expect(orderRecordFromMap(row('chargeback')).paymentState.isPaid, isFalse);
+
+    final unknownProviderState = row('future_provider_status')
+      ..['status'] = 'ready'
+      ..['paid_at'] = '2026-07-19T08:00:00Z';
+    expect(
+      orderRecordFromMap(unknownProviderState).paymentState,
+      PaymentState.awaitingPayment,
+    );
+
+    final verifiedLegacy = row('')
+      ..['status'] = 'paid'
+      ..['paid_at'] = '2026-07-19T08:00:00Z';
+    expect(orderRecordFromMap(verifiedLegacy).paymentState, PaymentState.paid);
+  });
+
+  test('status merchant yang tidak dikenal tidak dianggap sudah dibayar', () {
+    final unknown = incomingOrderFromMap({
+      'id': 'order-unknown',
+      'status': 'future_status',
+      'consumer_name': 'Nadia',
+      'quantity': 1,
+    });
+
+    expect(unknown.status, IncomingOrderStatus.pending);
+    expect(unknown.needsAction, isFalse);
+  });
+
   test('notifikasi diarahkan ke ekosistem pemilik yang tepat', () {
     AppNotification notification(String entity, String title) =>
         notificationFromMap({

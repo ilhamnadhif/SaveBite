@@ -2,68 +2,29 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text.dart';
 
-/// Logo SaveBite: kotak membulat dengan titik amber + daun hijau.
-/// Proporsi mengikuti desain (skala terhadap [size]).
+/// Simbol SaveBite resmi yang diturunkan dari artwork aplikasi.
 class AppLogo extends StatelessWidget {
   final double size;
-  final Color background;
-  final Color dotColor;
-  final Color leafColor;
 
-  const AppLogo({
-    super.key,
-    this.size = 40,
-    this.background = AppColors.green,
-    this.dotColor = AppColors.amber,
-    this.leafColor = AppColors.greenBright,
-  });
+  const AppLogo({super.key, this.size = 40});
 
   @override
   Widget build(BuildContext context) {
-    final r = size * 0.3;
-    final dot = size * 0.31;
-    final leaf = size * 0.38;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        children: [
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(r),
-            ),
-          ),
-          Positioned(
-            top: size * 0.2,
-            right: size * 0.19,
-            child: Container(
-              width: dot,
-              height: dot,
-              decoration: BoxDecoration(
-                color: dotColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: size * 0.21,
-            left: size * 0.2,
-            child: Container(
-              width: leaf,
-              height: leaf,
-              decoration: BoxDecoration(
-                color: leafColor,
-                borderRadius: BorderRadius.only(
-                  topRight: Radius.circular(r),
-                  bottomLeft: Radius.circular(r),
-                ),
-              ),
-            ),
-          ),
-        ],
+    final cacheSize = (size * MediaQuery.devicePixelRatioOf(context)).ceil();
+    return Semantics(
+      image: true,
+      label: 'Logo SaveBite',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(size * 0.22),
+        child: Image.asset(
+          'assets/images/savebite_mark.png',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
+        ),
       ),
     );
   }

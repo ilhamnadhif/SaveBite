@@ -18,15 +18,32 @@ class FavoritesScreen extends StatelessWidget {
               _header(),
               Expanded(
                 child: favorites.isEmpty
-                    ? const EmptyState(
-                        icon: Icons.favorite_border,
-                        title: 'Belum ada favorit',
-                        message:
-                            'Simpan toko favoritmu agar mudah ditemukan dan dapat info bag baru.',
-                      )
+                    ? appState.favoritesError != null
+                          ? EmptyState(
+                              icon: Icons.cloud_off_outlined,
+                              title: 'Favorit belum dapat dimuat',
+                              message: appState.favoritesError!,
+                              action: SizedBox(
+                                width: 190,
+                                child: PrimaryButton(
+                                  label: 'Coba lagi',
+                                  onTap: appState.loadFavorites,
+                                ),
+                              ),
+                            )
+                          : const EmptyState(
+                              icon: Icons.favorite_border,
+                              title: 'Belum ada favorit',
+                              message:
+                                  'Simpan toko favoritmu agar mudah ditemukan dan dapat info bag baru.',
+                            )
                     : ListView(
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                         children: [
+                          if (appState.favoritesError != null) ...[
+                            _errorBanner(appState.favoritesError!),
+                            const SizedBox(height: 14),
+                          ],
                           for (final f in favorites) ...[
                             _favoriteCard(context, f),
                             const SizedBox(height: 14),
@@ -37,6 +54,32 @@ class FavoritesScreen extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _errorBanner(String message) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: AppColors.dangerBg,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              message,
+              style: AppText.ui(12.5, color: AppColors.danger),
+            ),
+          ),
+          TextButton(
+            onPressed: appState.loadFavorites,
+            child: const Text('Coba lagi'),
+          ),
+        ],
       ),
     );
   }

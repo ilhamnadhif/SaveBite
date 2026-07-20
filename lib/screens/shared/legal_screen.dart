@@ -137,9 +137,11 @@ _LegalContent _contentFor(LegalDocument document) {
         ),
         _LegalSection(
           '4. Pembayaran',
-          'Pada versi pengembangan saat ini pembayaran masih disimulasikan '
-              'dan belum memindahkan dana nyata. Ketentuan pembayaran final harus '
-              'diperbarui setelah penyedia payment gateway dipilih dan diaktifkan.',
+          'Pembayaran diproses melalui Midtrans. SaveBite tidak menyimpan '
+              'credential pembayaran pengguna dan hanya menganggap transaksi '
+              'berhasil setelah statusnya diverifikasi oleh server penyedia. '
+              'Ketersediaan metode dan waktu penyelesaian dapat berbeda menurut '
+              'channel pembayaran yang dipilih.',
         ),
         _LegalSection(
           '5. Pembatasan dan penghentian',
@@ -193,21 +195,22 @@ _LegalContent _contentFor(LegalDocument document) {
     LegalDocument.refundPolicy => const _LegalContent(
       title: 'Pembatalan & Pengembalian Dana',
       introduction:
-          'Draf ini menjelaskan skenario pembatalan. Tidak ada dana nyata '
-          'yang ditarik selama mode simulasi pembayaran masih aktif.',
+          'Draf ini menjelaskan skenario pembatalan dan pengembalian dana untuk '
+          'pembayaran yang diproses melalui Midtrans.',
       sections: [
         _LegalSection(
           '1. Pembatalan oleh merchant',
           'Jika merchant tidak dapat menyediakan pesanan, status pesanan harus '
-              'diubah menjadi dibatalkan. Setelah payment gateway aktif, pembayaran '
-              'yang sudah berhasil wajib dikembalikan melalui metode asal sesuai '
-              'SLA penyedia pembayaran.',
+              'diubah melalui proses pembatalan server. Pembayaran yang sudah '
+              'berhasil tidak boleh dibatalkan hanya dari perangkat merchant; '
+              'pengembalian diproses ke metode asal sesuai status dan SLA Midtrans.',
         ),
         _LegalSection(
           '2. Stok atau transaksi gagal',
-          'Pesanan yang gagal dibuat karena stok berubah atau gangguan sistem '
-              'tidak boleh dikenai biaya. Kunci idempotensi digunakan untuk '
-              'mencegah pesanan ganda ketika pengguna mencoba kembali.',
+          'Pesanan yang gagal dibuat karena stok berubah tidak boleh dikenai '
+              'biaya. Reservation pembayaran yang gagal atau kedaluwarsa '
+              'dikembalikan tepat satu kali. Kunci idempotensi mencegah pesanan '
+              'ganda ketika pengguna mencoba kembali.',
         ),
         _LegalSection(
           '3. Tidak datang saat pickup',

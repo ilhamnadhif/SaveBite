@@ -35,10 +35,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       setState(() => _loading = true);
     }
     try {
-      appState.clearError();
       await appState.loadOrders();
       if (!mounted) return;
-      setState(() => _error = appState.errorMessage);
+      setState(() => _error = appState.ordersError);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -50,7 +49,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   bool _hasExpired(OrderRecord order) {
-    final expiresAt = order.expiresAt;
+    if (order.paymentState == PaymentState.expired) return true;
+    final expiresAt = order.paymentState.isAwaitingCustomer
+        ? order.paymentExpiresAt
+        : order.expiresAt;
     return expiresAt != null && !expiresAt.isAfter(DateTime.now());
   }
 
@@ -59,6 +61,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         (order) =>
             (order.status == OrderStatus.pending ||
                 order.status == OrderStatus.ready) &&
+            !order.paymentState.isTerminalFailure &&
             !_hasExpired(order),
       )
       .toList(growable: false);
@@ -69,7 +72,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
         .map((order) => order.id)
         .where((id) => id.isNotEmpty)
         .toSet();
-    for (final order in appState.activeOrders.where(_hasExpired)) {
+    for (final order in appState.activeOrders.where(
+      (order) => _hasExpired(order) || order.paymentState.isTerminalFailure,
+    )) {
       if (order.id.isEmpty || ids.add(order.id)) result.add(order);
     }
     return result;
@@ -167,6 +172,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   Widget _activeCard(BuildContext context, OrderRecord order) {
     final ready = order.status == OrderStatus.ready;
+    final awaitingPayment = order.paymentState.isAwaitingCustomer;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
@@ -210,6 +216,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
               const SizedBox(width: 8),
               ready
                   ? StatusBadge.available('Siap diambil')
+                  : awaitingPayment
+                  ? StatusBadge.waiting('Menunggu bayar')
                   : StatusBadge.waiting('Diproses'),
             ],
           ),
@@ -244,6 +252,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 onTap: () => AppNav.toVoucher(context, order),
               ),
             )
+          else if (awaitingPayment)
+            SizedBox(
+              width: double.infinity,
+              child: PrimaryButton(
+                label: 'Lanjutkan pembayaran',
+                height: 44,
+                fontSize: 14,
+                onTap: () => AppNav.toResumePayment(context, order),
+              ),
+            )
           else
             Container(
               width: double.infinity,
@@ -253,7 +271,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'QR akan tersedia setelah pesanan siap diambil.',
+                'Pembayaran sudah diterima. QR tersedia setelah pesanan siap.',
                 textAlign: TextAlign.center,
                 style: AppText.ui(12, color: AppColors.body),
               ),
@@ -319,6 +337,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
     OrderRecord order, {
     required bool expired,
   }) {
+    if (order.paymentState == PaymentState.refunded) {
+      return StatusBadge.expired('Dikembalikan');
+    }
+    if (order.paymentState == PaymentState.disputed) {
+      return StatusBadge.expired('Ditinjau');
+    }
+    if (order.paymentState == PaymentState.failed) {
+      return StatusBadge.expired('Gagal bayar');
+    }
+    if (order.paymentState == PaymentState.cancelled) {
+      return StatusBadge.expired('Dibatalkan');
+    }
+    if (order.paymentState == PaymentState.expired) {
+      return StatusBadge.expired('Kedaluwarsa');
+    }
     if (order.status == OrderStatus.cancelled) {
       return StatusBadge.expired('Dibatalkan');
     }

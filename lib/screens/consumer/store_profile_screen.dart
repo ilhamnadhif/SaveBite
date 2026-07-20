@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../sb.dart';
 import '../../app_nav.dart';
+import '../../data/backend/backend.dart';
 
 /// B10 Profil Toko. Pola: LAYAR PENUH (Scaffold sendiri), bisa scroll.
 class StoreProfileScreen extends StatefulWidget {
@@ -14,6 +16,7 @@ class StoreProfileScreen extends StatefulWidget {
 class _StoreProfileScreenState extends State<StoreProfileScreen> {
   List<Bag> _bags = [];
   bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -22,12 +25,28 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   }
 
   Future<void> _loadBags() async {
-    final bags = await appState.bagsByMerchant(widget.merchant.id);
-    if (!mounted) return;
-    setState(() {
-      _bags = bags;
-      _loading = false;
-    });
+    if (!_loading || _loadError != null) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
+    try {
+      final bags = await appState.bagsByMerchant(widget.merchant.id);
+      if (!mounted) return;
+      setState(() {
+        _bags = bags;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = error is BackendException
+            ? error.message
+            : 'Daftar Surprise Bag belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      });
+    }
   }
 
   @override
@@ -219,6 +238,39 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         child: Center(child: CircularProgressIndicator()),
       );
     }
+    final loadError = _loadError;
+    if (loadError != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 30,
+              color: AppColors.muted,
+            ),
+            const SizedBox(height: 9),
+            Text(
+              loadError,
+              textAlign: TextAlign.center,
+              style: AppText.ui(13, color: AppColors.body, height: 1.45),
+            ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: _loadBags,
+              icon: const Icon(Icons.refresh, size: 17),
+              label: const Text('Coba lagi'),
+            ),
+          ],
+        ),
+      );
+    }
     if (_bags.isEmpty) {
       return Text(
         'Belum ada bag tersedia',
@@ -271,8 +323,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                         style: AppText.ui(12, color: AppColors.body),
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                      Wrap(
+                        spacing: 7,
+                        runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
                             formatRupiah(bag.originalPrice),
@@ -283,7 +337,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                               decorationColor: AppColors.strikethrough,
                             ),
                           ),
-                          const SizedBox(width: 7),
                           Text(
                             formatRupiah(bag.salePrice),
                             style: AppText.display(

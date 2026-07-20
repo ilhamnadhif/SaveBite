@@ -70,6 +70,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   localError =
                       appState.errorMessage ??
                       'Lokasi belum berhasil ditemukan. Coba lagi.';
+                } else if (appState.consumerError != null) {
+                  localError = appState.consumerError;
                 } else {
                   if (!sheetContext.mounted) return;
                   Navigator.of(sheetContext).pop();
@@ -97,10 +99,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   preset.longitude,
                 );
                 if (!sheetContext.mounted) return;
-                if (appState.errorMessage != null) {
+                if (appState.consumerError != null) {
                   setSheetState(() {
                     busy = false;
-                    localError = appState.errorMessage;
+                    localError = appState.consumerError;
                   });
                   return;
                 }
@@ -110,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 setSheetState(() {
                   busy = false;
                   localError =
-                      appState.errorMessage ??
+                      appState.consumerError ??
                       'Area gagal dimuat. Periksa koneksimu lalu coba lagi.';
                 });
               }
@@ -460,9 +462,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (appState.isLoadingConsumer && !hasData) {
       return const _LoadingState();
     }
-    if (appState.errorMessage != null && !hasData) {
+    if (appState.consumerError != null && !hasData) {
       return _ErrorState(
-        message: appState.errorMessage!,
+        message: appState.consumerError!,
         onRetry: _refresh,
         onChangeLocation: _showLocationPicker,
       );
@@ -491,8 +493,8 @@ class _HomeScreenState extends State<HomeScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         children: [
-          if (appState.errorMessage != null) ...[
-            _InlineError(message: appState.errorMessage!, onRetry: _refresh),
+          if (appState.consumerError != null) ...[
+            _InlineError(message: appState.consumerError!, onRetry: _refresh),
             const SizedBox(height: 14),
           ],
           SingleChildScrollView(

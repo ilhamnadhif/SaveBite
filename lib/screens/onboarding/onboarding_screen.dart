@@ -13,6 +13,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int _page = 0;
+  bool _finishing = false;
 
   static const List<_Slide> _slides = [
     _Slide(
@@ -42,11 +43,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
+    if (_finishing) return;
+    setState(() => _finishing = true);
     await appState.markOnboardingSeen();
-    if (mounted) AppNav.toFork(context);
+    if (mounted) AppNav.toForkRoot(context);
   }
 
   void _next() {
+    if (_finishing) return;
     if (_page < _slides.length - 1) {
       _controller.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -71,7 +75,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
-                  onTap: _finish,
+                  onTap: _finishing ? null : _finish,
                   child: Text(
                     'Lewati',
                     style: AppText.ui(15, weight: 600, color: AppColors.muted),
@@ -89,7 +93,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 22),
               SizedBox(
                 width: double.infinity,
-                child: PrimaryButton(label: 'Lanjut', onTap: _next),
+                child: PrimaryButton(
+                  label: _finishing ? 'Menyiapkan…' : 'Lanjut',
+                  onTap: _finishing ? null : _next,
+                ),
               ),
             ],
           ),
