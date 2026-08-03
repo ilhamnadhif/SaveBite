@@ -12,6 +12,7 @@ import {
 import {
   assertMidtransConfigured,
   buildSnapPayload,
+  canonicalQrisPaymentMethod,
   type CheckoutItem,
   createSnapTransaction,
   MidtransApiError,
@@ -40,6 +41,13 @@ function databaseFailure(
       409,
       "pickup_ended",
       "Waktu pengambilan sudah berakhir.",
+    );
+  }
+  if (normalized.includes("pickup window ends too soon for payment")) {
+    return new HttpError(
+      409,
+      "pickup_ended",
+      "Waktu pengambilan terlalu dekat untuk menyelesaikan pembayaran.",
     );
   }
   if (normalized.includes("idempotency key was already used")) {
@@ -95,7 +103,6 @@ function checkoutInput(claim: Record<string, unknown>): SnapCheckoutInput {
   return {
     providerOrderId: String(claim.midtrans_order_id ?? ""),
     grossAmount: Number(claim.gross_amount),
-    requestedMethod: String(claim.requested_method ?? "Midtrans"),
     paymentExpiresAt: String(claim.payment_expires_at ?? ""),
     customer: {
       first_name: typeof customer.first_name === "string"
@@ -136,19 +143,13 @@ Deno.serve(async (request) => {
     ) {
       throw new HttpError(400, "invalid_quantity", "Jumlah bag tidak valid.");
     }
-    const paymentMethod = requiredString(
-      body.payment_method,
-      "payment_method",
-      1,
-      64,
-    );
+    const paymentMethod = canonicalQrisPaymentMethod(body.payment_method);
     const idempotencyKey = requiredString(
       body.idempotency_key,
       "idempotency_key",
       8,
       128,
     );
-
     const userClient = createUserClient(request);
     const user = await requireUser(userClient);
     assertMidtransConfigured();
@@ -205,13 +206,18 @@ Deno.serve(async (request) => {
       );
       let snap;
       try {
+        const input = checkoutInput(claim);
         snap = await createSnapTransaction(
-          buildSnapPayload(checkoutInput(claim)),
+          buildSnapPayload(input, new Date()),
         );
       } catch (error) {
         const safeCode = error instanceof MidtransApiError
           ? error.safeCode
           : "checkout_payload_error";
+        console.warn(JSON.stringify({
+          event: "midtrans_create_failed",
+          code: safeCode,
+        }));
         await releaseCheckoutLease(service, orderId, leaseToken, safeCode);
         if (error instanceof HttpError) throw error;
         if (
@@ -222,6 +228,13 @@ Deno.serve(async (request) => {
             500,
             "midtrans_not_configured",
             "Credential Midtrans di server tidak valid.",
+          );
+        }
+        if (error instanceof MidtransApiError && error.httpStatus === 402) {
+          throw new HttpError(
+            503,
+            "midtrans_qris_not_enabled",
+            "Kanal QRIS pada Snap Midtrans belum aktif.",
           );
         }
         throw new HttpError(
@@ -240,13 +253,13 @@ Deno.serve(async (request) => {
         p_redirect_url: snap.redirect_url,
       };
       let completion = await service.rpc(
-        "complete_midtrans_checkout",
+        "complete_midtrans_snap_checkout",
         completionParams,
       );
       // One immediate retry narrows the provider-created/database-write gap.
       if (completion.error) {
         completion = await service.rpc(
-          "complete_midtrans_checkout",
+          "complete_midtrans_snap_checkout",
           completionParams,
         );
       }

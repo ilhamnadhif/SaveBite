@@ -393,6 +393,9 @@ verify_jwt = false
 [functions.midtrans-status]
 verify_jwt = false
 
+[functions.midtrans-cancel]
+verify_jwt = false
+
 [functions.midtrans-webhook]
 verify_jwt = false
 

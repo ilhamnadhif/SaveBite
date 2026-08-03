@@ -483,7 +483,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       context,
       title: 'Batalkan pesanan?',
       message:
-          'Pesanan ${_reference(order)} akan dibatalkan dan ${order.bags} bag dikembalikan ke stok. Tindakan ini tidak dapat dibatalkan.',
+          'Midtrans akan membatalkan atau mengembalikan pembayaran untuk '
+          '${_reference(order)}. Stok ${order.bags} bag baru dikembalikan '
+          'setelah provider mengonfirmasi. Tindakan ini tidak dapat dibatalkan.',
       confirmLabel: 'Batalkan pesanan',
       destructive: true,
     );
@@ -494,7 +496,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (mounted) {
         AppFeedback.snack(
           context,
-          'Pesanan dibatalkan dan stok telah dikembalikan.',
+          'Pembatalan/refund telah dikonfirmasi Midtrans untuk diproses. Stok telah '
+          'dikembalikan; waktu dana masuk mengikuti metode pembayaran.',
           icon: Icons.inventory_2_outlined,
         );
       }

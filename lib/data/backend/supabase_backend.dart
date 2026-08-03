@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -697,12 +699,11 @@ class SupabaseBackend implements Backend {
         'Pesanan tidak ditemukan.',
       );
     }
-    return _guard(() async {
-      final row = _rpcMap(
-        await _sb.rpc('cancel_merchant_order', params: {'p_order_id': orderId}),
-      );
-      return incomingOrderFromMap(row);
-    });
+    final row = await _invokePaymentFunction(
+      'midtrans-cancel',
+      body: {'order_id': orderId},
+    );
+    return incomingOrderFromMap(row);
   }
 
   @override
@@ -909,22 +910,94 @@ class SupabaseBackend implements Backend {
     required String accountHolder,
     required String idempotencyKey,
   }) async {
-    return _guard(() async {
+    final params = buildBankAccountRpcParams(
+      bankCode: bankCode,
+      accountNumber: accountNumber,
+      accountHolder: accountHolder,
+      idempotencyKey: idempotencyKey,
+    );
+    Future<BankAccount> register() => _guard(() async {
       final row = _rpcMap(
-        await _sb.rpc(
-          'register_bank_account',
-          params: {
-            'p_bank_code': bankCode,
-            'p_account_holder': accountHolder.trim(),
-            'p_account_number': accountNumber.replaceAll(RegExp(r'\s'), ''),
-            'p_idempotency_key': idempotencyKey,
-          },
-        ),
+        await _sb.rpc('register_bank_account', params: params),
       );
       final mapped = <String, dynamic>{...row};
-      mapped['bank_name'] ??= bankName;
+      final normalizedCode = params['p_bank_code']!;
+      final returnedName = mapped['bank_name']?.toString().trim() ?? '';
+      final fallbackName = bankName.trim();
+      if (returnedName.isEmpty ||
+          returnedName.toUpperCase() == normalizedCode) {
+        mapped['bank_name'] = fallbackName.isEmpty
+            ? normalizedCode
+            : fallbackName;
+      }
       return bankAccountFromMap(mapped);
     });
+
+    try {
+      return await register();
+    } catch (error) {
+      if (!shouldRetryBankAccountRegistration(error)) rethrow;
+      // `register_bank_account` dilindungi idempotency key. Mengulang satu kali
+      // dengan payload yang sama memulihkan respons yang terputus tanpa risiko
+      // membuat rekening duplikat.
+      return register();
+    }
+  }
+
+  /// Menyamakan normalisasi client dengan kontrak `register_bank_account`.
+  /// Validasi lokal mencegah input yang dapat ditindaklanjuti jatuh menjadi
+  /// error Postgres generik di layar merchant.
+  @visibleForTesting
+  static Map<String, dynamic> buildBankAccountRpcParams({
+    required String bankCode,
+    required String accountNumber,
+    required String accountHolder,
+    required String idempotencyKey,
+  }) {
+    final normalizedCode = bankCode.trim().toUpperCase();
+    final normalizedNumber = accountNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    final normalizedHolder = accountHolder.trim();
+    final normalizedKey = idempotencyKey.trim();
+
+    if (!RegExp(r'^[A-Z0-9_]{2,20}$').hasMatch(normalizedCode)) {
+      throw const BackendException(
+        'invalid_bank_code',
+        'Pilih bank yang valid.',
+      );
+    }
+    if (normalizedNumber.length < 6 || normalizedNumber.length > 20) {
+      throw const BackendException(
+        'invalid_bank_account_number',
+        'Nomor rekening harus berisi 6–20 digit.',
+      );
+    }
+    if (normalizedHolder.length < 2 || normalizedHolder.length > 100) {
+      throw const BackendException(
+        'invalid_bank_account_holder',
+        'Nama pemilik rekening harus berisi 2–100 karakter.',
+      );
+    }
+    if (normalizedKey.length < 8 || normalizedKey.length > 128) {
+      throw const BackendException(
+        'invalid_idempotency_key',
+        'Permintaan rekening tidak valid. Silakan coba lagi.',
+      );
+    }
+
+    return <String, dynamic>{
+      'p_bank_code': normalizedCode,
+      'p_account_holder': normalizedHolder,
+      'p_account_number': normalizedNumber,
+      'p_idempotency_key': normalizedKey,
+    };
+  }
+
+  @visibleForTesting
+  static bool shouldRetryBankAccountRegistration(Object error) {
+    if (error is! BackendException) return true;
+    return error.code == 'server_error' ||
+        error.code == 'invalid_response' ||
+        error.code == 'network_error';
   }
 
   @override
@@ -1011,7 +1084,6 @@ class SupabaseBackend implements Backend {
   // ── Storage ──
   @override
   Future<String?> uploadImage(BackendBucket bucket) async {
-    final uid = _requireUid();
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       maxWidth: 1280,
@@ -1019,6 +1091,16 @@ class SupabaseBackend implements Backend {
     );
     if (picked == null) return null;
     final bytes = await picked.readAsBytes();
+    return uploadImageBytes(bucket, bytes, filename: picked.name);
+  }
+
+  @override
+  Future<String?> uploadImageBytes(
+    BackendBucket bucket,
+    Uint8List bytes, {
+    required String filename,
+  }) async {
+    final uid = _requireUid();
     if (bytes.length > 2 * 1024 * 1024) {
       throw const BackendException(
         'image_too_large',
@@ -1030,8 +1112,8 @@ class SupabaseBackend implements Backend {
       BackendBucket.logo => 'store-logos',
       BackendBucket.avatar => 'avatars',
     };
-    final rawExt = picked.name.contains('.')
-        ? picked.name.split('.').last.toLowerCase()
+    final rawExt = filename.contains('.')
+        ? filename.split('.').last.toLowerCase()
         : 'jpg';
     const allowedExtensions = {'jpg', 'jpeg', 'png', 'webp'};
     final ext = allowedExtensions.contains(rawExt) ? rawExt : 'jpg';
@@ -1083,7 +1165,13 @@ class SupabaseBackend implements Backend {
     return rows;
   }
 
-  Map<String, dynamic> _rpcMap(dynamic value) {
+  Map<String, dynamic> _rpcMap(dynamic value) => decodeRpcRow(value);
+
+  /// PostgREST dapat mengembalikan hasil RPC JSON sebagai object langsung atau
+  /// sebagai daftar satu baris, tergantung bentuk fungsi/schema cache. Kedua
+  /// bentuk diperlakukan identik agar mapping rekening tidak rapuh.
+  @visibleForTesting
+  static Map<String, dynamic> decodeRpcRow(dynamic value) {
     final row = value is List ? (value.isEmpty ? null : value.first) : value;
     if (row is Map<String, dynamic>) return row;
     if (row is Map) return Map<String, dynamic>.from(row);
@@ -1115,7 +1203,18 @@ class SupabaseBackend implements Backend {
           'Data pesanan dari pembayaran tidak valid.',
         );
       }
-      return Map<String, dynamic>.from(rawOrder);
+      final order = Map<String, dynamic>.from(rawOrder);
+      // Metadata simulator berada di envelope Edge Function, bukan di view
+      // order. Build biasa membuangnya sebelum mencapai model/UI.
+      final simulatorUrl = data['simulator_qr_image_url'];
+      if (Env.e2eMode &&
+          name == 'midtrans-status' &&
+          simulatorUrl is String &&
+          simulatorUrl.trim().isNotEmpty &&
+          simulatorUrl.length <= 2048) {
+        order['simulator_qr_image_url'] = simulatorUrl.trim();
+      }
+      return order;
     } on BackendException {
       rethrow;
     } on FunctionException catch (error) {
@@ -1141,6 +1240,33 @@ class SupabaseBackend implements Backend {
       return const BackendException(
         'not_authenticated',
         'Sesi berakhir. Silakan masuk kembali.',
+      );
+    }
+    if (code == 'merchant_cancellation_pending') {
+      return const BackendException(
+        'merchant_cancellation_pending',
+        'Konfirmasi pembatalan dari Midtrans masih diproses. Coba lagi sebentar.',
+      );
+    }
+    if (code == 'merchant_cancellation_requires_review') {
+      return const BackendException(
+        'merchant_cancellation_requires_review',
+        'Pembatalan ditahan untuk pemeriksaan operator. Pesanan tidak dapat diproses sementara.',
+      );
+    }
+    if (code == 'invalid_order_status') {
+      return const BackendException(
+        'invalid_order_status',
+        'Status pesanan sudah berubah dan tidak dapat dibatalkan.',
+      );
+    }
+    if (code == 'cancellation_claim_failed' ||
+        code == 'payment_state_not_persisted') {
+      return BackendException(
+        code,
+        message.trim().isEmpty
+            ? 'Pembatalan belum dapat diproses. Coba lagi.'
+            : message,
       );
     }
     if (normalized.contains('midtrans') &&
@@ -1199,13 +1325,71 @@ class SupabaseBackend implements Backend {
     );
   }
 
+  /// Mengubah error domain rekening dari RPC menjadi pesan yang dapat
+  /// ditindaklanjuti. Nilai `null` berarti error bukan berasal dari alur bank
+  /// dan akan diteruskan ke mapper umum di [_guard].
+  @visibleForTesting
+  static BackendException? bankAccountExceptionFromMessage(String message) {
+    final raw = message.toLowerCase();
+    if (raw.contains('invalid bank code')) {
+      return const BackendException(
+        'invalid_bank_code',
+        'Bank yang dipilih tidak valid. Pilih ulang lalu coba lagi.',
+      );
+    }
+    if (raw.contains('invalid account number')) {
+      return const BackendException(
+        'invalid_bank_account_number',
+        'Nomor rekening harus berisi 6–20 digit.',
+      );
+    }
+    if (raw.contains('invalid account holder')) {
+      return const BackendException(
+        'invalid_bank_account_holder',
+        'Nama pemilik rekening harus berisi 2–100 karakter.',
+      );
+    }
+    if (raw.contains('idempotency key must contain')) {
+      return const BackendException(
+        'invalid_idempotency_key',
+        'Permintaan rekening tidak valid. Silakan coba lagi.',
+      );
+    }
+    if (raw.contains('bank account registration is no longer active')) {
+      return const BackendException(
+        'bank_registration_inactive',
+        'Pendaftaran rekening sebelumnya sudah tidak aktif. Masukkan kembali '
+            'data rekening untuk membuat permintaan baru.',
+      );
+    }
+    if (raw.contains('bank security configuration is unavailable') ||
+        raw.contains('stored bank destination does not match registration')) {
+      return const BackendException(
+        'bank_registration_unavailable',
+        'Pendaftaran rekening sedang tidak tersedia. Coba lagi nanti.',
+      );
+    }
+    if (raw.contains('bank account not found')) {
+      return const BackendException(
+        'bank_account_not_found',
+        'Rekening tidak ditemukan atau sudah dinonaktifkan.',
+      );
+    }
+    return null;
+  }
+
   Future<T> _guard<T>(Future<T> Function() action) async {
     try {
       return await action();
     } on BackendException {
       rethrow;
     } on PostgrestException catch (error) {
-      final raw = '${error.message} ${error.details ?? ''}'.toLowerCase();
+      final raw =
+          '${error.message} ${error.details ?? ''} '
+                  '${error.hint ?? ''} ${error.code ?? ''}'
+              .toLowerCase();
+      final bankError = bankAccountExceptionFromMessage(raw);
+      if (bankError != null) throw bankError;
       if (raw.contains('insufficient stock')) {
         throw const BackendException(
           'insufficient_stock',

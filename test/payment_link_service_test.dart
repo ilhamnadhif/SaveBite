@@ -24,5 +24,19 @@ void main() {
       ),
       isFalse,
     );
+    expect(
+      PaymentLinks.isPaymentCallback(
+        Uri.parse('https://savebite.example/?savebite_payment_return=1'),
+        webOrigin: Uri.parse('https://savebite.example/'),
+      ),
+      isTrue,
+    );
+    expect(
+      PaymentLinks.isPaymentCallback(
+        Uri.parse('https://attacker.example/?savebite_payment_return=1'),
+        webOrigin: Uri.parse('https://savebite.example/'),
+      ),
+      isFalse,
+    );
   });
 }

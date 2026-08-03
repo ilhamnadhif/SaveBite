@@ -1,15 +1,16 @@
 # SaveBite × Supabase — Setup dan Operasi
 
 Dokumen ini menyiapkan backend online SaveBite. Run/build normal membaca
-konfigurasi public Supabase dari `assets/config/supabase.env`. Demo offline hanya
+konfigurasi public Supabase dari `assets/config/client.env`. Demo offline hanya
 aktif bila diminta eksplisit dengan `SAVEBITE_DEMO=true`; konfigurasi online yang
 hilang atau tidak valid akan menampilkan layar error, bukan berpindah diam-diam
 ke data contoh.
 
-Pembayaran menggunakan Midtrans Snap. Order dimulai sebagai reservation
-`pending`; hanya webhook atau Get Status yang diverifikasi oleh server yang dapat
-mengubahnya menjadi `paid`. Deep link dan parameter callback di aplikasi hanya
-memicu refresh, bukan menjadi bukti pembayaran.
+Pembayaran hanya menggunakan `other_qris` melalui Midtrans Snap. Order dimulai
+sebagai reservation `pending`; halaman Snap ditampilkan di WebView/overlay
+internal aplikasi tanpa membuka browser eksternal. Callback UI hanya memicu
+sinkronisasi ulang: hanya webhook atau Get Status yang diverifikasi server yang
+dapat mengubah order menjadi `paid`.
 
 ## 1. Prasyarat
 
@@ -46,6 +47,13 @@ migration Supabase:
 12. `supabase/migrations/0012_midtrans_payments.sql`
 13. `supabase/migrations/0013_rls_performance.sql`
 14. `supabase/migrations/0014_security_advisor_hardening.sql`
+15. `supabase/migrations/0015_pickup_payment_hardening.sql`
+16. `supabase/migrations/0016_midtrans_merchant_cancellation.sql`
+17. `supabase/migrations/0017_native_qris_checkout.sql`
+18. `supabase/migrations/0018_qris_reconciliation_hardening.sql`
+19. `supabase/migrations/0019_qris_expiry_marker.sql`
+20. `supabase/migrations/0020_gopay_native_qris.sql`
+21. `supabase/migrations/0021_snap_webview_checkout.sql`
 
 Migration kedua bergantung pada skema pertama. Ia menambahkan lifecycle order,
 snapshot nilai transaksi, RPC idempoten, token pickup hash-only, review per
@@ -69,8 +77,92 @@ webhook/Get Status terverifikasi, serta expiry reservation yang idempoten.
 Migration ketiga belas mengoptimalkan evaluation helper Auth pada policy RLS
 tanpa mengubah izin. Migration keempat belas mengunci `search_path` dan mencabut
 akses RPC langsung ke fungsi yang hanya boleh dipanggil oleh trigger.
+Migration kelima belas mengikat QR pickup ke jendela pengambilan dan bukti
+pembayaran. Migration keenam belas menambahkan pembatalan merchant provider-first:
+fulfilment ditahan sebelum Midtrans cancel/refund, sedangkan stok baru kembali
+setelah Get Status atau webhook mengonfirmasi status terminal.
+Migration ketujuh belas mengganti pembuatan Snap dengan charge QRIS native,
+menyimpan URL gambar QR secara server-side, dan hanya mengekspos URL aktif
+kepada konsumen pemilik order. Migration kedelapan belas memperketat
+rekonsiliasi ID transaksi QRIS, menjadikan `deny`/`failure` terminal, dan
+menyelaraskan deadline lokal dengan expiry QRIS Midtrans yang berbasis menit
+penuh. Migration kesembilan belas menambahkan marker penyelarasan expiry satu
+kali serta memastikan identitas transaksi QRIS lokal tidak dapat ditimpa input
+provider yang tidak konsisten.
+Migration kedua puluh menambahkan rail QRIS native melalui GoPay Core. Respons
+create awal disimpan sebagai tipe provider `gopay`, URL gambar tetap berasal
+dari endpoint resmi `/v2/gopay/.../qr-code`, dan settlement hanya boleh
+memenuhi order setelah Midtrans mengonfirmasi tipe pembayaran `qris`.
+Migration kedua puluh satu menghentikan pembuatan checkout Core baru dan
+mengaktifkan kembali Snap yang dibatasi ke Other QRIS. Snap token tetap
+server-only; konsumen pemilik order hanya menerima redirect URL resmi yang
+masih aktif dan tidak sedang ditahan untuk review. Checkout Core historis tetap
+dapat direkonsiliasi, tetapi endpoint pembuatan/backfill Core dicabut.
 Pembayaran masuk aktif setelah fungsi dan credential dikonfigurasi, tetapi rail
 payout keluar tetap dinonaktifkan.
+
+### Rollout Snap WebView dari QRIS Core
+
+Project baru tanpa transaksi dapat langsung menjalankan migration `0001`
+sampai `0021` secara berurutan. Untuk project yang sudah memakai checkout QRIS
+Core, terapkan `0021` dalam satu maintenance window. Migration ini tidak boleh
+dipasang saat checkout baru masih dapat masuk.
+
+1. Hentikan trafik checkout pada aplikasi/API, lalu matikan reservation baru
+   dari SQL Editor tepercaya:
+
+   ```sql
+   update private.app_settings
+   set int_value = 0
+   where key = 'payments_enabled';
+   ```
+
+2. Tunggu seluruh request Edge Function lama selesai. Rekonsiliasi checkout
+   Core yang sudah dibayar dan tunggu reservation/provider checkout yang belum
+   dibayar menjadi terminal. Jangan memalsukan status, menghapus attempt, atau
+   sekadar mengubah baris agar lolos preflight.
+3. Jalankan query berikut. Hasilnya wajib **nol baris** sebelum rollout
+   dilanjutkan:
+
+   ```sql
+   select pa.order_id,
+          pa.provider_order_id,
+          pa.status,
+          pa.payment_expires_at,
+          pa.checkout_lease_expires_at
+   from public.payment_attempts pa
+   join public.orders o on o.id = pa.order_id
+   where o.payment_verified_at is null
+     and (
+       (
+         pa.status in ('creating', 'checkout_created', 'pending')
+         and pa.payment_expires_at > now()
+       )
+       or pa.checkout_lease_expires_at > now()
+     )
+   order by pa.payment_expires_at;
+   ```
+
+4. Terapkan `0021_snap_webview_checkout.sql`. Jika migration gagal,
+   pertahankan maintenance, selesaikan checkout aktif atau lease yang menjadi
+   penyebabnya, lalu ulangi. Jangan merilis build Snap sebelum migration ini
+   selesai.
+5. Deploy kelima Edge Function Midtrans dari revision yang sama, verifikasi
+   schema/function, lalu lakukan smoke test Snap Other QRIS sandbox sampai Get
+   Status atau webhook mengonfirmasi pembayaran.
+6. Setelah seluruh pemeriksaan lulus, aktifkan reservation kembali lalu buka
+   trafik checkout:
+
+   ```sql
+   update private.app_settings
+   set int_value = 1
+   where key = 'payments_enabled';
+   ```
+
+Preflight nol checkout aktif-belum-lunas mencegah `provider_order_id` yang sudah
+dikonsumsi Core dipakai ulang untuk membuat sesi Snap. Guard di migration akan
+menggagalkan rollout yang tidak bersih; guard tersebut bukan pengganti
+maintenance dan drain request yang masih berjalan.
 
 `supabase/seed.sql` adalah fixture khusus local/staging dan tidak boleh dijalankan
 di production. Seed membuat delapan principal Auth owner dengan ID tetap,
@@ -121,15 +213,19 @@ diaktifkan.
 ## 4. Konfigurasi runtime
 
 Isi konfigurasi public klien yang dibundle di
-`assets/config/supabase.env`:
+`assets/config/client.env`:
 
 ```dotenv
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=your-publishable-or-anon-key
+MIDTRANS_CLIENT_KEY=your-public-midtrans-client-key
+MIDTRANS_ENVIRONMENT=sandbox
 ```
 
-Project URL dan publishable/anon key memang public untuk aplikasi mobile dan
-tetap dibatasi RLS. Jangan pernah memasukkan `service_role`, `sb_secret_`, atau
+Project URL, publishable/anon key, Midtrans Client Key, dan nama environment
+memang public untuk client. Client Key dipakai build web untuk membuka Snap.js
+overlay; Android/iOS membuka redirect URL Snap langsung di WebView dan tidak
+memerlukannya. Jangan pernah memasukkan `service_role`, `sb_secret_`, atau
 Midtrans Server Key ke asset, source Flutter, log, maupun binary aplikasi.
 
 Run normal tidak membutuhkan dart-define:
@@ -139,9 +235,11 @@ flutter pub get
 flutter run
 ```
 
-File root `.env` tetap dapat dipakai sebagai override build opsional. Jika salah
-satu define Supabase diberikan, keduanya harus lengkap dan akan menang atas
-asset:
+File root `.env` tetap dapat dipakai sebagai override build opsional. Jika satu
+nilai konfigurasi client diberikan melalui define, seluruh profil compile-time
+wajib memuat URL dan publishable key Supabase serta Client Key dan environment
+Midtrans. Profil compile-time menang sepenuhnya atas asset; nilai dari dua
+sumber tidak pernah digabung:
 
 ```bash
 cp .env.example .env
@@ -159,10 +257,14 @@ konfigurasi. `FakeBackend` tidak pernah dipilih otomatis pada build normal.
 
 ## 5. Integrasi Midtrans
 
-Kode database, Edge Function, deep link, dan UI pembayaran sudah tersedia.
-Aktivasi sandbox hanya membutuhkan Midtrans Server Key pada server serta deploy
-empat fungsi; aplikasi mobile tidak membutuhkan Midtrans Client Key maupun
-Server Key.
+Kode database, Edge Function, dan UI Snap internal sudah tersedia. Pastikan
+database sudah menerapkan migration sampai `0021` dan, untuk project lama,
+preflight maintenance di atas sudah lulus. Backend sandbox membutuhkan Midtrans
+Server Key pada server serta deploy lima fungsi. Server Key adalah secret dan
+tidak boleh keluar dari Edge Function. Build web juga membutuhkan Midtrans
+Client Key publik untuk Snap.js overlay; masukkan ke konfigurasi runtime client
+di bagian 4, bukan ke Supabase secrets. Android/iOS memakai direct redirect
+WebView dan tidak membutuhkan Client Key untuk memuat checkout.
 
 Buat file secret lokal dari template yang tidak memuat credential asli:
 
@@ -170,15 +272,24 @@ Buat file secret lokal dari template yang tidak memuat credential asli:
 cp supabase/midtrans.env.example supabase/.env.midtrans.local
 ```
 
-Isi Server Key. Environment bersifat opsional dan default-nya `sandbox`:
+Isi Server Key dan environment server. `MIDTRANS_ENVIRONMENT` wajib bernilai
+persis `sandbox` atau `production`; tidak ada default dan alias seperti `test`,
+`staging`, `prod`, atau `live` ditolak:
 
 ```dotenv
 MIDTRANS_SERVER_KEY=your-midtrans-server-key
 MIDTRANS_ENVIRONMENT=sandbox
 ```
 
+Edge Function selalu membangun payload Snap dengan
+`enabled_payments: ["other_qris"]`; pilihan dari client tidak dapat memperluas
+checkout ke kartu, transfer bank, wallet, atau metode lain. Variabel provider
+Core lama `MIDTRANS_QRIS_PROVIDER_MODE` dan `MIDTRANS_QRIS_ACQUIRER` tidak lagi
+dipakai dan harus dihapus dari secret set aktif agar konfigurasi operasional
+tidak menyesatkan.
+
 File nyata `supabase/.env.midtrans.local` tercakup `.gitignore`. Hubungkan CLI,
-kirim secret, lalu deploy keempat fungsi dari root repository:
+kirim secret, lalu deploy kelima fungsi dari root repository:
 
 ```bash
 supabase login
@@ -186,18 +297,25 @@ supabase link --project-ref <project-ref>
 supabase secrets set --env-file supabase/.env.midtrans.local
 supabase functions deploy midtrans-create
 supabase functions deploy midtrans-status
+supabase functions deploy midtrans-cancel
 supabase functions deploy midtrans-webhook
 supabase functions deploy midtrans-return
 ```
 
 Pada staging yang fungsi-fungsinya sudah terpasang, cukup jalankan
-`supabase secrets set MIDTRANS_SERVER_KEY='...'`; perubahan secret tersedia
-langsung tanpa deploy ulang. Sandbox adalah default.
+`supabase secrets set MIDTRANS_SERVER_KEY='...' MIDTRANS_ENVIRONMENT=sandbox`;
+perubahan secret tersedia langsung tanpa deploy ulang. Flag lama
+`MIDTRANS_IS_PRODUCTION` tidak lagi memilih environment dan sebaiknya dihapus.
+Selama masa transisi, bila flag lama masih ada, nilainya wajib `false` untuk
+sandbox atau `true` untuk production; nilai invalid atau konflik membuat seluruh
+operasi Midtrans gagal tertutup.
 
 `SUPABASE_URL`, publishable/anon key, dan service-role/secret key disediakan oleh
-host Supabase untuk Edge Functions. Jangan menyalinnya ke aplikasi mobile atau
-ke template Midtrans. Untuk production, gunakan Server Key production dan ubah
-`MIDTRANS_ENVIRONMENT=production`, lalu kirim ulang secret sebelum deploy/retest.
+host Supabase untuk Edge Functions. Jangan menyalin service-role/secret key ke
+aplikasi atau template Midtrans. Untuk production, gunakan Server Key production
+dan `MIDTRANS_ENVIRONMENT=production` di Supabase secrets; pasangkan dengan satu
+profil client production lengkap, lalu build dan uji ulang artifact yang akan
+dirilis.
 
 URL notifikasi adalah:
 
@@ -206,30 +324,42 @@ https://<project-ref>.supabase.co/functions/v1/midtrans-webhook
 ```
 
 `midtrans-create` menurunkan URL tersebut dari `SUPABASE_URL` dan mengirimkannya
-sebagai header `X-Override-Notification` pada setiap transaksi Snap. Karena itu
-tidak ada URL webhook yang perlu ditanam di mobile; URL yang sama boleh dipasang
-di dashboard Midtrans sebagai fallback operasional.
+sebagai header `X-Override-Notification` pada setiap pembuatan transaksi Snap.
+Karena itu tidak ada URL webhook yang perlu ditanam di aplikasi; URL yang sama
+boleh dipasang di dashboard Midtrans sebagai fallback operasional.
 
-Keempat fungsi sengaja memakai `verify_jwt = false` di `supabase/config.toml` agar
+Kelima fungsi sengaja memakai `verify_jwt = false` di `supabase/config.toml` agar
 gateway Supabase tidak menolak token dari project yang memakai signing key
-asimetris. Ini tidak membuat create/status anonim: kedua handler tetap
+asimetris. Ini tidak membuat create/status/cancel anonim: ketiga handler tetap
 mewajibkan bearer token dan memvalidasi user dengan `auth.getUser()`. Endpoint
 webhook memang tidak membawa JWT pengguna; handler memverifikasi signature
 SHA-512 Midtrans dan selalu mengambil Get Status otoritatif sebelum memutasi
-order. `midtrans-return` hanya mengembalikan redirect HTTPS-ke-deep-link; endpoint
-ini tidak membaca atau mengubah status pembayaran.
+order. `midtrans-cancel` juga mewajibkan user merchant, memasang hold fulfilment,
+memilih Cancel untuk status sebelum settlement atau full Refund setelah
+settlement, lalu membaca Get Status kembali. Timeout tidak pernah dianggap
+gagal: hold dipertahankan sampai retry/webhook menyelesaikan rekonsiliasi.
+Status `refund` menghentikan fulfilment dan mengembalikan stok, tetapi belum
+menjamin dana sudah masuk ke rekening pelanggan; waktunya tetap mengikuti rail
+dan metode pembayaran Midtrans.
+`midtrans-return` adalah bridge callback selesai untuk WebView. Bridge tidak
+pernah menandai pembayaran lunas; ia hanya mengembalikan kontrol ke aplikasi
+agar `midtrans-status` membaca status provider yang otoritatif.
 
-Callback selesai/error sudah didaftarkan pada Android dan iOS sebagai:
+Untuk uji sandbox, aktifkan helper simulator hanya pada backend sandbox:
 
-```text
-com.savebite://payment-callback/
+```bash
+supabase secrets set MIDTRANS_ENABLE_SIMULATOR_HELPERS=true
 ```
 
-Callback hanya membangunkan aplikasi dan memicu sinkronisasi status. Uji sandbox
-minimal untuk status pending, settlement/capture, deny/failure, cancel, expiry,
-refund, serta callback ketika aplikasi aktif, background, dan sebelumnya
-ditutup. Jangan beralih ke production sebelum hasil webhook, Get Status, stok,
-dan ledger sudah direkonsiliasi.
+Exact `true` membuat endpoint status menyertakan URL gambar QR kanonik untuk
+transaksi QRIS yang masih `pending`; environment production selalu menolaknya.
+Hapus secret tersebut setelah pengujian dan jangan pernah memasangnya di
+production. Buka checkout dari aplikasi, pilih/lihat Other QRIS pada panel Snap
+internal, lalu selesaikan QR tersebut melalui QRIS Simulator Midtrans.
+Uji minimal status pending, settlement, cancel, expiry, dan refund, termasuk
+menutup/membuka kembali aplikasi ketika pembayaran masih pending. Jangan
+beralih ke production sebelum hasil webhook, Get Status, stok, dan ledger sudah
+direkonsiliasi.
 
 ## 6. Izin perangkat dan peta
 
@@ -389,8 +519,17 @@ sengaja gagal bila konfigurasi signing ini tidak tersedia sehingga artifact
 distribusi tidak pernah diam-diam memakai debug key.
 
 ```bash
-flutter build appbundle --release
+flutter build appbundle --release \
+  --dart-define=SUPABASE_URL=https://your-production-project.supabase.co \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=your-production-publishable-key \
+  --dart-define=MIDTRANS_CLIENT_KEY=your-production-midtrans-client-key \
+  --dart-define=MIDTRANS_ENVIRONMENT=production
 ```
+
+Artifact release sandbox hanya untuk distribusi staging/internal. Build tersebut
+wajib menambahkan `--dart-define=SAVEBITE_ALLOW_SANDBOX_RELEASE=true`; tambahkan
+`--dart-define=SAVEBITE_E2E=true` hanya bila artifact memang khusus tester.
+Keduanya dilarang pada artifact production.
 
 ### iOS
 
@@ -404,7 +543,11 @@ Ganti `DEVELOPMENT_TEAM`, pilih certificate/provisioning profile yang benar di
 Xcode, aktifkan capability Sign in with Apple bila provider digunakan, lalu:
 
 ```bash
-flutter build ipa --release
+flutter build ipa --release \
+  --dart-define=SUPABASE_URL=https://your-production-project.supabase.co \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=your-production-publishable-key \
+  --dart-define=MIDTRANS_CLIENT_KEY=your-production-midtrans-client-key \
+  --dart-define=MIDTRANS_ENVIRONMENT=production
 ```
 
 Sebelum upload store, naikkan `version`/build number di `pubspec.yaml`, tes
@@ -429,7 +572,7 @@ payout melebihi saldo, serta hapus akun saat payout masih berjalan.
 ## 11. Setup eksternal sebelum produksi
 
 - **Midtrans:** implementasi kode sudah lengkap. Pengelola tinggal memasukkan
-  Server Key server-side, memilih environment, deploy keempat Edge Function, dan
+  Server Key server-side, memilih environment, deploy kelima Edge Function, dan
   menyelesaikan uji sandbox end-to-end sebelum memakai credential production.
 - **Supabase Auth:** aplikasi hanya mengekspos login OAuth. Bila email/password
   diaktifkan di kemudian hari, aktifkan Leaked Password Protection pada Auth

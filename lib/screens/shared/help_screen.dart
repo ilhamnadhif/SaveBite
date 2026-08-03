@@ -20,9 +20,8 @@ class HelpScreen extends StatelessWidget {
     ),
     _Faq(
       'Metode pembayaran apa saja?',
-      'Pembayaran memakai Midtrans Snap. Metode yang tersedia—misalnya GoPay, '
-          'QRIS, atau virtual account—mengikuti channel yang aktif pada akun '
-          'Midtrans merchant aplikasi.',
+      'SaveBite memakai QRIS. Setelah checkout, pindai kode QR yang tampil '
+          'langsung di aplikasi dengan aplikasi pembayaran yang mendukung QRIS.',
     ),
     _Faq(
       'Bagaimana kalau saya tidak jadi ambil?',

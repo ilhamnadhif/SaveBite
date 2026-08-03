@@ -112,10 +112,13 @@ lib/
 ```
 
 `main()` membaca URL + publishable/anon key publik dari
-`assets/config/supabase.env`; dart-define yang lengkap dapat mengoverride asset.
-Konfigurasi hilang/salah menampilkan layar error. `FakeBackend` hanya aktif
-dengan `--dart-define=SAVEBITE_DEMO=true`, sehingga error produksi tidak pernah
-tersamar sebagai login demo.
+`assets/config/client.env`; satu profil dart-define yang memuat seluruh nilai
+public Supabase dan Midtrans dapat mengoverride asset secara atomik. Build
+release sandbox membutuhkan `SAVEBITE_ALLOW_SANDBOX_RELEASE=true`, sedangkan
+`SAVEBITE_E2E` hanya dapat aktif pada sandbox. Konfigurasi hilang/salah
+menampilkan layar error. `FakeBackend` hanya aktif dengan
+`--dart-define=SAVEBITE_DEMO=true`, sehingga error produksi tidak pernah tersamar
+sebagai login demo.
 
 ## Model dan kontrak backend
 
@@ -237,8 +240,10 @@ atribusi yang dapat dibuka.
 1. Validasi quantity dan stok di UI untuk feedback cepat.
 2. RPC server menghitung harga/snapshot dan menahan stok secara atomik selama
    jendela bayar yang terpisah dari jendela pickup.
-3. Edge Function membuat Snap memakai Server Key yang hanya berada di secret,
-   lalu aplikasi membuka redirect HTTPS Midtrans di browser sistem.
+3. Edge Function membuat Snap memakai Server Key yang hanya berada di secret.
+   `MIDTRANS_ENVIRONMENT` server wajib persis `sandbox` atau `production` dan
+   konfigurasi hilang/berkonflik ditolak sebelum reservation dibuat. Aplikasi
+   membuka checkout HTTPS Midtrans di WebView/overlay internal.
 4. Retry ambigu memakai idempotency key yang sama. Pembayaran tertunda dapat
    dilanjutkan setelah restart aplikasi tanpa membuat order baru.
 5. Webhook diverifikasi dan hasilnya direkonsiliasi lewat Get Status. Hanya

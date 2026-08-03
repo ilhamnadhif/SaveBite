@@ -11,6 +11,7 @@ import {
   applyStatusParams,
   getMidtransStatus,
   MidtransApiError,
+  sandboxSimulatorQrisImageUrl,
 } from "../_shared/midtrans.ts";
 import {
   createServiceClient,
@@ -52,6 +53,12 @@ Deno.serve(async (request) => {
     try {
       authoritative = await getMidtransStatus(providerOrderId);
     } catch (error) {
+      if (error instanceof MidtransApiError) {
+        console.warn(JSON.stringify({
+          event: "midtrans_status_failed",
+          code: error.safeCode,
+        }));
+      }
       // Snap can return 404 until the customer has selected a payment method.
       // That is not evidence of failure and must not release the reservation.
       if (error instanceof MidtransApiError && error.isNotFound) {
@@ -89,9 +96,15 @@ Deno.serve(async (request) => {
         "Status pembayaran perlu diperiksa sebelum pesanan dilanjutkan.",
       );
     }
-
     const order = await selectOwnedOrder(userClient, orderId, actorKind);
-    return jsonResponse({ order, synced: true });
+    const simulatorQrImageUrl = sandboxSimulatorQrisImageUrl(authoritative);
+    return jsonResponse({
+      order,
+      synced: true,
+      ...(simulatorQrImageUrl
+        ? { simulator_qr_image_url: simulatorQrImageUrl }
+        : {}),
+    });
   } catch (error) {
     return errorResponse(error);
   }

@@ -43,6 +43,23 @@ class AuthService {
     );
   }
 
+  /// Login email/password khusus build pengujian E2E.
+  ///
+  /// Credential diterima langsung dari form, tidak ditanam di source/asset,
+  /// dan method ini tidak menuliskannya ke penyimpanan aplikasi. Supabase tetap
+  /// menyimpan sesi autentikasi sesuai perilaku SDK. Jalur ini fail-closed pada
+  /// build biasa meskipun method dipanggil secara tidak sengaja.
+  static Future<bool> signInWithPassword(String email, String password) async {
+    if (!Env.e2eMode) return false;
+    final auth = _auth;
+    if (auth == null) return false;
+    final response = await auth.signInWithPassword(
+      email: email.trim(),
+      password: password,
+    );
+    return response.session != null;
+  }
+
   static Future<void> signOut() async {
     await _auth?.signOut(scope: SignOutScope.local);
   }

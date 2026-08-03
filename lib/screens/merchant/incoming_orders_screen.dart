@@ -3,19 +3,78 @@ import 'package:flutter/material.dart';
 import '../../app_nav.dart';
 import '../../data/backend/backend.dart';
 import '../../sb.dart';
+import '../../services/notification_route.dart';
 
 /// Daftar operasional order merchant. Pickup token tidak pernah ditampilkan;
 /// redeem hanya dilakukan dari scanner QR.
 class IncomingOrdersScreen extends StatefulWidget {
-  const IncomingOrdersScreen({super.key});
+  const IncomingOrdersScreen({
+    super.key,
+    this.initialTab = MerchantOrdersTab.active,
+    this.referencedOrderId,
+  });
+
+  final MerchantOrdersTab initialTab;
+  final String? referencedOrderId;
 
   @override
   State<IncomingOrdersScreen> createState() => _IncomingOrdersScreenState();
 }
 
 class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
-  int _tab = 0;
+  late int _tab;
+  late bool _referenceTabResolved;
   final Set<String> _busyOrderKeys = {};
+
+  @override
+  void initState() {
+    super.initState();
+    final referencedTab = _tabForReferencedOrder();
+    _tab = (referencedTab ?? widget.initialTab).index;
+    _referenceTabResolved =
+        widget.referencedOrderId?.trim().isEmpty != false ||
+        referencedTab != null;
+    appState.addListener(_resolveReferencedOrder);
+  }
+
+  @override
+  void dispose() {
+    appState.removeListener(_resolveReferencedOrder);
+    super.dispose();
+  }
+
+  void _resolveReferencedOrder() {
+    if (_referenceTabResolved || !mounted) return;
+    final referencedTab = _tabForReferencedOrder();
+    if (referencedTab == null) return;
+    setState(() {
+      _tab = referencedTab.index;
+      _referenceTabResolved = true;
+    });
+  }
+
+  MerchantOrdersTab? _tabForReferencedOrder() {
+    final targetId = widget.referencedOrderId?.trim().toLowerCase();
+    if (targetId == null || targetId.isEmpty) return null;
+    bool matches(IncomingOrder order) => order.id.toLowerCase() == targetId;
+    if (appState.completedOrders.any(matches)) return MerchantOrdersTab.closed;
+    if (appState.pendingOrders.any(matches)) return MerchantOrdersTab.active;
+    return null;
+  }
+
+  List<IncomingOrder> _prioritizeReferenced(List<IncomingOrder> orders) {
+    final targetId = widget.referencedOrderId?.trim().toLowerCase();
+    if (targetId == null || targetId.isEmpty) return orders;
+    final index = orders.indexWhere(
+      (order) => order.id.toLowerCase() == targetId,
+    );
+    if (index <= 0) return orders;
+    return <IncomingOrder>[
+      orders[index],
+      ...orders.take(index),
+      ...orders.skip(index + 1),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +124,10 @@ class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
                   TabSwitch(
                     tabs: const ['Aktif', 'Ditutup'],
                     index: _tab,
-                    onTap: (index) => setState(() => _tab = index),
+                    onTap: (index) => setState(() {
+                      _tab = index;
+                      _referenceTabResolved = true;
+                    }),
                     activeColor: AppColors.brown,
                     underlineColor: AppColors.terracotta,
                     badges: {
@@ -98,9 +160,11 @@ class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
             child: ListenableBuilder(
               listenable: appState,
               builder: (context, _) {
-                final orders = _tab == 0
-                    ? appState.pendingOrders
-                    : appState.completedOrders;
+                final orders = _prioritizeReferenced(
+                  _tab == MerchantOrdersTab.active.index
+                      ? appState.pendingOrders
+                      : appState.completedOrders,
+                );
                 if (appState.isLoadingMerchant && orders.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -160,6 +224,9 @@ class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
     final reference = _orderReference(order);
 
     return AppCard(
+      key: ValueKey(
+        'merchant-${_tab == MerchantOrdersTab.active.index ? 'active' : 'closed'}-order-${order.id}',
+      ),
       padding: EdgeInsets.zero,
       radius: 18,
       borderColor: ready ? AppColors.greenBright : AppColors.border,
@@ -401,7 +468,9 @@ class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
       context,
       title: 'Batalkan pesanan?',
       message:
-          'Pesanan ${_orderReference(order)} akan dibatalkan dan ${order.bags} bag dikembalikan ke stok. Tindakan ini tidak dapat dibatalkan.',
+          'Midtrans akan membatalkan atau mengembalikan pembayaran untuk '
+          '${_orderReference(order)}. Stok ${order.bags} bag baru dikembalikan '
+          'setelah provider mengonfirmasi. Tindakan ini tidak dapat dibatalkan.',
       confirmLabel: 'Batalkan pesanan',
       destructive: true,
     );
@@ -412,7 +481,8 @@ class _IncomingOrdersScreenState extends State<IncomingOrdersScreen> {
       if (mounted) {
         AppFeedback.snack(
           context,
-          'Pesanan dibatalkan dan stok telah dikembalikan.',
+          'Pembatalan/refund telah dikonfirmasi Midtrans untuk diproses. Stok telah '
+          'dikembalikan; waktu dana masuk mengikuti metode pembayaran.',
           icon: Icons.inventory_2_outlined,
         );
       }

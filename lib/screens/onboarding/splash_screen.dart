@@ -88,7 +88,7 @@ class StartupConfigurationErrorScreen extends StatelessWidget {
                         border: Border.all(color: AppColors.inputBorder),
                       ),
                       child: Text(
-                        'Untuk build normal, isi assets/config/supabase.env. '
+                        'Untuk build normal, isi assets/config/client.env. '
                         'Mode data contoh hanya aktif dengan '
                         'SAVEBITE_DEMO=true.',
                         textAlign: TextAlign.center,

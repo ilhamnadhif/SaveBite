@@ -116,6 +116,14 @@ class _SaveBiteAppState extends State<SaveBiteApp> {
           }
         }, onError: (Object error) => appState.reportError(error)),
       );
+    } else if (kIsWeb && AuthService.isConfigured) {
+      final currentUri = Uri.base;
+      if (PaymentLinks.isPaymentCallback(
+        currentUri,
+        webOrigin: Env.webBaseUri,
+      )) {
+        _queuePaymentCallback(currentUri, arrivedDuringStartup: true);
+      }
     }
     // Fallback ini juga menangani build demo dan kondisi ketika event terakhir
     // sudah berubah menjadi tokenRefreshed sebelum listener widget terpasang.

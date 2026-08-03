@@ -563,6 +563,8 @@ class _AddBankAccountSheetState extends State<_AddBankAccountSheet> {
 
   @override
   void dispose() {
+    _accountNumber.clear();
+    _accountHolder.clear();
     _accountNumber.dispose();
     _accountHolder.dispose();
     super.dispose();
@@ -612,6 +614,7 @@ class _AddBankAccountSheetState extends State<_AddBankAccountSheet> {
               const SizedBox(height: 12),
               const FieldLabel('Bank'),
               DropdownButtonFormField<String>(
+                key: const ValueKey('bank-code-field'),
                 initialValue: _bankCode,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.account_balance_outlined),
@@ -630,20 +633,24 @@ class _AddBankAccountSheetState extends State<_AddBankAccountSheet> {
               const SizedBox(height: 16),
               const FieldLabel('Nomor rekening'),
               TextFormField(
+                key: const ValueKey('bank-account-number-field'),
                 controller: _accountNumber,
                 enabled: !_busy,
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.creditCardNumber],
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                autofillHints: const <String>[],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(20),
+                ],
                 decoration: const InputDecoration(
                   hintText: 'Contoh: 1234567890',
                   prefixIcon: Icon(Icons.numbers_rounded),
                 ),
                 validator: (value) {
                   final digits = value?.trim() ?? '';
-                  if (digits.length < 8 || digits.length > 20) {
-                    return 'Masukkan 8–20 digit nomor rekening.';
+                  if (digits.length < 6 || digits.length > 20) {
+                    return 'Masukkan 6–20 digit nomor rekening.';
                   }
                   return null;
                 },
@@ -651,18 +658,21 @@ class _AddBankAccountSheetState extends State<_AddBankAccountSheet> {
               const SizedBox(height: 16),
               const FieldLabel('Nama pemilik rekening'),
               TextFormField(
+                key: const ValueKey('bank-account-holder-field'),
                 controller: _accountHolder,
                 enabled: !_busy,
                 textCapitalization: TextCapitalization.characters,
                 textInputAction: TextInputAction.done,
                 autofillHints: const [AutofillHints.name],
+                inputFormatters: [LengthLimitingTextInputFormatter(100)],
                 decoration: const InputDecoration(
                   hintText: 'Sesuai nama pada rekening',
                   prefixIcon: Icon(Icons.person_outline_rounded),
                 ),
                 validator: (value) {
-                  if ((value?.trim().length ?? 0) < 3) {
-                    return 'Nama pemilik minimal 3 karakter.';
+                  final length = value?.trim().length ?? 0;
+                  if (length < 2 || length > 100) {
+                    return 'Nama pemilik harus berisi 2–100 karakter.';
                   }
                   return null;
                 },
@@ -670,7 +680,13 @@ class _AddBankAccountSheetState extends State<_AddBankAccountSheet> {
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
-                Text(_error!, style: AppText.ui(12.5, color: AppColors.danger)),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    _error!,
+                    style: AppText.ui(12.5, color: AppColors.danger),
+                  ),
+                ),
               ],
               const SizedBox(height: 16),
               Container(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../sb.dart';
+import '../../services/notification_route.dart';
 import 'home_screen.dart';
 import 'map_screen.dart';
 import 'orders_screen.dart';
@@ -27,7 +28,15 @@ class ConsumerShellScope extends InheritedWidget {
 /// Cangkang ekosistem konsumen: IndexedStack + bottom nav.
 class ConsumerShell extends StatefulWidget {
   final int initialIndex;
-  const ConsumerShell({super.key, this.initialIndex = 0});
+  final ConsumerOrdersTab initialOrdersTab;
+  final String? referencedOrderId;
+
+  const ConsumerShell({
+    super.key,
+    this.initialIndex = 0,
+    this.initialOrdersTab = ConsumerOrdersTab.active,
+    this.referencedOrderId,
+  });
 
   @override
   State<ConsumerShell> createState() => _ConsumerShellState();
@@ -106,12 +115,15 @@ class _ConsumerShellState extends State<ConsumerShell>
           child: IndexedStack(
             index: _index,
             sizing: StackFit.expand,
-            children: const [
-              HomeScreen(),
-              MapScreen(),
-              OrdersScreen(),
-              FavoritesScreen(),
-              ProfileScreen(),
+            children: [
+              const HomeScreen(),
+              const MapScreen(),
+              OrdersScreen(
+                initialTab: widget.initialOrdersTab,
+                referencedOrderId: widget.referencedOrderId,
+              ),
+              const FavoritesScreen(),
+              const ProfileScreen(),
             ],
           ),
         ),

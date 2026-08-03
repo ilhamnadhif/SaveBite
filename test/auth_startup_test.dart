@@ -74,6 +74,41 @@ void main() {
     },
   );
 
+  testWidgets('logout membatalkan navigasi bootstrap yang masih berjalan', (
+    tester,
+  ) async {
+    final backend = _GatedBootstrapBackend();
+    app_backend.backend = backend;
+    late BuildContext rootContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.theme,
+        home: Builder(
+          builder: (context) {
+            rootContext = context;
+            return const Scaffold(body: Text('Splash'));
+          },
+        ),
+      ),
+    );
+
+    final signingIn = AppNav.handleSignedIn(rootContext);
+    expect(backend.currentProfileCalls, 1);
+
+    final loggingOut = AppNav.logout(rootContext);
+    await tester.pumpAndSettle();
+    await loggingOut;
+    await tester.pumpAndSettle();
+    expect(find.byType(ForkScreen), findsOneWidget);
+
+    backend.releaseProfile.complete();
+    await signingIn;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ForkScreen), findsOneWidget);
+    expect(find.byType(LocationPrimingScreen), findsNothing);
+  });
+
   testWidgets('cold-start tanpa sesi menghormati status onboarding', (
     tester,
   ) async {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../config/env.dart';
 import '../../sb.dart';
 import 'merchant_form_fields.dart';
 
@@ -71,6 +73,17 @@ class _CreateBagScreenState extends State<CreateBagScreen> {
                   children: [
                     const FieldLabel('Foto bag'),
                     _coverPicker(),
+                    if (Env.e2eMode) ...[
+                      const SizedBox(height: 6),
+                      TextButton.icon(
+                        key: const ValueKey('e2e-bag-photo-button'),
+                        onPressed: _isSaving || _isUploading
+                            ? null
+                            : _useBundledTestCover,
+                        icon: const Icon(Icons.science_outlined),
+                        label: const Text('Gunakan foto staging'),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     const FieldLabel('Judul bag'),
                     MerchantFormField(
@@ -337,6 +350,31 @@ class _CreateBagScreenState extends State<CreateBagScreen> {
       AppFeedback.snack(
         context,
         'Foto bag gagal diunggah. Coba lagi.',
+        icon: Icons.error_outline,
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _useBundledTestCover() async {
+    if (!Env.e2eMode || _isSaving || _isUploading) return;
+    setState(() => _isUploading = true);
+    try {
+      final data = await rootBundle.load('assets/images/food4.jpg');
+      final url = await appState.uploadImageBytes(
+        BackendBucket.bag,
+        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+        filename: 'savebite-e2e-food.jpg',
+      );
+      if (!mounted || url == null) return;
+      setState(() => _imageUrl = url);
+      AppFeedback.snack(context, 'Foto staging berhasil diunggah');
+    } catch (_) {
+      if (!mounted) return;
+      AppFeedback.snack(
+        context,
+        'Foto staging gagal diunggah. Coba lagi.',
         icon: Icons.error_outline,
       );
     } finally {

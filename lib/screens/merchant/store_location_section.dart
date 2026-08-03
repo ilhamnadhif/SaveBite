@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -29,8 +30,10 @@ typedef StoreCurrentLocationReader = Future<StoreCurrentLocation?> Function();
 
 /// Input alamat dan peta yang menjaga alamat serta koordinat toko tetap cocok.
 ///
-/// Alamat yang diketik dicari setelah debounce. Aksi GPS/ketuk peta melakukan
-/// reverse-geocoding dan hanya dianggap valid setelah alamat berhasil dibaca.
+/// Di Android/iOS, alamat yang diketik dicari setelah debounce dan aksi
+/// GPS/ketuk peta melakukan reverse-geocoding. Di web, merchant memasukkan
+/// alamat lengkap lalu memilih titiknya secara manual karena plugin geocoding
+/// native tidak tersedia.
 class StoreLocationSection extends StatefulWidget {
   const StoreLocationSection({
     super.key,
@@ -43,6 +46,7 @@ class StoreLocationSection extends StatefulWidget {
     required this.validator,
     this.enabled = true,
     this.geocodingService,
+    this.manualSelectionOnly = kIsWeb,
     this.debounceDuration = const Duration(milliseconds: 850),
   });
 
@@ -55,6 +59,10 @@ class StoreLocationSection extends StatefulWidget {
   final String? Function(String?) validator;
   final bool enabled;
   final StoreGeocodingService? geocodingService;
+
+  /// Mematikan forward/reverse geocoding dan memasangkan alamat yang diketik
+  /// dengan titik peta pilihan merchant. Aktif secara default di Flutter Web.
+  final bool manualSelectionOnly;
   final Duration debounceDuration;
 
   @override
@@ -68,8 +76,10 @@ class _StoreLocationSectionState extends State<StoreLocationSection> {
   );
 
   final MapController _mapController = MapController();
-  late final StoreGeocodingService _geocoding =
-      widget.geocodingService ?? NativeStoreGeocodingService();
+  late final bool _manualSelectionOnly = widget.manualSelectionOnly;
+  late final StoreGeocodingService? _geocoding =
+      widget.geocodingService ??
+      (_manualSelectionOnly ? null : NativeStoreGeocodingService());
 
   Timer? _addressDebounce;
   StoreGeoPoint? _point;
@@ -84,6 +94,9 @@ class _StoreLocationSectionState extends State<StoreLocationSection> {
   @override
   void initState() {
     super.initState();
+    if (_manualSelectionOnly) {
+      _status = 'Ketik alamat lengkap, lalu ketuk titik toko di peta.';
+    }
     final initialPoint = _validPoint(
       widget.initialLatitude,
       widget.initialLongitude,
@@ -97,10 +110,14 @@ class _StoreLocationSectionState extends State<StoreLocationSection> {
         widget.addressController.text.trim().length >= 8;
     if (_synchronized) {
       _status = 'Alamat dan titik peta sudah sinkron.';
-    } else if (widget.addressController.text.trim().length >= 8) {
+    } else if (widget.addressController.text.trim().length >= 8 &&
+        !_manualSelectionOnly) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _queueAddressLookup(widget.addressController.text);
       });
+    } else if (_manualSelectionOnly &&
+        widget.addressController.text.trim().length >= 8) {
+      _status = 'Alamat siap. Ketuk lokasi toko yang tepat di peta.';
     }
   }
 
@@ -156,10 +173,18 @@ class _StoreLocationSectionState extends State<StoreLocationSection> {
       _point = null;
       _synchronized = false;
       _statusIsError = false;
-      _status = searchable
+      _status = _manualSelectionOnly
+          ? searchable
+                ? 'Alamat siap. Ketuk lokasi toko yang tepat di peta.'
+                : 'Lengkapi alamat, lalu pilih titik toko di peta.'
+          : searchable
           ? 'Mencari titik dari alamat…'
           : 'Lengkapi alamat agar pin dapat dicari.';
     });
+    if (_manualSelectionOnly) {
+      _setBusy(false);
+      return;
+    }
     _setBusy(searchable);
     if (!searchable) return;
     final request = _requestGeneration;
@@ -175,7 +200,7 @@ class _StoreLocationSectionState extends State<StoreLocationSection> {
 
   Future<void> _resolveTypedAddress(String address, int request) async {
     try {
-      final point = await _geocoding.findPoint(address);
+      final point = await _geocoding!.findPoint(address);
       if (!mounted || request != _requestGeneration) return;
       if (point == null) {
         _finishWithError(
@@ -219,6 +244,16 @@ class _StoreLocationSectionState extends State<StoreLocationSection> {
         _finishWithError('Lokasi toko belum berhasil dibaca. Coba lagi.');
         return;
       }
+      if (_manualSelectionOnly) {
+        _acceptManualPoint(
+          current.point,
+          successMessage: current.accuracyMeters == null
+              ? 'Titik toko diisi dari lokasi saat ini.'
+              : 'Titik toko diisi dari lokasi saat ini '
+                    '(±${current.accuracyMeters!.round()} m).',
+        );
+        return;
+      }
       await _reversePoint(
         current.point,
         request: request,
@@ -241,6 +276,14 @@ class _StoreLocationSectionState extends State<StoreLocationSection> {
       longitude: coordinate.longitude,
     );
     if (!point.isValid) return;
+    if (_manualSelectionOnly) {
+      _acceptManualPoint(
+        point,
+        successMessage:
+            'Alamat dan titik peta sudah sinkron. Pastikan pin tepat di toko.',
+      );
+      return;
+    }
     final request = ++_requestGeneration;
     widget.onPointChanged(null);
     setState(() {
@@ -274,7 +317,7 @@ class _StoreLocationSectionState extends State<StoreLocationSection> {
       _cameraCenter = LatLng(point.latitude, point.longitude);
     });
     _moveMap(point, zoom: 17);
-    final address = await _geocoding.findAddress(point);
+    final address = await _geocoding!.findAddress(point);
     if (!mounted || request != _requestGeneration) return;
     if (address == null || address.trim().length < 8) {
       _finishWithError(
@@ -294,6 +337,31 @@ class _StoreLocationSectionState extends State<StoreLocationSection> {
       _status = successMessage;
     });
     widget.onPointChanged(point);
+    _setBusy(false);
+  }
+
+  void _acceptManualPoint(
+    StoreGeoPoint point, {
+    required String successMessage,
+  }) {
+    if (!mounted) return;
+    _addressDebounce?.cancel();
+    _requestGeneration++;
+    widget.onPointChanged(null);
+    final address = widget.addressController.text.trim();
+    final hasCompleteAddress = address.length >= 8;
+    setState(() {
+      _point = point;
+      _cameraCenter = LatLng(point.latitude, point.longitude);
+      _synchronized = hasCompleteAddress;
+      _statusIsError = !hasCompleteAddress;
+      _status = hasCompleteAddress
+          ? successMessage
+          : 'Ketik alamat lengkap minimal 8 karakter, lalu pilih kembali '
+                'titik toko di peta.';
+    });
+    _moveMap(point, zoom: 17);
+    if (hasCompleteAddress) widget.onPointChanged(point);
     _setBusy(false);
   }
 

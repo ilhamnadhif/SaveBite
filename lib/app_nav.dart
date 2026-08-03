@@ -19,6 +19,7 @@ import 'screens/consumer/voucher_screen.dart';
 import 'screens/consumer/rating_screen.dart';
 import 'screens/consumer/store_profile_screen.dart';
 import 'screens/consumer/notifications_screen.dart';
+import 'services/notification_route.dart';
 import 'screens/consumer/edit_profile_screen.dart';
 import 'screens/consumer/search_screen.dart';
 import 'screens/consumer/location_priming_screen.dart';
@@ -44,9 +45,11 @@ class AppNav {
   static final Map<NavigatorState, Route<void>> _checkoutRoutes = {};
 
   static Future<void>? _signedInFlow;
+  static int? _signedInFlowGeneration;
   static String? _signedInHandledIdentity;
   static Future<void>? _signedOutFlow;
   static bool _signedOutHandled = false;
+  static int _authRoutingGeneration = 0;
 
   static MaterialPageRoute<T> _route<T>(Widget page, {String? name}) =>
       MaterialPageRoute<T>(
@@ -97,15 +100,20 @@ class AppNav {
   /// hanya berjalan sekali untuk identitas sesi yang sama.
   static Future<void> handleSignedIn(BuildContext c) {
     final navigator = Navigator.of(c);
+    final routingGeneration = _authRoutingGeneration;
     final identity =
         AuthService.currentUser?.id ??
         (AuthService.isDemoMode ? 'demo' : 'local-test');
     if (_signedInHandledIdentity == identity) return Future<void>.value();
     final activeFlow = _signedInFlow;
-    if (activeFlow != null) return activeFlow;
+    if (activeFlow != null && _signedInFlowGeneration == routingGeneration) {
+      return activeFlow;
+    }
 
     final completer = Completer<void>();
-    _signedInFlow = completer.future;
+    final flow = completer.future;
+    _signedInFlow = flow;
+    _signedInFlowGeneration = routingGeneration;
     Future<void>.sync(() async {
       if (AuthService.isConfigured) {
         try {
@@ -123,21 +131,30 @@ class AppNav {
           rethrow;
         }
       }
+      if (routingGeneration != _authRoutingGeneration) return;
 
       // Sesi baru boleh memiliki siklus logout baru. Flag ini hanya mencegah
       // event signedOut duplikat pada sesi yang sama.
       _signedOutHandled = false;
       await appState.bootstrap();
-      if (!navigator.mounted) return;
+      if (routingGeneration != _authRoutingGeneration || !navigator.mounted) {
+        return;
+      }
       _routeAfterLoginWithNavigator(navigator);
       _signedInHandledIdentity = identity;
     }).then(
       (_) {
-        _signedInFlow = null;
+        if (identical(_signedInFlow, flow)) {
+          _signedInFlow = null;
+          _signedInFlowGeneration = null;
+        }
         completer.complete();
       },
       onError: (Object error, StackTrace stackTrace) {
-        _signedInFlow = null;
+        if (identical(_signedInFlow, flow)) {
+          _signedInFlow = null;
+          _signedInFlowGeneration = null;
+        }
         if (navigator.mounted) {
           _rootWithNavigator(
             navigator,
@@ -157,6 +174,7 @@ class AppNav {
   /// Root startup untuk kondisi tanpa sesi. Ini berbeda dari event logout:
   /// pengguna baru tetap harus menyelesaikan onboarding satu kali.
   static void routeLoggedOutAtStartup(BuildContext c) {
+    _authRoutingGeneration++;
     _signedInHandledIdentity = null;
     if (appState.onboardingSeen) {
       toForkRoot(c);
@@ -220,6 +238,7 @@ class AppNav {
     final activeFlow = _signedOutFlow;
     if (activeFlow != null) return activeFlow;
 
+    _authRoutingGeneration++;
     final completer = Completer<void>();
     _signedOutFlow = completer.future;
 
@@ -292,25 +311,47 @@ class AppNav {
   @visibleForTesting
   static void resetAuthRoutingForTest() {
     _signedInFlow = null;
+    _signedInFlowGeneration = null;
     _signedInHandledIdentity = null;
     _signedOutFlow = null;
     _signedOutHandled = false;
+    _authRoutingGeneration = 0;
     _checkoutRoutes.clear();
   }
 
   // ── Root ekosistem ──
   static void toConsumerHome(BuildContext c) => _root(c, const ConsumerShell());
   static void toMerchantHome(BuildContext c) => _root(c, const MerchantShell());
-  static void toMerchantOrders(BuildContext c) =>
-      _root(c, const MerchantShell(initialIndex: 2));
+  static void toMerchantOrders(
+    BuildContext c, {
+    MerchantOrdersTab initialTab = MerchantOrdersTab.active,
+    String? referencedOrderId,
+  }) => _root(
+    c,
+    MerchantShell(
+      initialIndex: 2,
+      initialOrdersTab: initialTab,
+      referencedOrderId: referencedOrderId,
+    ),
+  );
   static void toMerchantBalance(BuildContext c) =>
       _root(c, const MerchantShell(initialIndex: 3));
   static void toStoreSetup(BuildContext c) =>
       _push(c, const StoreSetupScreen());
   static void toLocationPriming(BuildContext c) =>
       _root(c, const LocationPrimingScreen());
-  static void toOrders(BuildContext c) =>
-      _root(c, const ConsumerShell(initialIndex: 2));
+  static void toOrders(
+    BuildContext c, {
+    ConsumerOrdersTab initialTab = ConsumerOrdersTab.active,
+    String? referencedOrderId,
+  }) => _root(
+    c,
+    ConsumerShell(
+      initialIndex: 2,
+      initialOrdersTab: initialTab,
+      referencedOrderId: referencedOrderId,
+    ),
+  );
 
   // ── Konsumen ──
   static void toDetail(BuildContext c, Bag bag) =>
@@ -414,24 +455,42 @@ class AppNav {
       _push(c, LegalScreen(document: document));
 
   static void openNotification(BuildContext c, AppNotification notification) {
-    final route = (notification.route ?? '').toLowerCase();
-    if (route == 'merchant_orders') {
+    final route = (notification.route ?? '').trim();
+    final normalizedRoute = route.toLowerCase();
+    final consumerOrderTarget = parseConsumerOrderNotificationRoute(route);
+    final merchantOrderTarget = parseMerchantOrderNotificationRoute(route);
+    if (normalizedRoute == 'merchant_orders' || merchantOrderTarget != null) {
       appState.switchToMerchant();
       appState.rememberMode('merchant');
-      toMerchantOrders(c);
-    } else if (route == 'merchant_balance') {
+      toMerchantOrders(
+        c,
+        initialTab:
+            merchantOrderTarget?.preferredTab ?? MerchantOrdersTab.active,
+        referencedOrderId: merchantOrderTarget?.orderId,
+      );
+    } else if (normalizedRoute == 'merchant_balance') {
       appState.switchToMerchant();
       appState.rememberMode('merchant');
       toMerchantBalance(c);
-    } else if (route == 'merchant_reviews') {
+    } else if (normalizedRoute == 'merchant_reviews') {
       appState.switchToMerchant();
       appState.rememberMode('merchant');
       toMerchantReviews(c, root: true);
-    } else if (route == 'orders' || route.startsWith('order:')) {
+    } else if (normalizedRoute == 'orders' || consumerOrderTarget != null) {
       appState.switchToConsumer();
       appState.rememberMode('consumer');
-      toOrders(c);
-    } else if (route == 'consumer_home' || route == 'home') {
+      toOrders(
+        c,
+        initialTab:
+            consumerOrderTarget?.preferredTab ??
+            (normalizedRoute == 'orders' &&
+                    notification.type == NotifType.rating
+                ? ConsumerOrdersTab.history
+                : ConsumerOrdersTab.active),
+        referencedOrderId: consumerOrderTarget?.orderId,
+      );
+    } else if (normalizedRoute == 'consumer_home' ||
+        normalizedRoute == 'home') {
       appState.switchToConsumer();
       appState.rememberMode('consumer');
       toConsumerHome(c);

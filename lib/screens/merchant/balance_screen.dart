@@ -210,10 +210,7 @@ class _BalanceScreenState extends State<BalanceScreen> {
   }
 
   Widget _statRow() {
-    final completedBags = appState.completedOrders.fold<int>(
-      0,
-      (total, order) => total + order.bags,
-    );
+    final completedBags = appState.redeemedBagCount;
     return Row(
       children: [
         Expanded(

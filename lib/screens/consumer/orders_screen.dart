@@ -4,23 +4,36 @@ import 'package:flutter/material.dart';
 
 import '../../app_nav.dart';
 import '../../sb.dart';
+import '../../services/notification_route.dart';
 
 /// Daftar pesanan konsumen dengan pemisahan status aktif dan riwayat.
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  const OrdersScreen({
+    super.key,
+    this.initialTab = ConsumerOrdersTab.active,
+    this.referencedOrderId,
+  });
+
+  final ConsumerOrdersTab initialTab;
+  final String? referencedOrderId;
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  int _tab = 0;
+  late int _tab;
+  late bool _referenceTabResolved;
   bool _loading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _tab = (_tabForReferencedOrder() ?? widget.initialTab).index;
+    _referenceTabResolved =
+        widget.referencedOrderId == null ||
+        widget.referencedOrderId!.trim().isEmpty;
     _loading = appState.activeOrders.isEmpty && appState.orderHistory.isEmpty;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_refresh());
@@ -37,7 +50,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
     try {
       await appState.loadOrders();
       if (!mounted) return;
-      setState(() => _error = appState.ordersError);
+      final referencedTab = _referenceTabResolved
+          ? null
+          : _tabForReferencedOrder();
+      setState(() {
+        _error = appState.ordersError;
+        if (referencedTab != null) {
+          _tab = referencedTab.index;
+          _referenceTabResolved = true;
+        }
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -80,6 +102,29 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return result;
   }
 
+  ConsumerOrdersTab? _tabForReferencedOrder() {
+    final targetId = widget.referencedOrderId?.trim().toLowerCase();
+    if (targetId == null || targetId.isEmpty) return null;
+    bool matches(OrderRecord order) => order.id.toLowerCase() == targetId;
+    if (_historyOrders.any(matches)) return ConsumerOrdersTab.history;
+    if (_activeOrders.any(matches)) return ConsumerOrdersTab.active;
+    return null;
+  }
+
+  List<OrderRecord> _prioritizeReferenced(List<OrderRecord> orders) {
+    final targetId = widget.referencedOrderId?.trim().toLowerCase();
+    if (targetId == null || targetId.isEmpty) return orders;
+    final index = orders.indexWhere(
+      (order) => order.id.toLowerCase() == targetId,
+    );
+    if (index <= 0) return orders;
+    return <OrderRecord>[
+      orders[index],
+      ...orders.take(index),
+      ...orders.skip(index + 1),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return StatusBarStyle.dark(
@@ -118,7 +163,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
           TabSwitch(
             tabs: const ['Aktif', 'Riwayat'],
             index: _tab,
-            onTap: (index) => setState(() => _tab = index),
+            onTap: (index) => setState(() {
+              _tab = index;
+              _referenceTabResolved = true;
+            }),
           ),
         ],
       ),
@@ -134,7 +182,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       );
     }
 
-    final orders = _tab == 0 ? _activeOrders : _historyOrders;
+    final orders = _prioritizeReferenced(
+      _tab == ConsumerOrdersTab.active.index ? _activeOrders : _historyOrders,
+    );
     return RefreshIndicator(
       color: AppColors.greenBright,
       onRefresh: _refresh,
@@ -174,6 +224,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final ready = order.status == OrderStatus.ready;
     final awaitingPayment = order.paymentState.isAwaitingCustomer;
     return Container(
+      key: ValueKey('active-order-${order.id}'),
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -285,6 +336,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final expired = order.status == OrderStatus.expired || _hasExpired(order);
     final cancelled = order.status == OrderStatus.cancelled;
     Widget card = Container(
+      key: ValueKey('history-order-${order.id}'),
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -338,7 +390,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     required bool expired,
   }) {
     if (order.paymentState == PaymentState.refunded) {
-      return StatusBadge.expired('Dikembalikan');
+      return StatusBadge.expired('Refund diproses');
     }
     if (order.paymentState == PaymentState.disputed) {
       return StatusBadge.expired('Ditinjau');

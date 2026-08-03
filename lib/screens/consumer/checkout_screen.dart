@@ -12,24 +12,29 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
+  static const _backendQuantityLimit = 100;
+
   int qty = 1;
   late String selectedMethod;
   bool _navigating = false;
 
   Bag get bag => widget.bag;
   int get _serviceFee => appState.businessConfig.serviceFee;
+  int get _maximumQuantity => bag.quantityLeft < _backendQuantityLimit
+      ? bag.quantityLeft
+      : _backendQuantityLimit;
   int get subtotal => bag.salePrice * qty;
   int get total => subtotal + _serviceFee;
 
   @override
   void initState() {
     super.initState();
-    selectedMethod = 'Midtrans';
+    selectedMethod = 'QRIS';
   }
 
   Future<void> _continue() async {
     if (_navigating) return;
-    if (bag.soldOut || bag.quantityLeft < 1 || qty > bag.quantityLeft) {
+    if (bag.soldOut || _maximumQuantity < 1 || qty > _maximumQuantity) {
       AppFeedback.snack(
         context,
         'Stok bag sudah berubah. Kembali dan muat ulang ketersediaan.',
@@ -142,7 +147,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           QtyStepper(
             value: qty,
             onMinus: qty > 1 ? () => setState(() => qty--) : null,
-            onPlus: qty < bag.quantityLeft ? () => setState(() => qty++) : null,
+            onPlus: qty < _maximumQuantity ? () => setState(() => qty++) : null,
           ),
         ],
       ),
@@ -168,14 +173,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: SizedBox.square(
                 dimension: 38,
                 child: Icon(
-                  Icons.account_balance_wallet_outlined,
+                  Icons.qr_code_2_rounded,
                   size: 21,
                   color: AppColors.amber,
                 ),
               ),
             ),
-            title: Text('Midtrans Snap'),
-            subtitle: Text('GoPay, QRIS, virtual account, dan metode lainnya'),
+            title: Text('QRIS'),
+            subtitle: Text(
+              'Pindai dengan aplikasi pembayaran yang mendukung QRIS',
+            ),
             trailing: Icon(
               Icons.verified_user_outlined,
               color: AppColors.greenBright,
@@ -208,8 +215,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Text(
               demo
                   ? 'Mode demo eksplisit: pembayaran tidak memindahkan dana nyata.'
-                  : 'Pembayaran diproses di halaman aman Midtrans. Status lunas '
-                        'hanya dikonfirmasi oleh server.',
+                  : 'Kode QRIS ditampilkan langsung di SaveBite. Status lunas '
+                        'hanya dikonfirmasi oleh server Midtrans.',
               style: AppText.ui(
                 11.8,
                 weight: 650,

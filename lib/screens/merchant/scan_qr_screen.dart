@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../config/env.dart';
 import '../../data/backend/backend.dart';
 import '../../sb.dart';
 
@@ -120,6 +122,18 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
                             : AppColors.scanMuted,
                       ),
                     ),
+                    if (Env.e2eMode && !_completed && !_busy) ...[
+                      const SizedBox(height: 10),
+                      TextButton.icon(
+                        key: const ValueKey('e2e-scanned-token-button'),
+                        onPressed: _showE2eScannedTokenInput,
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.amber,
+                        ),
+                        icon: const Icon(Icons.science_outlined),
+                        label: const Text('Masukkan hasil scan staging'),
+                      ),
+                    ],
                     if (_message != null) ...[
                       const SizedBox(height: 14),
                       _messageCard(_message!),
@@ -260,15 +274,31 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
             const SizedBox(height: 12),
             TextButton(
               onPressed: denied
-                  ? appState.openAppSettings
+                  ? kIsWeb
+                        ? _showWebCameraPermissionHelp
+                        : appState.openAppSettings
                   : () => _restartScanner(clearMessage: true),
               style: TextButton.styleFrom(foregroundColor: AppColors.amber),
-              child: Text(denied ? 'Buka pengaturan' : 'Coba lagi'),
+              child: Text(
+                denied
+                    ? kIsWeb
+                          ? 'Cara mengizinkan'
+                          : 'Buka pengaturan'
+                    : 'Coba lagi',
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _showWebCameraPermissionHelp() {
+    setState(() {
+      _message =
+          'Izinkan kamera dari ikon izin di bilah alamat browser, lalu muat '
+          'ulang halaman dan buka scanner kembali.';
+    });
   }
 
   Widget _completedIllustration() {
@@ -422,6 +452,46 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
     }
   }
 
+  Future<void> _showE2eScannedTokenInput() async {
+    if (!Env.e2eMode || _busy || _completed) return;
+    final controller = TextEditingController();
+    final raw = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hasil scan QR staging'),
+        content: TextField(
+          key: const ValueKey('e2e-scanned-token-field'),
+          controller: controller,
+          autofocus: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: const InputDecoration(labelText: 'Token hasil decode QR'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            key: const ValueKey('e2e-scanned-token-submit'),
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Verifikasi'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!mounted || raw == null || raw.isEmpty) return;
+    final token = _extractPickupToken(raw);
+    if (token == null) {
+      setState(() {
+        _message = 'QR ini bukan voucher pickup SaveBite yang valid.';
+      });
+      return;
+    }
+    await _redeem(token);
+  }
+
   String? _extractPickupToken(String raw) {
     if (raw.length < 6 || raw.length > 512 || raw.contains(RegExp(r'\s'))) {
       return null;
@@ -451,7 +521,11 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
       _message = null;
     });
     try {
-      await _scannerController.stop();
+      try {
+        await _scannerController.stop();
+      } catch (_) {
+        // Redeem server tetap aman saat kamera sudah berhenti/tidak tersedia.
+      }
       final order = await appState.redeemOrder(token);
       if (!mounted) return;
       if (order == null) {

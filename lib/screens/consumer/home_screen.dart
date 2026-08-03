@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../../app_nav.dart';
 import '../../sb.dart';
@@ -44,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (sheetContext) {
         var busy = false;
         String? localError;
+        var offerPermissionHelp = false;
         return StatefulBuilder(
           builder: (context, setSheetState) {
             Future<void> useCurrentLocation() async {
@@ -51,18 +51,25 @@ class _HomeScreenState extends State<HomeScreen> {
               setSheetState(() {
                 busy = true;
                 localError = null;
+                offerPermissionHelp = false;
               });
               try {
                 final located = await appState.determineLocation();
                 if (!located) {
+                  offerPermissionHelp =
+                      !appState.locationServicesEnabled ||
+                      !appState.hasLocationPermission;
                   localError =
                       appState.errorMessage ??
                       'Lokasi terbaru belum berhasil ditemukan.';
                 } else if (!appState.locationServicesEnabled) {
+                  offerPermissionHelp = true;
                   localError = 'Layanan lokasi perangkat belum aktif.';
                 } else if (!appState.hasLocationPermission) {
-                  final permission = await Geolocator.checkPermission();
-                  localError = permission == LocationPermission.deniedForever
+                  offerPermissionHelp = true;
+                  localError = appState.usesBrowserPermissionSettings
+                      ? appState.browserLocationPermissionGuidance
+                      : appState.locationPermissionDeniedForever
                       ? 'Izin lokasi diblokir. Buka pengaturan aplikasi untuk '
                             'mengaktifkannya.'
                       : 'Izin lokasi belum diberikan.';
@@ -78,6 +85,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   return;
                 }
               } catch (_) {
+                offerPermissionHelp =
+                    !appState.locationServicesEnabled ||
+                    !appState.hasLocationPermission;
                 localError =
                     appState.errorMessage ??
                     'Lokasi gagal diperbarui. Periksa izin dan koneksimu.';
@@ -91,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
               setSheetState(() {
                 busy = true;
                 localError = null;
+                offerPermissionHelp = false;
               });
               try {
                 await appState.setLocationWithCoordinates(
@@ -119,10 +130,19 @@ class _HomeScreenState extends State<HomeScreen> {
             }
 
             Future<void> openSettings() async {
-              if (!appState.locationServicesEnabled) {
-                await Geolocator.openLocationSettings();
-              } else {
-                await Geolocator.openAppSettings();
+              if (appState.usesBrowserPermissionSettings) {
+                setSheetState(() {
+                  localError = appState.browserLocationPermissionGuidance;
+                });
+                return;
+              }
+              final opened = await appState.openRelevantLocationSettings();
+              if (!opened && sheetContext.mounted) {
+                setSheetState(() {
+                  localError =
+                      'Pengaturan tidak dapat dibuka otomatis. Buka '
+                      'pengaturan perangkat dan izinkan lokasi untuk SaveBite.';
+                });
               }
             }
 
@@ -207,11 +227,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                     height: 1.4,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                TextButton(
-                                  onPressed: openSettings,
-                                  child: const Text('Buka pengaturan'),
-                                ),
+                                if (offerPermissionHelp) ...[
+                                  const SizedBox(height: 4),
+                                  TextButton(
+                                    onPressed: openSettings,
+                                    child: Text(
+                                      appState.locationSettingsActionLabel,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),

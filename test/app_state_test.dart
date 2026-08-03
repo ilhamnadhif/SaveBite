@@ -34,6 +34,29 @@ class _CommitThenLoseResponseBackend extends FakeBackend {
   }
 }
 
+class _CheckoutProbeBackend extends FakeBackend {
+  final keys = <String>[];
+  int createCalls = 0;
+
+  @override
+  Future<OrderRecord> placeOrder(
+    Bag bag,
+    int qty,
+    String method, {
+    required String idempotencyKey,
+  }) async {
+    createCalls++;
+    keys.add(idempotencyKey);
+    final order = await super.placeOrder(
+      bag,
+      qty,
+      method,
+      idempotencyKey: idempotencyKey,
+    );
+    return order.copyWith(paymentState: PaymentState.pending);
+  }
+}
+
 class _PendingWithMatchingHistoryBackend extends FakeBackend {
   final keys = <String>[];
   OrderRecord? _pending;
@@ -322,14 +345,14 @@ void main() {
       expect(appState.userLongitude, isNull);
       expect(appState.deviceLatitude, isNull);
       expect(appState.deviceLongitude, isNull);
-      expect(appState.defaultPaymentMethod, 'Midtrans');
+      expect(appState.defaultPaymentMethod, 'QRIS');
 
       final restoredForNextAccount = AppState();
       await restoredForNextAccount.restoreLocalState();
       expect(restoredForNextAccount.locationPrimed, isFalse);
       expect(restoredForNextAccount.userLatitude, isNull);
       expect(restoredForNextAccount.deviceLatitude, isNull);
-      expect(restoredForNextAccount.defaultPaymentMethod, 'Midtrans');
+      expect(restoredForNextAccount.defaultPaymentMethod, 'QRIS');
     },
   );
 
@@ -355,6 +378,46 @@ void main() {
     expect(afterRetry.length, afterCommit.length);
     app_backend.useFakeBackend();
   });
+
+  test(
+    'checkout tetap memanggil backend ketika persistence lokal gagal',
+    () async {
+      final backend = _CheckoutProbeBackend();
+      app_backend.backend = backend;
+      final state = AppState(
+        idempotencyPersistenceOverride: () async {
+          throw StateError('local storage unavailable');
+        },
+      );
+      final bag = (await backend.nearbyBags()).first;
+
+      final first = await state.placeOrder(bag, 1, 'Midtrans');
+      final retry = await state.placeOrder(bag, 1, 'Midtrans');
+
+      expect(backend.createCalls, 2);
+      expect(backend.keys, hasLength(2));
+      expect(backend.keys[1], backend.keys[0]);
+      expect(retry.id, first.id);
+      app_backend.useFakeBackend();
+    },
+  );
+
+  test(
+    'checkout dapat memperbarui cache hasil loadOrders yang fixed-length',
+    () async {
+      final backend = _CheckoutProbeBackend();
+      app_backend.backend = backend;
+      final state = AppState();
+      final bag = (await backend.nearbyBags()).first;
+
+      await state.loadOrders();
+      final order = await state.placeOrder(bag, 1, 'Midtrans');
+
+      expect(backend.createCalls, 1);
+      expect(state.activeOrders.any((item) => item.id == order.id), isTrue);
+      app_backend.useFakeBackend();
+    },
+  );
 
   test(
     'riwayat dengan signature sama tidak menghapus key order yang masih pending',

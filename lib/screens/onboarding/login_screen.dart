@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app_nav.dart';
+import '../../config/env.dart';
 import '../../sb.dart';
 import '../shared/legal_screen.dart';
 
@@ -48,6 +49,28 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _showTestAccountLogin() async {
+    if (!Env.e2eMode || _busy) return;
+
+    final credentials = await showModalBottomSheet<_TestAccountCredentials>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.cream,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => const _TestAccountLoginSheet(),
+    );
+    if (!mounted || credentials == null) return;
+    await _login(
+      () => AuthService.signInWithPassword(
+        credentials.email,
+        credentials.password,
+      ),
+    );
   }
 
   bool get _showApple =>
@@ -145,6 +168,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: () => _login(AuthService.signInWithApple),
                   ),
                 ],
+                if (Env.e2eMode) ...[
+                  const SizedBox(height: 10),
+                  _providerButton(
+                    label: 'Masuk dengan akun pengujian',
+                    icon: const Icon(
+                      Icons.science_outlined,
+                      size: 24,
+                      color: AppColors.greenBright,
+                    ),
+                    onPressed: _showTestAccountLogin,
+                  ),
+                ],
                 const SizedBox(height: 14),
                 Wrap(
                   alignment: WrapAlignment.center,
@@ -239,6 +274,143 @@ class _LoginScreenState extends State<LoginScreen> {
           decoration: const BoxDecoration(
             color: AppColors.white,
             shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TestAccountCredentials {
+  final String email;
+  final String password;
+
+  const _TestAccountCredentials(this.email, this.password);
+}
+
+class _TestAccountLoginSheet extends StatefulWidget {
+  const _TestAccountLoginSheet();
+
+  @override
+  State<_TestAccountLoginSheet> createState() => _TestAccountLoginSheetState();
+}
+
+class _TestAccountLoginSheetState extends State<_TestAccountLoginSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.clear();
+    _passwordController.clear();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    Navigator.of(context).pop(
+      _TestAccountCredentials(
+        _emailController.text.trim(),
+        _passwordController.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        20,
+        24,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.science_outlined,
+                    color: AppColors.greenBright,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Masuk dengan akun pengujian',
+                      style: AppText.ui(18, weight: 800, color: AppColors.ink),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Tutup',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Khusus pengujian E2E. Credential diisi saat pengujian dan '
+                'tidak ditanam di source atau konfigurasi SaveBite.',
+                style: AppText.ui(13, color: AppColors.body, height: 1.45),
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                key: const ValueKey('e2e-email-field'),
+                controller: _emailController,
+                autofocus: true,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.none,
+                autocorrect: false,
+                enableSuggestions: false,
+                autofillHints: const <String>[],
+                decoration: const InputDecoration(
+                  labelText: 'Email akun uji',
+                  hintText: 'contoh@pengujian.local',
+                  prefixIcon: Icon(Icons.alternate_email),
+                ),
+                validator: (value) {
+                  final email = value?.trim() ?? '';
+                  if (email.isEmpty || !email.contains('@')) {
+                    return 'Masukkan email akun uji yang valid.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                key: const ValueKey('e2e-password-field'),
+                controller: _passwordController,
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                autocorrect: false,
+                enableSuggestions: false,
+                autofillHints: const <String>[],
+                decoration: const InputDecoration(
+                  labelText: 'Kata sandi akun uji',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Masukkan kata sandi akun uji.'
+                    : null,
+                onFieldSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                key: const ValueKey('e2e-submit-button'),
+                onPressed: _submit,
+                icon: const Icon(Icons.login),
+                label: const Text('Masuk untuk pengujian'),
+              ),
+            ],
           ),
         ),
       ),

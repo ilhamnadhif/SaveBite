@@ -200,6 +200,48 @@ void main() {
     expect(orderRecordFromMap(verifiedLegacy).paymentState, PaymentState.paid);
   });
 
+  test('order memetakan dan mempertahankan URL QRIS', () {
+    const qrUrl = 'https://api.sandbox.midtrans.com/v2/qris/order-map/qr-code';
+    const simulatorQrUrl =
+        'https://api.sandbox.midtrans.com/v2/qris/0d8178e1-c6c7-4ab4-81a6-893be9d924ab/qr-code';
+    const snapToken = 'opaqueSnapToken_123456';
+    final order = orderRecordFromMap({
+      'id': 'order-qris',
+      'status': 'pending',
+      'payment_status': 'pending',
+      'payment_qr_url': qrUrl,
+      'simulator_qr_image_url': simulatorQrUrl,
+      'payment_snap_token': snapToken,
+      'payment_redirect_url': 'https://app.sandbox.midtrans.com/legacy',
+      'order_reference': 'SB-QRIS',
+      'quantity': 1,
+      'subtotal': 15000,
+      'service_fee': 1000,
+      'total_amount': 16000,
+      'bag_id': 'bag-1',
+      'bag_title': 'Surprise Bag',
+      'unit_price': 15000,
+      'original_price_snapshot': 45000,
+      'merchant_id': 'merchant-1',
+      'merchant_name': 'Toko Uji',
+    });
+
+    expect(order.paymentMethod, 'QRIS');
+    expect(order.paymentQrUrl, qrUrl);
+    expect(order.simulatorQrImageUrl, simulatorQrUrl);
+    expect(order.paymentSnapToken, snapToken);
+    expect(order.copyWith(paymentState: PaymentState.paid).paymentQrUrl, qrUrl);
+    expect(order.copyWith(clearPaymentQrUrl: true).paymentQrUrl, isNull);
+    expect(
+      order.copyWith(clearPaymentSnapToken: true).paymentSnapToken,
+      isNull,
+    );
+    expect(
+      order.copyWith(clearSimulatorQrImageUrl: true).simulatorQrImageUrl,
+      isNull,
+    );
+  });
+
   test('status merchant yang tidak dikenal tidak dianggap sudah dibayar', () {
     final unknown = incomingOrderFromMap({
       'id': 'order-unknown',

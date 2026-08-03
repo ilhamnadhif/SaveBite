@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import '../business_config.dart';
 import '../models.dart';
@@ -1197,4 +1198,11 @@ class FakeBackend implements Backend {
     ];
     return samples[_seq++ % samples.length];
   }
+
+  @override
+  Future<String?> uploadImageBytes(
+    BackendBucket bucket,
+    Uint8List bytes, {
+    required String filename,
+  }) => uploadImage(bucket);
 }

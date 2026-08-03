@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../business_config.dart';
 import '../models.dart';
 
@@ -164,4 +166,13 @@ abstract class Backend {
   /// Pilih gambar dari galeri/kamera lalu unggah; kembalikan URL publik
   /// (atau null bila dibatalkan).
   Future<String?> uploadImage(BackendBucket bucket);
+
+  /// Unggah byte gambar yang sudah dipilih oleh caller. Jalur ini memakai
+  /// validasi ukuran, ekstensi, MIME, ownership, dan bucket yang sama dengan
+  /// [uploadImage].
+  Future<String?> uploadImageBytes(
+    BackendBucket bucket,
+    Uint8List bytes, {
+    required String filename,
+  });
 }

@@ -199,6 +199,13 @@ class OrderRecord {
   final int merchantNetAmount;
   final String? pickupToken;
   final PaymentState paymentState;
+  final String? paymentQrUrl;
+  final String? paymentSnapToken;
+  final String? simulatorQrImageUrl;
+
+  /// URL checkout Snap yang ditampilkan lewat WebView internal di mobile atau
+  /// Snap.js resmi di web. URL Core QRIS lama tetap tersedia di [paymentQrUrl]
+  /// hanya untuk pemulihan order historis.
   final String? paymentRedirectUrl;
   final DateTime? paymentExpiresAt;
   final String? providerPaymentType;
@@ -214,7 +221,7 @@ class OrderRecord {
     this.reviewed = false,
     this.canRate = false,
     this.quantity = 1,
-    this.paymentMethod = 'Midtrans',
+    this.paymentMethod = 'QRIS',
     this.createdAt,
     this.pickupStartsAt,
     this.expiresAt,
@@ -224,6 +231,9 @@ class OrderRecord {
     this.merchantNetAmount = 0,
     this.pickupToken,
     this.paymentState = PaymentState.paid,
+    this.paymentQrUrl,
+    this.paymentSnapToken,
+    this.simulatorQrImageUrl,
     this.paymentRedirectUrl,
     this.paymentExpiresAt,
     this.providerPaymentType,
@@ -238,6 +248,12 @@ class OrderRecord {
     String? pickupToken,
     bool clearPickupToken = false,
     PaymentState? paymentState,
+    String? paymentQrUrl,
+    bool clearPaymentQrUrl = false,
+    String? paymentSnapToken,
+    bool clearPaymentSnapToken = false,
+    String? simulatorQrImageUrl,
+    bool clearSimulatorQrImageUrl = false,
     String? paymentRedirectUrl,
     bool clearPaymentRedirectUrl = false,
     DateTime? paymentExpiresAt,
@@ -263,6 +279,15 @@ class OrderRecord {
     merchantNetAmount: merchantNetAmount,
     pickupToken: clearPickupToken ? null : (pickupToken ?? this.pickupToken),
     paymentState: paymentState ?? this.paymentState,
+    paymentQrUrl: clearPaymentQrUrl
+        ? null
+        : (paymentQrUrl ?? this.paymentQrUrl),
+    paymentSnapToken: clearPaymentSnapToken
+        ? null
+        : (paymentSnapToken ?? this.paymentSnapToken),
+    simulatorQrImageUrl: clearSimulatorQrImageUrl
+        ? null
+        : (simulatorQrImageUrl ?? this.simulatorQrImageUrl),
     paymentRedirectUrl: clearPaymentRedirectUrl
         ? null
         : (paymentRedirectUrl ?? this.paymentRedirectUrl),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -31,6 +30,12 @@ class _MapScreenState extends State<MapScreen> {
   bool _locationBusy = false;
   bool _areaBusy = false;
   LatLng? _lastSyncedCenter;
+
+  bool get _shouldOfferLocationSettings =>
+      !appState.locationServicesEnabled ||
+      appState.locationPermissionDeniedForever ||
+      (appState.usesBrowserPermissionSettings &&
+          !appState.hasLocationPermission);
 
   @override
   void initState() {
@@ -152,8 +157,11 @@ class _MapScreenState extends State<MapScreen> {
         if (appState.userLocationAccuracyReduced) {
           AppFeedback.snack(
             context,
-            'Perangkat memberi lokasi perkiraan. Aktifkan lokasi presisi di '
-            'pengaturan agar titik lebih akurat.',
+            appState.usesBrowserPermissionSettings
+                ? 'Browser memberi lokasi perkiraan. Periksa izin lokasi situs '
+                      'di bilah alamat bila ingin memperbarui titik.'
+                : 'Perangkat memberi lokasi perkiraan. Aktifkan lokasi presisi '
+                      'di pengaturan agar titik lebih akurat.',
           );
         } else if (accuracy != null && accuracy > 100) {
           AppFeedback.snack(
@@ -163,7 +171,12 @@ class _MapScreenState extends State<MapScreen> {
           );
         }
       } else {
-        final message = !appState.locationServicesEnabled
+        final message =
+            appState.usesBrowserPermissionSettings &&
+                (!appState.locationServicesEnabled ||
+                    !appState.hasLocationPermission)
+            ? appState.browserLocationPermissionGuidance
+            : !appState.locationServicesEnabled
             ? 'Aktifkan layanan lokasi perangkat lalu coba lagi.'
             : appState.locationPermissionDeniedForever
             ? 'Izin lokasi diblokir. Aktifkan melalui pengaturan aplikasi.'
@@ -235,10 +248,17 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _openLocationSettings() async {
-    if (!appState.locationServicesEnabled) {
-      await Geolocator.openLocationSettings();
-    } else {
-      await Geolocator.openAppSettings();
+    if (appState.usesBrowserPermissionSettings) {
+      AppFeedback.snack(context, appState.browserLocationPermissionGuidance);
+      return;
+    }
+    final opened = await appState.openRelevantLocationSettings();
+    if (!opened && mounted) {
+      AppFeedback.snack(
+        context,
+        'Pengaturan tidak dapat dibuka otomatis. Buka pengaturan perangkat '
+        'dan izinkan lokasi untuk SaveBite.',
+      );
     }
   }
 
@@ -464,10 +484,10 @@ class _MapScreenState extends State<MapScreen> {
                         ? 'Geser peta lalu cari area lain, atau ubah filter.'
                         : 'Toko belum menambahkan titik peta. Bag tetap dapat '
                               'dilihat dari tab Beranda.',
-                    actionLabel: !appState.locationServicesEnabled
-                        ? 'Buka pengaturan lokasi'
+                    actionLabel: _shouldOfferLocationSettings
+                        ? appState.locationSettingsActionLabel
                         : 'Muat ulang',
-                    onAction: !appState.locationServicesEnabled
+                    onAction: _shouldOfferLocationSettings
                         ? _openLocationSettings
                         : appState.loadConsumerHome,
                   ),

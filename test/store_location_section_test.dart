@@ -190,6 +190,62 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'mode manual memasangkan alamat tertulis dengan titik tanpa geocoding',
+    (tester) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      final geocoding = _FakeStoreGeocoding();
+      StoreGeoPoint? selectedPoint;
+
+      await tester.pumpWidget(
+        _testApp(
+          StoreLocationSection(
+            addressController: controller,
+            initialLatitude: null,
+            initialLongitude: null,
+            manualSelectionOnly: true,
+            geocodingService: geocoding,
+            debounceDuration: const Duration(milliseconds: 10),
+            validator: (_) => null,
+            readCurrentLocation: () async => null,
+            onPointChanged: (point) => selectedPoint = point,
+            onBusyChanged: (_) {},
+          ),
+        ),
+      );
+
+      const typedAddress = 'Jl. Manual Web No. 12, Depok';
+      await tester.enterText(find.byType(TextFormField), typedAddress);
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(geocoding.lastForwardQuery, isNull);
+      expect(
+        find.text('Alamat siap. Ketuk lokasi toko yang tepat di peta.'),
+        findsOneWidget,
+      );
+
+      final mapRect = tester.getRect(
+        find.byKey(const Key('store-location-map')),
+      );
+      await tester.tapAt(mapRect.center);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(geocoding.lastReversePoint, isNull);
+      expect(controller.text, typedAddress);
+      expect(selectedPoint, isNotNull);
+      expect(
+        find.text(
+          'Alamat dan titik peta sudah sinkron. Pastikan pin tepat di toko.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('store-location-marker')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 Widget _testApp(Widget child) => MaterialApp(

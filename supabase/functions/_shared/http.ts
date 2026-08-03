@@ -113,11 +113,15 @@ export function requiredString(
 
 export function requiredUuid(value: unknown, field: string): string {
   const result = requiredString(value, field, 36, 36).toLowerCase();
+  // Accept any canonical 8-4-4-4-12 hex UUID, matching what Postgres `uuid`
+  // accepts.  We deliberately do NOT enforce the RFC 4122 version/variant
+  // nibbles: seeded rows use vanity ids (e.g. 2222…2205) that Postgres stores
+  // happily but that fail the stricter pattern, and the real gate against bad
+  // input is the typed column + parameterized RPC + RLS, not this regex.
   if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-      .test(
-        result,
-      )
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+      result,
+    )
   ) {
     throw new HttpError(400, "invalid_request", `${field} tidak valid.`);
   }

@@ -97,6 +97,9 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
   }
 
   String _locationProblemMessage(LocationPermission permission) {
+    if (appState.usesBrowserPermissionSettings) {
+      return appState.browserLocationPermissionGuidance;
+    }
     if (!appState.locationServicesEnabled) {
       return 'Layanan lokasi perangkat sedang nonaktif. Aktifkan lokasi, lalu '
           'coba lagi.';
@@ -110,11 +113,13 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
   }
 
   Future<void> _openSettings() async {
-    if (!appState.locationServicesEnabled) {
-      await Geolocator.openLocationSettings();
-    } else {
-      await Geolocator.openAppSettings();
+    if (appState.usesBrowserPermissionSettings) {
+      setState(() {
+        _message = appState.browserLocationPermissionGuidance;
+      });
+      return;
     }
+    await appState.openRelevantLocationSettings();
   }
 
   Future<void> _later() async {
@@ -125,6 +130,8 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
   }
 
   bool get _showSettings =>
+      (appState.usesBrowserPermissionSettings &&
+          !appState.hasLocationPermission) ||
       !appState.locationServicesEnabled ||
       _permission == LocationPermission.deniedForever;
 
@@ -230,9 +237,7 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
                 ),
                 if (_showSettings && _message != null) ...[
                   GhostButton(
-                    label: !appState.locationServicesEnabled
-                        ? 'Buka pengaturan lokasi'
-                        : 'Buka pengaturan aplikasi',
+                    label: appState.locationSettingsActionLabel,
                     color: AppColors.greenBright,
                     onTap: _busy ? null : _openSettings,
                   ),

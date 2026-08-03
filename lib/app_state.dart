@@ -10,6 +10,8 @@ import 'data/backend/backend.dart';
 import 'data/business_config.dart';
 import 'data/models.dart';
 import 'services/app_backend.dart';
+import 'services/location_permission_support.dart';
+import 'services/notification_route.dart';
 
 enum AppMode { consumer, merchant }
 
@@ -45,6 +47,7 @@ class AppState extends ChangeNotifier {
   static const _checkoutOrderIdKey = 'pending_checkout_order_ids_v1';
   static const _payoutIdempotencyKey = 'pending_payout_idempotency_v1';
 
+  final Future<void> Function()? _idempotencyPersistenceOverride;
   SharedPreferences? _preferences;
   int _sessionEpoch = 0;
   int _consumerRequestGeneration = 0;
@@ -64,6 +67,10 @@ class AppState extends ChangeNotifier {
   final Map<String, String> _checkoutOrderIds = {};
   final Map<String, int> _checkoutRequestsInFlight = {};
   final Map<String, String> _payoutKeys = {};
+
+  AppState({
+    @visibleForTesting Future<void> Function()? idempotencyPersistenceOverride,
+  }) : _idempotencyPersistenceOverride = idempotencyPersistenceOverride;
 
   AppMode mode = AppMode.consumer;
   bool onboardingSeen = false;
@@ -85,6 +92,15 @@ class AppState extends ChangeNotifier {
   bool locationServicesEnabled = true;
   bool isDeterminingLocation = false;
   BagFilter currentFilter = const BagFilter();
+
+  bool get usesBrowserPermissionSettings =>
+      LocationPermissionSupport.usesBrowserSettings;
+  String get browserLocationPermissionGuidance =>
+      LocationPermissionSupport.browserGuidance;
+  String get locationSettingsActionLabel =>
+      LocationPermissionSupport.settingsActionLabel(
+        locationServicesEnabled: locationServicesEnabled,
+      );
 
   bool isBootstrapping = false;
   bool isLoadingConsumer = false;
@@ -115,8 +131,8 @@ class AppState extends ChangeNotifier {
     'Cibinong, Bogor',
     'Kemang, Jakarta',
   ];
-  static const paymentMethods = ['Midtrans'];
-  String defaultPaymentMethod = 'Midtrans';
+  static const paymentMethods = ['QRIS'];
+  String defaultPaymentMethod = 'QRIS';
   String selectedBank = '';
   BusinessConfig businessConfig = const BusinessConfig();
 
@@ -191,6 +207,12 @@ class AppState extends ChangeNotifier {
             order.status == IncomingOrderStatus.expired,
       )
       .toList(growable: false);
+  int get redeemedBagCount => _incoming.fold<int>(
+    0,
+    (total, order) => order.status == IncomingOrderStatus.redeemed
+        ? total + order.bags
+        : total,
+  );
   int get pendingOrderCount => pendingOrders.length;
   List<MerchantReview> get merchantReviews =>
       List.unmodifiable(_merchantReviews);
@@ -244,7 +266,7 @@ class AppState extends ChangeNotifier {
       final storedPaymentMethod = prefs.getString(_paymentMethodKey);
       defaultPaymentMethod = paymentMethods.contains(storedPaymentMethod)
           ? storedPaymentMethod!
-          : 'Midtrans';
+          : 'QRIS';
       final intent = prefs.getString(_merchantIntentKey);
       pendingMerchantIntent = switch (intent) {
         'merchant' => true,
@@ -289,6 +311,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _persistIdempotencyKeys() async {
+    final override = _idempotencyPersistenceOverride;
+    if (override != null) return override();
     final prefs = await _prefs();
     await Future.wait([
       if (prefs != null)
@@ -356,7 +380,8 @@ class AppState extends ChangeNotifier {
     try {
       locationServicesEnabled = await Geolocator.isLocationServiceEnabled();
       if (!locationServicesEnabled) {
-        errorMessage = 'Layanan lokasi perangkat belum aktif.';
+        errorMessage =
+            LocationPermissionSupport.locationServicesDisabledMessage();
         return false;
       }
       var permission = await Geolocator.checkPermission();
@@ -369,8 +394,10 @@ class AppState extends ChangeNotifier {
       locationPermissionDeniedForever =
           permission == LocationPermission.deniedForever;
       if (!hasLocationPermission) {
-        errorMessage = locationPermissionDeniedForever
-            ? 'Izin lokasi diblokir. Aktifkan lewat Pengaturan aplikasi.'
+        errorMessage = usesBrowserPermissionSettings
+            ? browserLocationPermissionGuidance
+            : locationPermissionDeniedForever
+            ? LocationPermissionSupport.permissionBlockedMessage()
             : 'Izin lokasi diperlukan untuk menampilkan bag terdekat.';
         return false;
       }
@@ -436,7 +463,8 @@ class AppState extends ChangeNotifier {
     try {
       locationServicesEnabled = await Geolocator.isLocationServiceEnabled();
       if (!locationServicesEnabled) {
-        errorMessage = 'Layanan lokasi perangkat belum aktif.';
+        errorMessage =
+            LocationPermissionSupport.locationServicesDisabledMessage();
         return null;
       }
       var permission = await Geolocator.checkPermission();
@@ -449,8 +477,10 @@ class AppState extends ChangeNotifier {
       locationPermissionDeniedForever =
           permission == LocationPermission.deniedForever;
       if (!hasLocationPermission) {
-        errorMessage = locationPermissionDeniedForever
-            ? 'Izin lokasi diblokir. Aktifkan lewat Pengaturan aplikasi.'
+        errorMessage = usesBrowserPermissionSettings
+            ? browserLocationPermissionGuidance
+            : locationPermissionDeniedForever
+            ? LocationPermissionSupport.permissionBlockedMessage()
             : 'Izin lokasi diperlukan untuk menyimpan titik toko.';
         return null;
       }
@@ -484,8 +514,16 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> openLocationSettings() => Geolocator.openLocationSettings();
-  Future<void> openAppSettings() => Geolocator.openAppSettings();
+  Future<bool> openLocationSettings() =>
+      LocationPermissionSupport.openSettings(locationServicesEnabled: false);
+
+  Future<bool> openAppSettings() =>
+      LocationPermissionSupport.openSettings(locationServicesEnabled: true);
+
+  Future<bool> openRelevantLocationSettings() =>
+      LocationPermissionSupport.openSettings(
+        locationServicesEnabled: locationServicesEnabled,
+      );
 
   Future<void> setLocationWithCoordinates(
     String label,
@@ -691,7 +729,7 @@ class AppState extends ChangeNotifier {
       final loadedActive = results[0];
       _active = loadedActive
           .where((order) => !order.paymentState.isTerminalFailure)
-          .toList(growable: false);
+          .toList();
       _history = [...results[1]];
       for (final terminal in loadedActive.where(
         (order) => order.paymentState.isTerminalFailure,
@@ -921,7 +959,8 @@ class AppState extends ChangeNotifier {
         )) {
           unawaited(loadOrders());
         }
-        if (merchantSetupDone && routes.contains('merchant_orders')) {
+        if (merchantSetupDone &&
+            routes.any(isMerchantOrdersNotificationRoute)) {
           unawaited(loadMerchantData());
         }
         if (merchantSetupDone && routes.contains('merchant_reviews')) {
@@ -1009,7 +1048,13 @@ class AppState extends ChangeNotifier {
       ifAbsent: () => 1,
     );
     try {
-      await _persistIdempotencyKeys();
+      try {
+        await _persistIdempotencyKeys();
+      } catch (_) {
+        // SharedPreferences/localStorage bersifat best-effort. Key tetap ada
+        // di memori dan wajib diteruskan ke server; kegagalan storage browser
+        // tidak boleh menghentikan pembuatan order sebelum RPC dipanggil.
+      }
       final order = await backend.placeOrder(
         bag,
         quantity,
@@ -1046,9 +1091,52 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Sinkronisasi eksplisit setelah pengguna kembali dari halaman Midtrans.
-  /// Query callback tidak pernah dipakai sebagai bukti pembayaran; backend
-  /// mengambil status resmi provider terlebih dahulu.
+  /// Memulihkan order yang sudah committed ketika respons create terputus.
+  /// Pencocokan memakai seluruh signature checkout dan hanya menerima state
+  /// pembayaran yang masih dapat dilanjutkan atau sudah terverifikasi lunas.
+  Future<OrderRecord?> recoverCheckout(
+    Bag bag,
+    int quantity,
+    String method,
+  ) async {
+    final orders = await backend.activeOrders();
+    final candidates =
+        orders
+            .where(
+              (order) =>
+                  order.bag.id == bag.id &&
+                  order.quantity == quantity &&
+                  order.paymentMethod == method &&
+                  (order.paymentState.isAwaitingCustomer ||
+                      order.paymentState.isPaid),
+            )
+            .toList(growable: false)
+          ..sort((left, right) {
+            final leftTime =
+                left.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final rightTime =
+                right.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            return rightTime.compareTo(leftTime);
+          });
+    if (candidates.isEmpty) return null;
+    final recovered = candidates.first.copyWith(bag: bag);
+    _cacheOrder(recovered);
+    if (recovered.id.isNotEmpty) {
+      _checkoutOrderIds[_checkoutSignature(bag, quantity, method)] =
+          recovered.id;
+      try {
+        await _persistIdempotencyKeys();
+      } catch (_) {
+        // Recovery tetap sah; asosiasi lokal dapat dibuat lagi saat startup.
+      }
+    }
+    notifyListeners();
+    return recovered;
+  }
+
+  /// Sinkronisasi eksplisit setelah pengguna menyelesaikan pemindaian QRIS.
+  /// UI tidak pernah dipakai sebagai bukti pembayaran; backend mengambil
+  /// status resmi provider terlebih dahulu.
   Future<OrderRecord> refreshPayment(OrderRecord order) async {
     final epoch = _sessionEpoch;
     final refreshed = await backend.refreshPayment(order);
@@ -1086,15 +1174,21 @@ class AppState extends ChangeNotifier {
   }
 
   void _cacheOrder(OrderRecord order) {
-    _active.removeWhere((item) => item.id == order.id);
-    _history.removeWhere((item) => item.id == order.id);
+    _active = [
+      for (final item in _active)
+        if (item.id != order.id) item,
+    ];
+    _history = [
+      for (final item in _history)
+        if (item.id != order.id) item,
+    ];
     if (order.status == OrderStatus.done ||
         order.status == OrderStatus.cancelled ||
         order.status == OrderStatus.expired ||
         order.paymentState.isTerminalFailure) {
-      _history.insert(0, order);
+      _history = [order, ..._history];
     } else {
-      _active.insert(0, order);
+      _active = [order, ..._active];
     }
   }
 
@@ -1310,12 +1404,14 @@ class AppState extends ChangeNotifier {
       accountHolder: accountHolder,
       idempotencyKey: idempotencyKey ?? _uuid.v4(),
     );
-    final index = _bankAccounts.indexWhere((item) => item.id == account.id);
-    if (index >= 0) {
-      _bankAccounts[index] = account;
-    } else {
-      _bankAccounts.insert(0, account);
-    }
+    // Backend remote mengembalikan snapshot read-only/fixed-length. Bentuk
+    // daftar baru agar penambahan rekening tidak gagal setelah RPC sebenarnya
+    // sudah berhasil menyimpan data.
+    _bankAccounts = [
+      account,
+      for (final item in _bankAccounts)
+        if (item.id != account.id) item,
+    ];
     selectedBank = account.label;
     notifyListeners();
     unawaited(loadBalance());
@@ -1436,10 +1532,19 @@ class AppState extends ChangeNotifier {
   Future<String?> uploadImage(BackendBucket bucket) =>
       backend.uploadImage(bucket);
 
+  Future<String?> uploadImageBytes(
+    BackendBucket bucket,
+    Uint8List bytes, {
+    required String filename,
+  }) => backend.uploadImageBytes(bucket, bytes, filename: filename);
+
   void setDefaultPaymentMethod(String method) {
-    defaultPaymentMethod = method;
+    final supportedMethod = paymentMethods.contains(method) ? method : 'QRIS';
+    defaultPaymentMethod = supportedMethod;
     unawaited(
-      _prefs().then((prefs) => prefs?.setString(_paymentMethodKey, method)),
+      _prefs().then(
+        (prefs) => prefs?.setString(_paymentMethodKey, supportedMethod),
+      ),
     );
     notifyListeners();
   }
@@ -1520,7 +1625,7 @@ class AppState extends ChangeNotifier {
     locationPermissionDeniedForever = false;
     locationServicesEnabled = true;
     currentFilter = const BagFilter();
-    defaultPaymentMethod = 'Midtrans';
+    defaultPaymentMethod = 'QRIS';
     merchantSetupDone = false;
     userName = 'Pengguna';
     userEmail = '';
@@ -1678,7 +1783,7 @@ class AppState extends ChangeNotifier {
     locationPrimed = false;
     pendingMerchantIntent = null;
     currentFilter = const BagFilter();
-    defaultPaymentMethod = 'Midtrans';
+    defaultPaymentMethod = 'QRIS';
     selectedBank = '';
     businessConfig = const BusinessConfig();
     userName = 'Ilham Hidayat';

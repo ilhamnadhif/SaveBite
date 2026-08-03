@@ -36,7 +36,9 @@ android {
         applicationId = "com.savebite.savebite"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // webview_flutter dan checkout Snap memakai WebView modern dengan
+        // JavaScript/DOM storage. API 24 menjadi baseline yang didukung.
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

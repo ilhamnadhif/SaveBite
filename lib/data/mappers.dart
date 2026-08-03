@@ -1,4 +1,5 @@
 import '../theme/app_colors.dart';
+import '../services/notification_route.dart';
 import 'models.dart';
 
 /// Konversi baris Supabase (Map) → model. Hanya dipakai oleh SupabaseBackend.
@@ -229,7 +230,7 @@ OrderRecord orderRecordFromMap(Map<String, dynamic> m) {
     reviewed: m['reviewed'] == true || m['review_id'] != null,
     quantity: _asInt(m['quantity']) == 0 ? 1 : _asInt(m['quantity']),
     paymentMethod: _str(m['payment_method']).isEmpty
-        ? 'Midtrans'
+        ? 'QRIS'
         : _str(m['payment_method']),
     canRate:
         status == OrderStatus.done &&
@@ -246,6 +247,15 @@ OrderRecord orderRecordFromMap(Map<String, dynamic> m) {
         ? null
         : _str(m['pickup_token']),
     paymentState: paymentState,
+    paymentQrUrl: _str(m['payment_qr_url']).isEmpty
+        ? null
+        : _str(m['payment_qr_url']),
+    paymentSnapToken: _str(m['payment_snap_token']).isEmpty
+        ? null
+        : _str(m['payment_snap_token']),
+    simulatorQrImageUrl: _str(m['simulator_qr_image_url']).isEmpty
+        ? null
+        : _str(m['simulator_qr_image_url']),
     paymentRedirectUrl: _str(m['payment_redirect_url']).isEmpty
         ? null
         : _str(m['payment_redirect_url']),
@@ -326,7 +336,15 @@ MerchantReview merchantReviewFromMap(Map<String, dynamic> m) {
 }
 
 AppNotification notificationFromMap(Map<String, dynamic> m) {
-  var route = _str(m['route']);
+  final data = _asMap(m['data']);
+  var route =
+      whitelistedNotificationRoute(_str(m['route'])) ??
+      whitelistedNotificationRoute(_str(data?['route'])) ??
+      whitelistedNotificationRoute(
+        _str(m['dedupe_key']),
+        dynamicOrderOnly: true,
+      ) ??
+      '';
   if (route.isEmpty) {
     route = switch (_str(m['entity_type'])) {
       'order' =>
@@ -393,6 +411,7 @@ StoreProfile storeFromMap(Map<String, dynamic> m) => StoreProfile(
 
 BankAccount bankAccountFromMap(Map<String, dynamic> m) {
   final code = _str(m['bank_code']).toUpperCase();
+  final rawName = _str(m['bank_name']).trim();
   final last4 = _str(m['account_number_last4']);
   final masked = _str(m['account_number_masked']);
   final status = switch (_str(m['status'])) {
@@ -405,7 +424,7 @@ BankAccount bankAccountFromMap(Map<String, dynamic> m) {
   return BankAccount(
     id: _str(m['id'] ?? m['bank_account_id']),
     bankCode: code,
-    bankName: _str(m['bank_name']).isEmpty ? code : _str(m['bank_name']),
+    bankName: _bankDisplayName(code, rawName),
     accountNumberMasked: masked.isNotEmpty
         ? masked
         : (last4.isEmpty ? '••••' : '•••• $last4'),
@@ -413,6 +432,20 @@ BankAccount bankAccountFromMap(Map<String, dynamic> m) {
     status: status,
     isDefault: m['is_default'] == true,
   );
+}
+
+String _bankDisplayName(String code, String rawName) {
+  if (rawName.isNotEmpty && rawName.toUpperCase() != code) return rawName;
+  return switch (code) {
+    'BCA' => 'BCA',
+    'MANDIRI' => 'Bank Mandiri',
+    'BNI' => 'BNI',
+    'BRI' => 'BRI',
+    'BSI' => 'Bank Syariah Indonesia',
+    'PERMATA' => 'Bank Permata',
+    'CIMB' => 'CIMB Niaga',
+    _ => rawName.isEmpty ? code : rawName,
+  };
 }
 
 PayoutRequest payoutRequestFromMap(

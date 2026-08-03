@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../sb.dart';
+import '../../services/notification_route.dart';
 import 'balance_screen.dart';
 import 'dashboard_screen.dart';
 import 'incoming_orders_screen.dart';
@@ -30,8 +31,15 @@ class MerchantShellScope extends InheritedWidget {
 /// transaksi, dan notifikasi diterima melalui subscription AppState.
 class MerchantShell extends StatefulWidget {
   final int initialIndex;
+  final MerchantOrdersTab initialOrdersTab;
+  final String? referencedOrderId;
 
-  const MerchantShell({super.key, this.initialIndex = 0});
+  const MerchantShell({
+    super.key,
+    this.initialIndex = 0,
+    this.initialOrdersTab = MerchantOrdersTab.active,
+    this.referencedOrderId,
+  });
 
   @override
   State<MerchantShell> createState() => _MerchantShellState();
@@ -109,12 +117,15 @@ class _MerchantShellState extends State<MerchantShell>
           child: IndexedStack(
             index: _index,
             sizing: StackFit.expand,
-            children: const [
-              DashboardScreen(),
-              ManageBagsScreen(),
-              IncomingOrdersScreen(),
-              BalanceScreen(),
-              MerchantProfileScreen(),
+            children: [
+              const DashboardScreen(),
+              const ManageBagsScreen(),
+              IncomingOrdersScreen(
+                initialTab: widget.initialOrdersTab,
+                referencedOrderId: widget.referencedOrderId,
+              ),
+              const BalanceScreen(),
+              const MerchantProfileScreen(),
             ],
           ),
         ),

@@ -1,5 +1,5 @@
 name: savebite
-description: "SaveBite — marketplace Surprise Bag (makanan surplus). Mockup Flutter dari desain Claude Design."
+description: "SaveBite — marketplace Surprise Bag untuk menyelamatkan makanan surplus."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -28,6 +28,9 @@ dependencies:
   uuid: ^4.5.3
   intl: ^0.20.3
   cached_network_image: ^3.4.1
+  # Checkout Snap tetap berada di dalam aplikasi Android/iOS. Flutter web
+  # memakai Snap.js resmi karena WebView tidak tersedia di browser.
+  webview_flutter: ^4.13.1
 
 dev_dependencies:
   flutter_test:
@@ -39,9 +42,10 @@ flutter:
 
   assets:
     - assets/images/
-    # Hanya URL + publishable/anon key Supabase (nilai public client).
-    # Jangan pernah menaruh service-role atau secret payment di asset.
-    - assets/config/supabase.env
+    # Hanya URL + publishable/anon key Supabase dan Midtrans Client Key
+    # (semuanya public client values). Jangan pernah menaruh service-role,
+    # Midtrans Server Key, atau secret payment lain di asset.
+    - assets/config/client.env
 
   fonts:
     - family: Bricolage

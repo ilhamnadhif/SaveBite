@@ -11,8 +11,15 @@ import 'package:flutter/services.dart';
 class SupabaseClientConfig {
   final String url;
   final String publishableKey;
+  final String midtransClientKey;
+  final String midtransEnvironment;
 
-  const SupabaseClientConfig({required this.url, required this.publishableKey});
+  const SupabaseClientConfig({
+    required this.url,
+    required this.publishableKey,
+    this.midtransClientKey = '',
+    this.midtransEnvironment = '',
+  });
 
   bool get isComplete => url.isNotEmpty && publishableKey.isNotEmpty;
 
@@ -39,6 +46,8 @@ class SupabaseClientConfig {
           values['SUPABASE_PUBLISHABLE_KEY'] ??
           values['SUPABASE_ANON_KEY'] ??
           '',
+      midtransClientKey: values['MIDTRANS_CLIENT_KEY'] ?? '',
+      midtransEnvironment: values['MIDTRANS_ENVIRONMENT'] ?? '',
     );
   }
 }
@@ -46,9 +55,10 @@ class SupabaseClientConfig {
 /// Konfigurasi lingkungan SaveBite.
 ///
 /// Urutan sumber:
-/// 1. `--dart-define` (bila salah satu define Supabase diberikan, keduanya
-///    wajib lengkap agar dua project berbeda tidak tercampur);
-/// 2. asset `assets/config/supabase.env` untuk run/build biasa.
+/// 1. `--dart-define` (bila salah satu konfigurasi client diberikan, seluruh
+///    konfigurasi Supabase dan Midtrans wajib berasal dari define agar profile
+///    sandbox/production tidak pernah tercampur dengan asset);
+/// 2. asset `assets/config/client.env` untuk run/build biasa.
 class Env {
   Env._();
 
@@ -57,8 +67,19 @@ class Env {
     'SUPABASE_PUBLISHABLE_KEY',
   );
   static const _defineAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const _defineMidtransClientKey = String.fromEnvironment(
+    'MIDTRANS_CLIENT_KEY',
+  );
+  static const _defineMidtransEnvironment = String.fromEnvironment(
+    'MIDTRANS_ENVIRONMENT',
+  );
   static const _defineDemo = String.fromEnvironment('SAVEBITE_DEMO');
-  static const clientConfigAsset = 'assets/config/supabase.env';
+  static const _defineE2e = bool.fromEnvironment('SAVEBITE_E2E');
+  static const _defineAllowSandboxRelease = bool.fromEnvironment(
+    'SAVEBITE_ALLOW_SANDBOX_RELEASE',
+  );
+  static const _defineWebUrl = String.fromEnvironment('SAVEBITE_WEB_URL');
+  static const clientConfigAsset = 'assets/config/client.env';
 
   static SupabaseClientConfig _assetConfig = const SupabaseClientConfig(
     url: '',
@@ -67,10 +88,17 @@ class Env {
   static String? _assetLoadError;
   static bool _loaded = false;
 
-  static bool get _hasAnyCompileTimeConfig =>
+  static bool get _hasAnyCompileTimeSupabaseConfig =>
       _defineUrl.isNotEmpty ||
       _definePublishableKey.isNotEmpty ||
       _defineAnonKey.isNotEmpty;
+
+  static bool get _hasAnyCompileTimeMidtransConfig =>
+      _defineMidtransClientKey.isNotEmpty ||
+      _defineMidtransEnvironment.isNotEmpty;
+
+  static bool get _hasAnyCompileTimeClientConfig =>
+      _hasAnyCompileTimeSupabaseConfig || _hasAnyCompileTimeMidtransConfig;
 
   static SupabaseClientConfig get _compileTimeConfig => SupabaseClientConfig(
     url: _defineUrl.trim(),
@@ -79,18 +107,45 @@ class Env {
                 ? _definePublishableKey
                 : _defineAnonKey)
             .trim(),
+    midtransClientKey: _defineMidtransClientKey.trim(),
+    midtransEnvironment: _defineMidtransEnvironment.trim().toLowerCase(),
   );
 
-  static SupabaseClientConfig get _activeConfig =>
-      _hasAnyCompileTimeConfig ? _compileTimeConfig : _assetConfig;
+  static SupabaseClientConfig get _activeConfig => selectClientConfigForTesting(
+    hasAnyCompileTimeValue: _hasAnyCompileTimeClientConfig,
+    compileTimeConfig: _compileTimeConfig,
+    assetConfig: _assetConfig,
+  );
+
+  @visibleForTesting
+  static SupabaseClientConfig selectClientConfigForTesting({
+    required bool hasAnyCompileTimeValue,
+    required SupabaseClientConfig compileTimeConfig,
+    required SupabaseClientConfig assetConfig,
+  }) => hasAnyCompileTimeValue ? compileTimeConfig : assetConfig;
 
   static String get supabaseUrl => _activeConfig.url;
   static String get supabaseAnonKey => _activeConfig.publishableKey;
   static String get supabasePublishableKey => _activeConfig.publishableKey;
+  static String get midtransClientKey => _activeConfig.midtransClientKey;
+  static String get midtransEnvironment => _activeConfig.midtransEnvironment;
+  static bool get midtransSandbox => midtransEnvironment == 'sandbox';
+  static String get midtransAppHost =>
+      midtransSandbox ? 'app.sandbox.midtrans.com' : 'app.midtrans.com';
 
   /// Mode demo harus diminta eksplisit. Tanpa flag ini, konfigurasi yang hilang
   /// menghasilkan layar error dan tidak pernah diam-diam memakai FakeBackend.
   static bool get demoMode => _defineDemo.trim().toLowerCase() == 'true';
+
+  /// Mengaktifkan alat bantu pengujian E2E yang tidak boleh muncul pada build
+  /// biasa. Nilainya hanya dapat diberikan saat kompilasi melalui
+  /// `--dart-define=SAVEBITE_E2E=true`. Kontrol staging tetap dipaksa mati
+  /// pada profile production dan pada release sandbox yang tidak diizinkan
+  /// secara eksplisit.
+  static bool get e2eMode =>
+      _defineE2e &&
+      midtransSandbox &&
+      (!kReleaseMode || _defineAllowSandboxRelease);
 
   static bool get isConfigured =>
       _loaded && !demoMode && _configurationProblem(_activeConfig) == null;
@@ -105,24 +160,27 @@ class Env {
 
   static Future<void> load({AssetBundle? bundle}) async {
     if (_loaded) return;
-    if (_hasAnyCompileTimeConfig) {
-      _loaded = true;
-      return;
-    }
     try {
       final source = await (bundle ?? rootBundle).loadString(clientConfigAsset);
       _assetConfig = SupabaseClientConfig.fromEnvText(source);
     } catch (_) {
-      _assetLoadError =
-          'Konfigurasi Supabase tidak ditemukan. Isi '
-          '$clientConfigAsset dengan SUPABASE_URL dan '
-          'SUPABASE_PUBLISHABLE_KEY, lalu build ulang aplikasi.';
+      if (!_hasAnyCompileTimeClientConfig) {
+        _assetLoadError =
+            'Konfigurasi client tidak ditemukan. Isi $clientConfigAsset '
+            'dengan konfigurasi Supabase dan Midtrans, lalu build ulang '
+            'aplikasi.';
+      }
     } finally {
       _loaded = true;
     }
   }
 
-  static String? _configurationProblem(SupabaseClientConfig config) {
+  static String? _configurationProblem(
+    SupabaseClientConfig config, {
+    bool releaseMode = kReleaseMode,
+    bool e2eRequested = _defineE2e,
+    bool allowSandboxRelease = _defineAllowSandboxRelease,
+  }) {
     if (!config.isComplete) {
       return _assetLoadError ??
           'Konfigurasi Supabase belum lengkap. Isi SUPABASE_URL dan '
@@ -139,8 +197,40 @@ class Env {
       return 'Key server/secret tidak boleh dibundel ke aplikasi. Gunakan '
           'publishable key atau anon key Supabase.';
     }
+    if (!RegExp(
+      r'^Mid-client-[A-Za-z0-9_-]{8,128}$',
+    ).hasMatch(config.midtransClientKey)) {
+      return 'MIDTRANS_CLIENT_KEY tidak valid. Gunakan Client Key publik, '
+          'bukan Server Key.';
+    }
+    if (!const {'sandbox', 'production'}.contains(config.midtransEnvironment)) {
+      return 'MIDTRANS_ENVIRONMENT harus bernilai sandbox atau production.';
+    }
+    if (e2eRequested && config.midtransEnvironment != 'sandbox') {
+      return 'SAVEBITE_E2E hanya boleh digunakan dengan profile sandbox.';
+    }
+    if (releaseMode &&
+        config.midtransEnvironment == 'sandbox' &&
+        !allowSandboxRelease) {
+      return 'Build release sandbox memerlukan izin staging eksplisit. '
+          'Gunakan SAVEBITE_ALLOW_SANDBOX_RELEASE=true hanya untuk distribusi '
+          'internal, bukan production.';
+    }
     return null;
   }
+
+  @visibleForTesting
+  static String? configurationProblemForTesting(
+    SupabaseClientConfig config, {
+    required bool releaseMode,
+    required bool e2eRequested,
+    required bool allowSandboxRelease,
+  }) => _configurationProblem(
+    config,
+    releaseMode: releaseMode,
+    e2eRequested: e2eRequested,
+    allowSandboxRelease: allowSandboxRelease,
+  );
 
   static bool _looksLikeServerSecret(String key) {
     final normalized = key.trim();
@@ -172,6 +262,35 @@ class Env {
     _loaded = false;
   }
 
-  /// Deep link callback OAuth Google/Apple (didaftarkan di Supabase dashboard).
-  static const authRedirect = 'com.savebite://login-callback';
+  static const mobileAuthRedirect = 'com.savebite://login-callback';
+
+  /// Origin aplikasi web yang dipakai sebagai callback OAuth dan pembayaran.
+  ///
+  /// Build production sebaiknya selalu memberi `SAVEBITE_WEB_URL`. Fallback ke
+  /// origin halaman aktif hanya dipakai agar localhost tetap mudah diuji.
+  static Uri get webBaseUri {
+    final raw = _defineWebUrl.trim().isNotEmpty
+        ? _defineWebUrl.trim()
+        : Uri.base.origin;
+    final uri = Uri.tryParse(raw);
+    final isLocal =
+        uri != null && (uri.host == 'localhost' || uri.host == '127.0.0.1');
+    if (uri == null ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'https' && !(isLocal && uri.scheme == 'http'))) {
+      throw StateError(
+        'SAVEBITE_WEB_URL harus berupa origin HTTPS atau localhost HTTP.',
+      );
+    }
+    return Uri(
+      scheme: uri.scheme,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+      path: '/',
+    );
+  }
+
+  /// Callback OAuth Google/Apple yang sesuai dengan platform aktif.
+  static String get authRedirect =>
+      kIsWeb ? webBaseUri.toString() : mobileAuthRedirect;
 }
