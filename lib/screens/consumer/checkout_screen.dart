@@ -77,8 +77,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const SizedBox(height: 20),
                   Text('Metode pembayaran', style: AppText.ui(14, weight: 700)),
                   const SizedBox(height: 11),
-                  _paymentNotice(),
-                  const SizedBox(height: 11),
                   _methodsCard(),
                   const SizedBox(height: 20),
                   _summaryCard(),
@@ -186,43 +184,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             trailing: Icon(
               Icons.verified_user_outlined,
               color: AppColors.greenBright,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _paymentNotice() {
-    final demo = !appState.usesRemoteBackend;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.ratingBg,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: AppColors.amber.withValues(alpha: .4)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            demo ? Icons.science_outlined : Icons.lock_outline_rounded,
-            size: 19,
-            color: AppColors.brown,
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              demo
-                  ? 'Mode demo eksplisit: pembayaran tidak memindahkan dana nyata.'
-                  : 'Kode QRIS ditampilkan langsung di SaveBite. Status lunas '
-                        'hanya dikonfirmasi oleh server Midtrans.',
-              style: AppText.ui(
-                11.8,
-                weight: 650,
-                color: AppColors.brown,
-                height: 1.45,
-              ),
             ),
           ),
         ],

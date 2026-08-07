@@ -51,6 +51,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
   bool _checking = false;
   bool _navigated = false;
   int _snapReloadEpoch = 0;
+  int _legacyQrReloadEpoch = 0;
   String? _error;
 
   bool get _busy => _creating || _checking;
@@ -224,37 +225,26 @@ class _ProcessingScreenState extends State<ProcessingScreen>
     return uri;
   }
 
-  Future<void> _copyPaymentQrUrl() async {
-    final uri = _paymentQrUri(_order);
-    if (uri == null || !mounted) {
-      if (mounted) {
+  Future<void> _copySimulatorQrUrl() async {
+    if (_busy || _navigated || !mounted) return;
+
+    var uri = _simulatorQrUri(_order);
+    if (uri == null) {
+      // Transaction UUID biasanya baru tersedia setelah customer memilih
+      // QRIS di Snap. Ambil status otoritatif terbaru sebelum menyerah.
+      await _checkStatus();
+      if (!mounted || _navigated) return;
+      uri = _simulatorQrUri(_order);
+    }
+    if (uri == null) {
+      if (_error == null) {
         setState(() {
           _error =
-              'URL QRIS belum tersedia. Tekan “Cek status pembayaran” untuk mencoba lagi.';
+              'URL gambar QRIS belum tersedia. Pilih QRIS pada panel Midtrans, tunggu beberapa detik, lalu tekan tombol ini lagi.';
         });
       }
       return;
     }
-    try {
-      await Clipboard.setData(ClipboardData(text: uri.toString()));
-      if (!mounted) return;
-      AppFeedback.snack(
-        context,
-        'URL QRIS disalin.',
-        icon: Icons.check_circle_outline_rounded,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _error =
-            'URL QRIS tidak dapat disalin. Pilih dan salin teks secara manual.';
-      });
-    }
-  }
-
-  Future<void> _copySimulatorQrUrl() async {
-    final uri = _simulatorQrUri(_order);
-    if (uri == null || !mounted) return;
     try {
       await Clipboard.setData(ClipboardData(text: uri.toString()));
       if (!mounted) return;
@@ -267,6 +257,22 @@ class _ProcessingScreenState extends State<ProcessingScreen>
       if (!mounted) return;
       setState(() {
         _error = 'URL QRIS simulator tidak dapat disalin.';
+      });
+    }
+  }
+
+  Future<void> _reloadLegacyQris() async {
+    if (_busy || _navigated || !mounted) return;
+    final uri = _paymentQrUri(_order);
+    if (uri != null) {
+      // URL yang sama dapat tersimpan di cache gambar setelah koneksi putus.
+      // Evict membuat tombol pemulihan benar-benar meminta gambar baru.
+      await NetworkImage(uri.toString()).evict();
+    }
+    if (mounted) {
+      setState(() {
+        _legacyQrReloadEpoch++;
+        _error = null;
       });
     }
   }
@@ -454,7 +460,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                     _snapCard(snapSession)
                   else
                     _qrisCard(order),
-                  if (simulatorQrUri != null) ...[
+                  if (snapSession != null && Env.e2eMode) ...[
                     const SizedBox(height: 14),
                     _simulatorQrCard(simulatorQrUri),
                   ],
@@ -466,13 +472,8 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                         ? (_creating
                               ? 'Membuat pembayaran…'
                               : 'Coba buat pembayaran lagi')
-                        : 'Salin URL QRIS lama',
-                    icon: Icon(
-                      snapSession != null || qrUri == null
-                          ? Icons.refresh_rounded
-                          : Icons.copy_rounded,
-                      size: 19,
-                    ),
+                        : 'Muat ulang QRIS',
+                    icon: const Icon(Icons.refresh_rounded, size: 19),
                     background: AppColors.amber,
                     foreground: AppColors.green,
                     onTap: _busy
@@ -481,23 +482,13 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                         ? _reloadSnapCheckout
                         : qrUri == null
                         ? _retryPaymentCreation
-                        : _copyPaymentQrUrl,
+                        : _reloadLegacyQris,
                   ),
                   const SizedBox(height: 8),
                   GhostButton(
                     label: _checking ? 'Memeriksa…' : 'Cek status pembayaran',
                     color: AppColors.greenMuted,
                     onTap: _busy ? null : _checkStatus,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Pembayaran hanya dianggap lunas setelah server memverifikasi status Midtrans.',
-                    textAlign: TextAlign.center,
-                    style: AppText.ui(
-                      11.5,
-                      color: AppColors.greenMutedDeep,
-                      height: 1.4,
-                    ),
                   ),
                 ] else ...[
                   const SizedBox(height: 42),
@@ -535,18 +526,12 @@ class _ProcessingScreenState extends State<ProcessingScreen>
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   Text(
-                    'Pembayaran QRIS aman',
+                    'Pembayaran QRIS',
                     style: AppText.ui(15, weight: 800, color: AppColors.green),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Pilih QRIS lalu selesaikan pembayaran di halaman Midtrans berikut.',
-                    textAlign: TextAlign.center,
-                    style: AppText.ui(12.5, color: AppColors.body, height: 1.4),
                   ),
                 ],
               ),
@@ -569,7 +554,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
     );
   }
 
-  Widget _simulatorQrCard(Uri uri) {
+  Widget _simulatorQrCard(Uri? uri) {
     return Container(
       key: const ValueKey('sandbox-simulator-qris-card'),
       width: double.infinity,
@@ -600,23 +585,34 @@ class _ProcessingScreenState extends State<ProcessingScreen>
           ),
           const SizedBox(height: 7),
           Text(
-            'Salin URL gambar ini ke QRIS Simulator Midtrans.',
+            uri == null
+                ? 'Pilih QRIS di atas, lalu ambil URL gambar untuk QRIS Simulator Midtrans.'
+                : 'URL gambar siap ditempel ke QRIS Simulator Midtrans.',
             style: AppText.ui(12, color: AppColors.body, height: 1.4),
           ),
-          const SizedBox(height: 9),
-          SelectableText(
-            uri.toString(),
-            key: const ValueKey('sandbox-simulator-qris-url'),
-            style: AppText.ui(10.5, color: AppColors.greenBright, height: 1.35),
-          ),
+          if (uri != null) ...[
+            const SizedBox(height: 9),
+            SelectableText(
+              uri.toString(),
+              key: const ValueKey('sandbox-simulator-qris-url'),
+              style: AppText.ui(
+                10.5,
+                color: AppColors.greenBright,
+                height: 1.35,
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
             child: OutlinedButton.icon(
               key: const ValueKey('sandbox-simulator-qris-copy'),
-              onPressed: _copySimulatorQrUrl,
-              icon: const Icon(Icons.copy_rounded, size: 17),
-              label: const Text('Salin URL'),
+              onPressed: _busy ? null : _copySimulatorQrUrl,
+              icon: Icon(
+                uri == null ? Icons.link_rounded : Icons.copy_rounded,
+                size: 17,
+              ),
+              label: Text(uri == null ? 'Ambil & salin URL QRIS' : 'Salin URL'),
             ),
           ),
         ],
@@ -627,7 +623,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
   Widget _qrisCard(OrderRecord order) {
     final qrUri = _paymentQrUri(order);
     return Semantics(
-      label: 'Kode QRIS pembayaran lama',
+      label: 'Kode QRIS pembayaran',
       child: Container(
         key: const ValueKey('qris-card'),
         width: double.infinity,
@@ -661,10 +657,11 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                   ),
                   const SizedBox(height: 14),
                   SizedBox.square(
+                    key: const ValueKey('qris-image'),
                     dimension: 220,
                     child: Image.network(
                       qrUri.toString(),
-                      key: const ValueKey('qris-image'),
+                      key: ValueKey('qris-network-image-$_legacyQrReloadEpoch'),
                       fit: BoxFit.contain,
                       gaplessPlayback: true,
                       loadingBuilder: (context, child, progress) {
@@ -684,7 +681,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(
-                          'Gambar QRIS lama belum dapat dimuat. Salin URL di bawah untuk kebutuhan pemulihan.',
+                          'Gambar QRIS belum dapat dimuat. Muat ulang QRIS untuk mencoba lagi.',
                           textAlign: TextAlign.center,
                           style: AppText.ui(
                             12.5,
@@ -693,28 +690,6 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'URL QRIS',
-                      style: AppText.ui(
-                        11.5,
-                        weight: 700,
-                        color: AppColors.body,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  SelectableText(
-                    qrUri.toString(),
-                    key: const ValueKey('qris-url-text'),
-                    style: AppText.ui(
-                      11,
-                      color: AppColors.greenBright,
-                      height: 1.35,
                     ),
                   ),
                 ],

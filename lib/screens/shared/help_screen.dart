@@ -152,20 +152,6 @@ class HelpScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(
-                      'WhatsApp dukungan belum dikonfigurasi. Kami tidak '
-                      'menampilkan nomor placeholder agar pengguna tidak '
-                      'menghubungi pihak yang salah.',
-                      style: AppText.ui(
-                        11.5,
-                        color: AppColors.muted,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

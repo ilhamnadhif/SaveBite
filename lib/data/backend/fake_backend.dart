@@ -1129,7 +1129,7 @@ class FakeBackend implements Backend {
     if (!bank.verified) {
       throw const BackendException(
         'bank_not_verified',
-        'Rekening masih menunggu verifikasi manual.',
+        'Rekening masih dalam verifikasi.',
       );
     }
     const fee = 2500;
@@ -1150,7 +1150,7 @@ class FakeBackend implements Backend {
       TxRecord(
         id: _id('tx-'),
         title: 'Penarikan ke ${bank.bankName}',
-        subtitle: 'Hari ini · menunggu proses manual',
+        subtitle: 'Hari ini · menunggu diproses',
         amount: amount,
         kind: TxKind.withdrawal,
         createdAt: DateTime.now(),

@@ -355,7 +355,11 @@ Exact `true` membuat endpoint status menyertakan URL gambar QR kanonik untuk
 transaksi QRIS yang masih `pending`; environment production selalu menolaknya.
 Hapus secret tersebut setelah pengujian dan jangan pernah memasangnya di
 production. Buka checkout dari aplikasi, pilih/lihat Other QRIS pada panel Snap
-internal, lalu selesaikan QR tersebut melalui QRIS Simulator Midtrans.
+internal, lalu tekan `Ambil & salin URL QRIS` di bawah panel Snap. Tombol ini
+hanya tersedia bila client juga dijalankan atau dibangun dengan
+`--dart-define=SAVEBITE_E2E=true`; UI sandbox biasa dan production tidak
+menampilkannya. Tempel URL tersebut ke QRIS Simulator Midtrans untuk
+menyelesaikan pembayaran.
 Uji minimal status pending, settlement, cancel, expiry, dan refund, termasuk
 menutup/membuka kembali aplikasi ketika pembayaran masih pending. Jangan
 beralih ke production sebelum hasil webhook, Get Status, stok, dan ledger sudah

@@ -124,18 +124,15 @@ class SupabaseBackend implements Backend {
     double? longitude,
     BagFilter filter = const BagFilter(),
   }) async {
-    final now = DateTime.now();
-    final availableDate = _jakartaDateText();
+    // `available_bags` sudah menyaring tanggal, stok, dan pickup memakai
+    // waktu server Jakarta. Jangan ulangi filter berbasis jam perangkat;
+    // jam browser yang salah dapat menyembunyikan bag yang masih valid.
     final rows = await _pagedRows(
       (from, to) => _sb
           .from('available_bags')
           .select()
           .eq('status', 'active')
           .gt('quantity_left', 0)
-          .or('available_on.is.null,available_on.lte.$availableDate')
-          .or(
-            'pickup_end_at.is.null,pickup_end_at.gt.${now.toUtc().toIso8601String()}',
-          )
           .order('created_at', ascending: false)
           .range(from, to),
     );
@@ -212,8 +209,6 @@ class SupabaseBackend implements Backend {
 
   @override
   Future<List<Bag>> bagsByMerchant(String merchantId) async {
-    final now = DateTime.now();
-    final availableDate = _jakartaDateText();
     final rows = await _pagedRows(
       (from, to) => _sb
           .from('available_bags')
@@ -221,10 +216,6 @@ class SupabaseBackend implements Backend {
           .eq('merchant_id', merchantId)
           .eq('status', 'active')
           .gt('quantity_left', 0)
-          .or('available_on.is.null,available_on.lte.$availableDate')
-          .or(
-            'pickup_end_at.is.null,pickup_end_at.gt.${now.toUtc().toIso8601String()}',
-          )
           .order('created_at', ascending: false)
           .range(from, to),
     );
@@ -264,17 +255,11 @@ class SupabaseBackend implements Backend {
         .from('public_merchants')
         .select()
         .inFilter('id', ids.toList());
-    final now = DateTime.now();
-    final availableDate = _jakartaDateText();
     final counts = await _sb
-        .from('surprise_bags')
+        .from('available_bags')
         .select('merchant_id')
         .eq('status', 'active')
         .gt('quantity_left', 0)
-        .or('available_on.is.null,available_on.lte.$availableDate')
-        .or(
-          'pickup_end_at.is.null,pickup_end_at.gt.${now.toUtc().toIso8601String()}',
-        )
         .inFilter('merchant_id', ids.toList());
     final byMerchant = <String, int>{};
     for (final c in (counts as List)) {
@@ -1140,9 +1125,6 @@ class SupabaseBackend implements Backend {
       '${value.month.toString().padLeft(2, '0')}-'
       '${value.day.toString().padLeft(2, '0')}';
 
-  String _jakartaDateText() =>
-      _dateText(DateTime.now().toUtc().add(const Duration(hours: 7)));
-
   Future<List<Map<String, dynamic>>> _pagedRows(
     Future<dynamic> Function(int from, int to) fetch, {
     int pageSize = 500,
@@ -1204,8 +1186,8 @@ class SupabaseBackend implements Backend {
         );
       }
       final order = Map<String, dynamic>.from(rawOrder);
-      // Metadata simulator berada di envelope Edge Function, bukan di view
-      // order. Build biasa membuangnya sebelum mencapai model/UI.
+      // Metadata simulator hanya dipakai test E2E internal. Ia tidak boleh
+      // mencapai UI build sandbox biasa maupun production.
       final simulatorUrl = data['simulator_qr_image_url'];
       if (Env.e2eMode &&
           name == 'midtrans-status' &&
@@ -1275,7 +1257,7 @@ class SupabaseBackend implements Backend {
             normalized.contains('not configured'))) {
       return const BackendException(
         'payment_not_configured',
-        'Credential Midtrans belum dikonfigurasi di server.',
+        'Layanan pembayaran sedang tidak tersedia. Coba lagi nanti.',
       );
     }
     if (normalized.contains('insufficient stock')) {
@@ -1310,9 +1292,7 @@ class SupabaseBackend implements Backend {
     }
     return BackendException(
       code.isEmpty ? 'payment_failed' : code,
-      message.trim().isEmpty
-          ? 'Pembayaran belum dapat diproses. Coba lagi.'
-          : message,
+      'Pembayaran belum dapat diproses. Coba lagi.',
     );
   }
 
@@ -1491,7 +1471,7 @@ class SupabaseBackend implements Backend {
       if (raw.contains('not verified')) {
         throw const BackendException(
           'bank_not_verified',
-          'Rekening masih menunggu verifikasi manual.',
+          'Rekening masih dalam verifikasi.',
         );
       }
       if (raw.contains('insufficient balance')) {

@@ -52,8 +52,7 @@ class WithdrawSuccessScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Permintaan sudah tercatat dan menunggu '
-                            'pemeriksaan manual.',
+                            'Permintaan Anda sedang diproses.',
                             textAlign: TextAlign.center,
                             style: AppText.ui(
                               14,
@@ -72,7 +71,7 @@ class WithdrawSuccessScreen extends StatelessWidget {
                               children: [
                                 _row(
                                   'Status',
-                                  'Menunggu proses manual',
+                                  'Menunggu diproses',
                                   valueStyle: AppText.ui(
                                     13.5,
                                     weight: 700,
@@ -111,9 +110,7 @@ class WithdrawSuccessScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'Saldo sudah ditahan untuk mencegah penarikan '
-                            'ganda. Status akan diperbarui setelah transfer '
-                            'manual diselesaikan.',
+                            'Status akan diperbarui saat penarikan selesai.',
                             textAlign: TextAlign.center,
                             style: AppText.ui(
                               11.5,

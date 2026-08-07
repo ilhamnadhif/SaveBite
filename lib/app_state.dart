@@ -297,6 +297,17 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> _persistPreference(
+    Future<Object?> Function(SharedPreferences preferences) write,
+  ) async {
+    try {
+      final preferences = await _prefs();
+      if (preferences != null) await write(preferences);
+    } catch (_) {
+      // Preferensi lokal tidak boleh menghalangi alur utama aplikasi.
+    }
+  }
+
   Map<String, String> _decodeStringMap(String? value) {
     if (value == null || value.isEmpty) return {};
     try {
@@ -313,47 +324,58 @@ class AppState extends ChangeNotifier {
   Future<void> _persistIdempotencyKeys() async {
     final override = _idempotencyPersistenceOverride;
     if (override != null) return override();
-    final prefs = await _prefs();
-    await Future.wait([
-      if (prefs != null)
-        prefs.setString(_checkoutIdempotencyKey, jsonEncode(_checkoutKeys)),
-      if (prefs != null)
-        prefs.setString(_checkoutOrderIdKey, jsonEncode(_checkoutOrderIds)),
-      if (prefs != null)
-        prefs.setString(_payoutIdempotencyKey, jsonEncode(_payoutKeys)),
-    ]);
+    await _persistPreference(
+      (preferences) => Future.wait([
+        preferences.setString(
+          _checkoutIdempotencyKey,
+          jsonEncode(_checkoutKeys),
+        ),
+        preferences.setString(
+          _checkoutOrderIdKey,
+          jsonEncode(_checkoutOrderIds),
+        ),
+        preferences.setString(_payoutIdempotencyKey, jsonEncode(_payoutKeys)),
+      ]),
+    );
   }
 
   Future<void> markOnboardingSeen() async {
     onboardingSeen = true;
-    await (await _prefs())?.setBool(_onboardingKey, true);
+    await _persistPreference(
+      (preferences) => preferences.setBool(_onboardingKey, true),
+    );
     notifyListeners();
   }
 
   Future<void> markLocationPrimed() async {
     locationPrimed = true;
-    await (await _prefs())?.setBool(_locationPrimedKey, true);
+    await _persistPreference(
+      (preferences) => preferences.setBool(_locationPrimedKey, true),
+    );
     notifyListeners();
   }
 
   Future<void> setPendingMerchantIntent(bool? merchant) async {
     pendingMerchantIntent = merchant;
-    final prefs = await _prefs();
-    if (merchant == null) {
-      await prefs?.remove(_merchantIntentKey);
-    } else {
-      await prefs?.setString(
-        _merchantIntentKey,
-        merchant ? 'merchant' : 'consumer',
-      );
-    }
+    await _persistPreference(
+      (preferences) => merchant == null
+          ? preferences.remove(_merchantIntentKey)
+          : preferences.setString(
+              _merchantIntentKey,
+              merchant ? 'merchant' : 'consumer',
+            ),
+    );
     notifyListeners();
   }
 
   bool? consumePendingMerchantIntent() {
     final intent = pendingMerchantIntent;
     pendingMerchantIntent = null;
-    unawaited(_prefs().then((prefs) => prefs?.remove(_merchantIntentKey)));
+    unawaited(
+      _persistPreference(
+        (preferences) => preferences.remove(_merchantIntentKey),
+      ),
+    );
     return intent;
   }
 
@@ -537,6 +559,8 @@ class AppState extends ChangeNotifier {
     if (!_validLocationCoordinates(latitude, longitude)) {
       throw ArgumentError('Koordinat lokasi tidak valid.');
     }
+    final locationChanged =
+        userLatitude != latitude || userLongitude != longitude;
     location = label;
     userLatitude = latitude;
     userLongitude = longitude;
@@ -547,23 +571,56 @@ class AppState extends ChangeNotifier {
       userLocationAccuracyMeters = accuracyMeters;
       userLocationAccuracyReduced = reducedAccuracy;
     }
-    final prefs = await _prefs();
-    await prefs?.setString(_locationLabelKey, label);
-    await prefs?.setDouble(_latitudeKey, latitude);
-    await prefs?.setDouble(_longitudeKey, longitude);
-    await prefs?.setBool(_locationFromDeviceKey, fromDevice);
-    if (fromDevice) {
-      await prefs?.setDouble(_deviceLatitudeKey, latitude);
-      await prefs?.setDouble(_deviceLongitudeKey, longitude);
-      if (accuracyMeters != null) {
-        await prefs?.setDouble(_locationAccuracyKey, accuracyMeters);
-      } else {
-        await prefs?.remove(_locationAccuracyKey);
-      }
-      await prefs?.setBool(_locationReducedAccuracyKey, reducedAccuracy);
+    if (locationChanged) {
+      // Jangan pernah tampilkan kartu dari area lama di bawah label area baru
+      // saat request berikutnya gagal atau masih berlangsung.
+      _consumerRequestGeneration++;
+      isLoadingConsumer = reload;
+      _allNearby = [];
+      _nearby = [];
+      _loadErrors.remove(_LoadScope.consumer);
     }
     notifyListeners();
+    await _persistLocation(
+      label: label,
+      latitude: latitude,
+      longitude: longitude,
+      fromDevice: fromDevice,
+      accuracyMeters: accuracyMeters,
+      reducedAccuracy: reducedAccuracy,
+    );
     if (reload) await loadConsumerHome();
+  }
+
+  Future<void> _persistLocation({
+    required String label,
+    required double latitude,
+    required double longitude,
+    required bool fromDevice,
+    required double? accuracyMeters,
+    required bool reducedAccuracy,
+  }) async {
+    try {
+      final prefs = await _prefs();
+      if (prefs == null) return;
+      await Future.wait([
+        prefs.setString(_locationLabelKey, label),
+        prefs.setDouble(_latitudeKey, latitude),
+        prefs.setDouble(_longitudeKey, longitude),
+        prefs.setBool(_locationFromDeviceKey, fromDevice),
+        if (fromDevice) prefs.setDouble(_deviceLatitudeKey, latitude),
+        if (fromDevice) prefs.setDouble(_deviceLongitudeKey, longitude),
+        if (fromDevice && accuracyMeters != null)
+          prefs.setDouble(_locationAccuracyKey, accuracyMeters),
+        if (fromDevice && accuracyMeters == null)
+          prefs.remove(_locationAccuracyKey),
+        if (fromDevice)
+          prefs.setBool(_locationReducedAccuracyKey, reducedAccuracy),
+      ]);
+    } catch (_) {
+      // Browser dapat menolak penyimpanan lokal (misalnya mode private).
+      // Lokasi aktif tetap boleh dipakai untuk memuat bag pada sesi ini.
+    }
   }
 
   bool get hasValidUserLocation =>
@@ -680,22 +737,23 @@ class AppState extends ChangeNotifier {
     _loadErrors.remove(_LoadScope.consumer);
     notifyListeners();
     try {
-      final results = await Future.wait<dynamic>([
-        backend.nearbyBags(
-          latitude: userLatitude,
-          longitude: userLongitude,
-          filter: const BagFilter(),
-        ),
-        backend.favoriteMerchantIds(),
-      ]);
+      // Favorit bukan dependency kritis untuk discovery. Jika endpoint
+      // favorit sedang bermasalah, pengguna tetap harus dapat melihat bag.
+      final favoritesFuture = _loadFavoriteMerchantIdsSafely();
+      final bags = await backend.nearbyBags(
+        latitude: userLatitude,
+        longitude: userLongitude,
+        filter: const BagFilter(),
+      );
+      final favoriteIds = await favoritesFuture;
       if (epoch != _sessionEpoch || generation != _consumerRequestGeneration) {
         return;
       }
-      _allNearby = results[0] as List<Bag>;
+      _allNearby = bags;
       _nearby = _allNearby
           .where((bag) => bagMatchesFilter(bag, currentFilter))
           .toList(growable: false);
-      _favIds = results[1] as Set<String>;
+      if (favoriteIds != null) _favIds = favoriteIds;
     } catch (error) {
       if (generation == _consumerRequestGeneration) {
         _setLoadError(_LoadScope.consumer, error, epoch);
@@ -705,6 +763,14 @@ class AppState extends ChangeNotifier {
         isLoadingConsumer = false;
         notifyListeners();
       }
+    }
+  }
+
+  Future<Set<String>?> _loadFavoriteMerchantIdsSafely() async {
+    try {
+      return await backend.favoriteMerchantIds();
+    } catch (_) {
+      return null;
     }
   }
 
@@ -1542,8 +1608,9 @@ class AppState extends ChangeNotifier {
     final supportedMethod = paymentMethods.contains(method) ? method : 'QRIS';
     defaultPaymentMethod = supportedMethod;
     unawaited(
-      _prefs().then(
-        (prefs) => prefs?.setString(_paymentMethodKey, supportedMethod),
+      _persistPreference(
+        (preferences) =>
+            preferences.setString(_paymentMethodKey, supportedMethod),
       ),
     );
     notifyListeners();
@@ -1593,22 +1660,23 @@ class AppState extends ChangeNotifier {
     _checkoutRequestsInFlight.clear();
     _payoutKeys.clear();
     _isSyncingPendingPayments = false;
-    final prefs = await _prefs();
-    await Future.wait([
-      if (prefs != null) prefs.remove(_checkoutIdempotencyKey),
-      if (prefs != null) prefs.remove(_checkoutOrderIdKey),
-      if (prefs != null) prefs.remove(_payoutIdempotencyKey),
-      if (prefs != null) prefs.remove(_locationPrimedKey),
-      if (prefs != null) prefs.remove(_locationLabelKey),
-      if (prefs != null) prefs.remove(_latitudeKey),
-      if (prefs != null) prefs.remove(_longitudeKey),
-      if (prefs != null) prefs.remove(_locationFromDeviceKey),
-      if (prefs != null) prefs.remove(_deviceLatitudeKey),
-      if (prefs != null) prefs.remove(_deviceLongitudeKey),
-      if (prefs != null) prefs.remove(_locationAccuracyKey),
-      if (prefs != null) prefs.remove(_locationReducedAccuracyKey),
-      if (prefs != null) prefs.remove(_paymentMethodKey),
-    ]);
+    await _persistPreference(
+      (preferences) => Future.wait([
+        preferences.remove(_checkoutIdempotencyKey),
+        preferences.remove(_checkoutOrderIdKey),
+        preferences.remove(_payoutIdempotencyKey),
+        preferences.remove(_locationPrimedKey),
+        preferences.remove(_locationLabelKey),
+        preferences.remove(_latitudeKey),
+        preferences.remove(_longitudeKey),
+        preferences.remove(_locationFromDeviceKey),
+        preferences.remove(_deviceLatitudeKey),
+        preferences.remove(_deviceLongitudeKey),
+        preferences.remove(_locationAccuracyKey),
+        preferences.remove(_locationReducedAccuracyKey),
+        preferences.remove(_paymentMethodKey),
+      ]),
+    );
     pendingMerchantIntent = null;
     mode = AppMode.consumer;
     lastMode = 'consumer';

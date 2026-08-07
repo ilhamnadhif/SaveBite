@@ -35,9 +35,7 @@ class SplashScreen extends StatelessWidget {
   }
 }
 
-/// Build salah konfigurasi tidak boleh terlihat seperti login demo yang
-/// berhasil. Layar ini sengaja menjelaskan langkah perbaikan tanpa pernah
-/// menampilkan key atau nilai credential.
+/// Layar kegagalan startup yang hanya menampilkan pesan aman untuk pengguna.
 class StartupConfigurationErrorScreen extends StatelessWidget {
   final String message;
 
@@ -60,7 +58,7 @@ class StartupConfigurationErrorScreen extends StatelessWidget {
                     const AppLogo(size: 84),
                     const SizedBox(height: 24),
                     Text(
-                      'Konfigurasi aplikasi belum lengkap',
+                      'Aplikasi sedang tidak tersedia',
                       textAlign: TextAlign.center,
                       style: AppText.display(
                         25,
@@ -70,34 +68,13 @@ class StartupConfigurationErrorScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      message,
+                      'Aplikasi sedang mengalami kendala. Silakan coba lagi '
+                      'beberapa saat lagi.',
                       textAlign: TextAlign.center,
                       style: AppText.ui(
                         14,
                         color: AppColors.body,
                         height: 1.55,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.inputBorder),
-                      ),
-                      child: Text(
-                        'Untuk build normal, isi assets/config/client.env. '
-                        'Mode data contoh hanya aktif dengan '
-                        'SAVEBITE_DEMO=true.',
-                        textAlign: TextAlign.center,
-                        style: AppText.ui(
-                          12.5,
-                          weight: 600,
-                          color: AppColors.body,
-                          height: 1.5,
-                        ),
                       ),
                     ),
                   ],

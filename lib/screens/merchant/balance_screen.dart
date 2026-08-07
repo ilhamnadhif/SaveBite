@@ -5,7 +5,7 @@ import '../../data/backend/backend.dart';
 import '../../sb.dart';
 import 'withdraw_sheet.dart';
 
-/// Saldo merchant, ledger transaksi, rekening, dan permintaan payout manual.
+/// Saldo merchant, ledger transaksi, rekening, dan permintaan payout.
 class BalanceScreen extends StatefulWidget {
   const BalanceScreen({super.key});
 
@@ -143,15 +143,6 @@ class _BalanceScreenState extends State<BalanceScreen> {
                         weight: 800,
                         color: AppColors.cream,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Payout otomatis belum aktif. Permintaan diproses manual.',
-                    style: AppText.ui(
-                      11.5,
-                      color: AppColors.greenMuted,
-                      height: 1.35,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -357,7 +348,7 @@ class _BalanceScreenState extends State<BalanceScreen> {
         AppColors.muted,
       ),
       BankAccountStatus.pending => (
-        'Menunggu verifikasi manual',
+        'Menunggu verifikasi',
         Icons.schedule_rounded,
         AppColors.terracotta,
       ),
@@ -473,7 +464,7 @@ class _BalanceScreenState extends State<BalanceScreen> {
   Widget _payoutRow(PayoutRequest payout, {required bool last}) {
     final (label, color, icon) = switch (payout.status) {
       PayoutStatus.pending => (
-        'Menunggu proses manual',
+        'Menunggu diproses',
         AppColors.terracotta,
         Icons.schedule_rounded,
       ),
@@ -639,7 +630,7 @@ class _BalanceScreenState extends State<BalanceScreen> {
                 if (pending) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Menunggu proses manual',
+                    'Menunggu diproses',
                     style: AppText.ui(
                       10.5,
                       weight: 700,
@@ -701,7 +692,7 @@ class _BalanceScreenState extends State<BalanceScreen> {
     if (account != null && context.mounted) {
       AppFeedback.snack(
         context,
-        'Rekening ditambahkan dan menunggu verifikasi manual.',
+        'Rekening ditambahkan dan sedang diverifikasi.',
         icon: Icons.schedule_rounded,
       );
     }

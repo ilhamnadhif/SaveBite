@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:savebite/app_state.dart';
 import 'package:savebite/data/sample_data.dart';
 import 'package:savebite/screens/consumer/checkout_screen.dart';
+import 'package:savebite/screens/consumer/home_screen.dart';
 import 'package:savebite/screens/consumer/profile_screen.dart';
 import 'package:savebite/theme/app_theme.dart';
 import 'package:savebite/widgets/common.dart';
@@ -47,7 +48,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('virtual account'), findsNothing);
-    expect(find.textContaining('Mode demo eksplisit'), findsOneWidget);
+    expect(find.textContaining('Mode demo eksplisit'), findsNothing);
     expect(find.text('Biaya layanan'), findsOneWidget);
     expect(find.text('Lanjutkan · Rp16.000'), findsOneWidget);
     expect(find.textContaining('Bayar'), findsNothing);
@@ -74,6 +75,26 @@ void main() {
     final capped = tester.widget<QtyStepper>(find.byType(QtyStepper));
     expect(capped.value, 100);
     expect(capped.onPlus, isNull);
+  });
+
+  testWidgets('beranda tanpa lokasi meminta pengguna memilih area', (
+    tester,
+  ) async {
+    appState
+      ..location = 'Lokasi belum dipilih'
+      ..userLatitude = null
+      ..userLongitude = null;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.theme,
+        home: const Scaffold(body: HomeScreen()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Pilih area untuk melihat Surprise Bag'), findsOneWidget);
+    expect(find.text('Pilih area'), findsOneWidget);
+    expect(find.text('Belum ada bag di sini'), findsNothing);
   });
 
   testWidgets('profil konsumen menyediakan perpindahan mode', (tester) async {

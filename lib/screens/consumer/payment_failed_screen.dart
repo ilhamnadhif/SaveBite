@@ -114,19 +114,6 @@ class _PaymentFailedScreenState extends State<PaymentFailedScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          appState.usesRemoteBackend
-                              ? 'Tidak ada status lunas yang dibuat dari aplikasi; server selalu memverifikasi Midtrans.'
-                              : 'Mode demo tidak mendebit saldo atau rekening nyata.',
-                          textAlign: TextAlign.center,
-                          style: AppText.ui(
-                            11.8,
-                            weight: 650,
-                            color: AppColors.muted,
-                            height: 1.45,
-                          ),
-                        ),
                         const SizedBox(height: 24),
                         _itemCard(),
                       ],

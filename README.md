@@ -87,7 +87,9 @@ Supabase dan Midtrans agar credential sandbox/production tidak tercampur dengan
 asset.
 
 Build release sandbox hanya untuk staging/internal dan harus diizinkan
-eksplisit; alat bantu E2E tetap terpisah dan juga hanya aktif pada sandbox:
+eksplisit. Tombol salin URL gambar QRIS dan alat bantu uji lainnya hanya
+tampil pada artifact internal dengan mode E2E aktif; UI sandbox biasa dan
+production tetap bersih:
 
 ```bash
 flutter build appbundle --release \

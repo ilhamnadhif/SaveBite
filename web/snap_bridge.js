@@ -7,6 +7,7 @@
   });
   const clientKeyPattern = /^Mid-client-[A-Za-z0-9_-]{8,128}$/;
   const tokenPattern = /^[A-Za-z0-9_-]{8,512}$/;
+  const snapLoadTimeoutMs = 20_000;
   let scriptPromise = null;
   let scriptIdentity = null;
   let active = null;
@@ -36,22 +37,55 @@
     scriptIdentity = identity;
     const candidate = new Promise((resolve, reject) => {
       const script = document.createElement('script');
+      let settled = false;
+      let timeoutId = null;
+
+      function cleanup() {
+        if (timeoutId !== null) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        script.onload = null;
+        script.onerror = null;
+      }
+
+      function fail(error) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        script.remove();
+        reject(error);
+      }
+
+      function succeed(value) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      }
+
       script.src = src;
       script.async = true;
       script.setAttribute('data-client-key', clientKey);
       script.referrerPolicy = 'no-referrer';
       script.onload = () => {
         if (window.snap && typeof window.snap.pay === 'function') {
-          resolve(window.snap);
+          succeed(window.snap);
         } else {
-          reject(new Error('Snap.js did not initialize'));
+          fail(new Error('Snap.js did not initialize'));
         }
       };
       script.onerror = () => {
-        script.remove();
-        reject(new Error('Snap.js failed to load'));
+        fail(new Error('Snap.js failed to load'));
       };
-      document.head.appendChild(script);
+      timeoutId = setTimeout(() => {
+        fail(new Error('Snap.js load timed out'));
+      }, snapLoadTimeoutMs);
+      try {
+        document.head.appendChild(script);
+      } catch (error) {
+        fail(error);
+      }
     });
     scriptPromise = candidate.catch((error) => {
       // A transient network failure must remain retryable from the in-app

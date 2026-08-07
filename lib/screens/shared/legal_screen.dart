@@ -5,9 +5,6 @@ import '../../sb.dart';
 /// Dokumen hukum yang dapat dibuka dari profil dan pusat bantuan.
 enum LegalDocument { terms, privacy, refundPolicy }
 
-/// Draf halaman legal. Teks ini sengaja diberi penanda yang sangat jelas
-/// karena pemilik produk dan penasihat hukum tetap harus menyetujuinya sebelum
-/// aplikasi dirilis ke publik.
 class LegalScreen extends StatelessWidget {
   final LegalDocument document;
 
@@ -31,10 +28,8 @@ class LegalScreen extends StatelessWidget {
                   28 + MediaQuery.of(context).padding.bottom,
                 ),
                 children: [
-                  _DraftNotice(),
-                  const SizedBox(height: 18),
                   Text(
-                    'Terakhir diperbarui (draf): 13 Juli 2026',
+                    'Terakhir diperbarui: 7 Agustus 2026',
                     style: AppText.ui(12.5, color: AppColors.muted),
                   ),
                   const SizedBox(height: 12),
@@ -73,45 +68,12 @@ class LegalScreen extends StatelessWidget {
   }
 }
 
-class _DraftNotice extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.ratingBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.amber.withValues(alpha: .45)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.gavel_outlined, color: AppColors.brown, size: 21),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Text(
-              'DRAF — belum berlaku. Wajib ditinjau dan disetujui pemilik '
-              'SaveBite serta penasihat hukum sebelum rilis publik.',
-              style: AppText.ui(
-                12.5,
-                weight: 700,
-                color: AppColors.brown,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 _LegalContent _contentFor(LegalDocument document) {
   return switch (document) {
     LegalDocument.terms => const _LegalContent(
       title: 'Syarat & Ketentuan',
       introduction:
-          'Draf ini menjelaskan aturan dasar penggunaan SaveBite sebagai '
+          'Ketentuan ini menjelaskan aturan dasar penggunaan SaveBite sebagai '
           'platform yang mempertemukan konsumen dan merchant makanan surplus.',
       sections: [
         _LegalSection(
@@ -147,14 +109,14 @@ _LegalContent _contentFor(LegalDocument document) {
           '5. Pembatasan dan penghentian',
           'SaveBite dapat membatasi akses yang terindikasi melanggar aturan '
               'atau membahayakan pengguna lain, dengan tetap mengikuti hukum yang '
-              'berlaku dan mekanisme keberatan yang kelak ditetapkan.',
+              'berlaku dan mekanisme keberatan yang tersedia.',
         ),
       ],
     ),
     LegalDocument.privacy => const _LegalContent(
       title: 'Kebijakan Privasi',
       introduction:
-          'Draf ini merangkum cara SaveBite memproses data untuk menjalankan '
+          'Kebijakan ini merangkum cara SaveBite memproses data untuk menjalankan '
           'akun, pesanan, lokasi, notifikasi, dan dukungan pengguna.',
       sections: [
         _LegalSection(
@@ -174,8 +136,8 @@ _LegalContent _contentFor(LegalDocument document) {
           '3. Berbagi dan penyimpanan',
           'Data hanya boleh dibagikan kepada penyedia infrastruktur dan mitra '
               'yang diperlukan untuk layanan, berdasarkan perjanjian perlindungan '
-              'data. Masa retensi, lokasi penyimpanan, dan daftar subprosesor harus '
-              'ditetapkan sebelum rilis publik.',
+              'data. Data disimpan selama diperlukan untuk menyediakan layanan, '
+              'memenuhi kewajiban hukum, dan menyelesaikan sengketa.',
         ),
         _LegalSection(
           '4. Pilihan pengguna',
@@ -184,18 +146,16 @@ _LegalContent _contentFor(LegalDocument document) {
               'di perangkat, serta meminta penghapusan akun dari menu Profil.',
         ),
         _LegalSection(
-          '5. Keamanan dan kontak',
+          '5. Keamanan data',
           'SaveBite menerapkan pembatasan akses dan kontrol keamanan yang '
-              'wajar. Prosedur insiden, kontak petugas privasi, dan kanal '
-              'permintaan hak subjek data harus dilengkapi oleh pemilik sebelum '
-              'rilis.',
+              'wajar untuk melindungi data pengguna.',
         ),
       ],
     ),
     LegalDocument.refundPolicy => const _LegalContent(
       title: 'Pembatalan & Pengembalian Dana',
       introduction:
-          'Draf ini menjelaskan skenario pembatalan dan pengembalian dana untuk '
+          'Kebijakan ini menjelaskan skenario pembatalan dan pengembalian dana untuk '
           'pembayaran yang diproses melalui Midtrans.',
       sections: [
         _LegalSection(
@@ -214,15 +174,13 @@ _LegalContent _contentFor(LegalDocument document) {
         ),
         _LegalSection(
           '3. Tidak datang saat pickup',
-          'Kebijakan final untuk pesanan yang tidak diambil harus menetapkan '
-              'batas waktu, pengecualian, dan perlindungan konsumen secara jelas. '
-              'Keputusan bisnis ini belum final dan wajib ditinjau sebelum rilis.',
+          'Pesanan yang tidak diambil pada jendela pengambilan mengikuti ketentuan '
+              'yang tercantum pada detail pesanan.',
         ),
         _LegalSection(
           '4. Pengajuan masalah',
           'Pengguna harus dapat mengirim nomor pesanan, uraian masalah, dan '
-              'bukti pendukung melalui kanal bantuan. Target waktu respons dan '
-              'eskalasi sengketa harus dilengkapi oleh pemilik operasional.',
+              'bukti pendukung melalui kanal bantuan SaveBite.',
         ),
       ],
     ),

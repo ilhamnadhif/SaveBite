@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../app_nav.dart';
 import '../../sb.dart';
+import 'location_picker_sheet.dart';
 
 /// Menjelaskan manfaat lokasi sebelum dialog izin sistem ditampilkan.
 class LocationPrimingScreen extends StatefulWidget {
@@ -51,11 +52,15 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
       if (!mounted) return;
       setState(() {
         _permission = permission;
-        _message = located ? null : appState.errorMessage;
+        _message = located ? null : _messageForLocationStatus(permission);
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _message = appState.errorMessage);
+      setState(
+        () => _message = _messageForLocationStatus(
+          _permission ?? LocationPermission.denied,
+        ),
+      );
     }
   }
 
@@ -85,11 +90,17 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
       setState(() => _message = _locationProblemMessage(permission));
     } catch (_) {
       if (!mounted) return;
-      final permission = await Geolocator.checkPermission();
+      var permission = _permission ?? LocationPermission.denied;
+      try {
+        permission = await Geolocator.checkPermission();
+      } catch (_) {
+        // Jika plugin lokasi sendiri tidak dapat membaca status, pengguna
+        // tetap harus dapat memakai area manual.
+      }
       if (!mounted) return;
       setState(() {
         _permission = permission;
-        _message = appState.errorMessage ?? _locationProblemMessage(permission);
+        _message = _messageForLocationStatus(permission);
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -98,7 +109,8 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
 
   String _locationProblemMessage(LocationPermission permission) {
     if (appState.usesBrowserPermissionSettings) {
-      return appState.browserLocationPermissionGuidance;
+      return 'Lokasi browser belum tersedia. Kamu tetap dapat memilih area '
+          'secara manual untuk melanjutkan.';
     }
     if (!appState.locationServicesEnabled) {
       return 'Layanan lokasi perangkat sedang nonaktif. Aktifkan lokasi, lalu '
@@ -112,6 +124,14 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
         'area secara manual dari beranda.';
   }
 
+  String _messageForLocationStatus(LocationPermission permission) {
+    if (!appState.locationServicesEnabled || !appState.hasLocationPermission) {
+      return _locationProblemMessage(permission);
+    }
+    return appState.errorMessage ??
+        'Lokasi belum berhasil ditemukan. Coba lagi.';
+  }
+
   Future<void> _openSettings() async {
     if (appState.usesBrowserPermissionSettings) {
       setState(() {
@@ -122,21 +142,29 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
     await appState.openRelevantLocationSettings();
   }
 
-  Future<void> _later() async {
+  Future<void> _chooseManualArea() async {
     if (_busy) return;
+    final selected = await ConsumerLocationPicker.show(context);
+    if (!mounted || !selected) return;
     await appState.markLocationPrimed();
     if (!mounted) return;
     AppNav.toConsumerHome(context);
   }
 
   bool get _showSettings =>
-      (appState.usesBrowserPermissionSettings &&
-          !appState.hasLocationPermission) ||
-      !appState.locationServicesEnabled ||
-      _permission == LocationPermission.deniedForever;
+      !appState.usesBrowserPermissionSettings &&
+      (!appState.locationServicesEnabled ||
+          _permission == LocationPermission.deniedForever);
+
+  bool get _manualAreaRecommended =>
+      _message != null &&
+      (!appState.locationServicesEnabled || !appState.hasLocationPermission);
 
   @override
   Widget build(BuildContext context) {
+    final manualAreaRecommended = _manualAreaRecommended;
+    final isPermissionIssue =
+        !appState.locationServicesEnabled || !appState.hasLocationPermission;
     return StatusBarStyle.dark(
       child: Scaffold(
         backgroundColor: AppColors.cream,
@@ -201,17 +229,21 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: AppColors.dangerBg,
+                                    color: isPermissionIssue
+                                        ? AppColors.greenSoftBg
+                                        : AppColors.dangerBg,
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                   child: Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         Icons.info_outline,
                                         size: 20,
-                                        color: AppColors.danger,
+                                        color: isPermissionIssue
+                                            ? AppColors.greenAccent
+                                            : AppColors.danger,
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
@@ -219,7 +251,9 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
                                           _message!,
                                           style: AppText.ui(
                                             13,
-                                            color: AppColors.danger,
+                                            color: isPermissionIssue
+                                                ? AppColors.greenAccent
+                                                : AppColors.danger,
                                             height: 1.45,
                                           ),
                                         ),
@@ -244,8 +278,18 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
                   const SizedBox(height: 6),
                 ],
                 PrimaryButton(
-                  label: _busy ? 'Mencari lokasimu…' : 'Izinkan akses lokasi',
-                  icon: _busy
+                  label: manualAreaRecommended
+                      ? 'Pilih area manual'
+                      : _busy
+                      ? 'Mencari lokasimu…'
+                      : 'Izinkan akses lokasi',
+                  icon: manualAreaRecommended
+                      ? const Icon(
+                          Icons.location_on_outlined,
+                          size: 19,
+                          color: AppColors.cream,
+                        )
+                      : _busy
                       ? const SizedBox(
                           width: 18,
                           height: 18,
@@ -259,12 +303,22 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
                           size: 19,
                           color: AppColors.cream,
                         ),
-                  onTap: _busy ? null : _allow,
+                  onTap: _busy
+                      ? null
+                      : manualAreaRecommended
+                      ? _chooseManualArea
+                      : _allow,
                 ),
                 const SizedBox(height: 6),
                 GhostButton(
-                  label: 'Pilih area nanti',
-                  onTap: _busy ? null : _later,
+                  label: manualAreaRecommended
+                      ? 'Coba gunakan lokasi'
+                      : 'Pilih area manual',
+                  onTap: _busy
+                      ? null
+                      : manualAreaRecommended
+                      ? _allow
+                      : _chooseManualArea,
                 ),
               ],
             ),

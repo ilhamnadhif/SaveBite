@@ -297,7 +297,6 @@ void main() {
         'Lokasi Akun Lama',
         -6.2,
         106.8,
-        reload: false,
         fromDevice: true,
         accuracyMeters: 12,
       );

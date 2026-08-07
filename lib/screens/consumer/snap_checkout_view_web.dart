@@ -108,22 +108,9 @@ class _SnapCheckoutViewState extends State<SnapCheckoutView> {
     key: const ValueKey('snap-checkout-view'),
     color: Colors.white,
     child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_opening) const CircularProgressIndicator(),
-          if (_opening) const SizedBox(height: 16),
-          const Icon(Icons.qr_code_2_rounded, size: 52),
-          const SizedBox(height: 10),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 22),
-            child: Text(
-              'Checkout QRIS Midtrans dibuka aman di halaman ini.',
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ),
+      child: _opening
+          ? const CircularProgressIndicator()
+          : const SizedBox.shrink(),
     ),
   );
 }

@@ -27,7 +27,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('error konfigurasi tidak pernah menyamar sebagai login demo', (
+  testWidgets('error startup tidak membocorkan detail konfigurasi', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -39,8 +39,15 @@ void main() {
       ),
     );
 
-    expect(find.text('Konfigurasi aplikasi belum lengkap'), findsOneWidget);
-    expect(find.textContaining('SAVEBITE_DEMO=true'), findsOneWidget);
+    expect(find.text('Aplikasi sedang tidak tersedia'), findsOneWidget);
+    expect(
+      find.text(
+        'Aplikasi sedang mengalami kendala. Silakan coba lagi beberapa saat lagi.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('SAVEBITE_DEMO=true'), findsNothing);
+    expect(find.textContaining('Konfigurasi Supabase'), findsNothing);
     expect(find.textContaining('Lanjutkan dengan Google'), findsNothing);
   });
 

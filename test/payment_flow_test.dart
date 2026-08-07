@@ -194,6 +194,22 @@ class _RetryQrisBackend extends FakeBackend {
   Future<OrderRecord> refreshPayment(OrderRecord order) async => order;
 }
 
+class _SandboxSimulatorBackend extends FakeBackend {
+  static const simulatorUrl =
+      'https://api.sandbox.midtrans.com/v2/qris/0d8178e1-c6c7-4ab4-81a6-893be9d924ab/qr-code';
+
+  int statusCalls = 0;
+
+  @override
+  bool get isRemote => true;
+
+  @override
+  Future<OrderRecord> refreshPayment(OrderRecord order) async {
+    statusCalls++;
+    return order.copyWith(simulatorQrImageUrl: simulatorUrl);
+  }
+}
+
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -224,23 +240,6 @@ MIDTRANS_ENVIRONMENT=sandbox
   ) async {
     final backend = _VerifiedPaymentBackend();
     app_backend.backend = backend;
-    String? copiedText;
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copiedText =
-              (call.arguments as Map<Object?, Object?>)['text'] as String?;
-        }
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -260,16 +259,14 @@ MIDTRANS_ENVIRONMENT=sandbox
     expect(find.byType(VoucherScreen), findsNothing);
     expect(find.text('Selesaikan pembayaran'), findsOneWidget);
     expect(find.byKey(const ValueKey('qris-image')), findsOneWidget);
-    expect(find.byKey(const ValueKey('qris-url-text')), findsOneWidget);
-    expect(find.text(_VerifiedPaymentBackend.qrUrl), findsOneWidget);
-    expect(find.text('Salin URL QRIS lama'), findsOneWidget);
+    expect(find.text(_VerifiedPaymentBackend.qrUrl), findsNothing);
+    expect(find.text('Salin URL QRIS lama'), findsNothing);
+    expect(find.text('Muat ulang QRIS'), findsOneWidget);
     expect(find.textContaining('Selesaikan dalam sekitar'), findsOneWidget);
 
-    await tester.tap(find.text('Salin URL QRIS lama'));
+    await tester.tap(find.text('Muat ulang QRIS'));
     await tester.pump();
-
-    expect(copiedText, _VerifiedPaymentBackend.qrUrl);
-    expect(find.text('URL QRIS disalin.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('qris-network-image-1')), findsOneWidget);
 
     await tester.tap(find.text('Cek status pembayaran'));
     await tester.pump();
@@ -329,7 +326,7 @@ MIDTRANS_ENVIRONMENT=sandbox
 
       expect(find.byType(VoucherScreen), findsNothing);
       expect(find.byKey(const ValueKey('snap-checkout-card')), findsOneWidget);
-      expect(find.text('Pembayaran QRIS aman'), findsOneWidget);
+      expect(find.text('Pembayaran QRIS'), findsOneWidget);
       expect(find.text(_VerifiedSnapBackend.redirectUrl), findsNothing);
       expect(find.text('Salin URL QRIS'), findsNothing);
 
@@ -346,7 +343,7 @@ MIDTRANS_ENVIRONMENT=sandbox
     },
   );
 
-  testWidgets('alat simulator QRIS hanya tampil pada build E2E', (
+  testWidgets('alat simulator QRIS hanya tampil pada mode E2E internal', (
     tester,
   ) async {
     const simulatorUrl =
@@ -396,17 +393,15 @@ MIDTRANS_ENVIRONMENT=sandbox
     await tester.pump();
     await tester.pump();
 
+    await tester.drag(find.byType(ListView), const Offset(0, -760));
+    await tester.pump();
     if (!Env.e2eMode) {
       expect(
         find.byKey(const ValueKey('sandbox-simulator-qris-card')),
         findsNothing,
       );
-      expect(find.text(simulatorUrl), findsNothing);
       return;
     }
-
-    await tester.drag(find.byType(ListView), const Offset(0, -760));
-    await tester.pump();
     expect(
       find.byKey(const ValueKey('sandbox-simulator-qris-card')),
       findsOneWidget,
@@ -417,6 +412,124 @@ MIDTRANS_ENVIRONMENT=sandbox
 
     expect(copiedText, simulatorUrl);
     expect(find.text('URL QRIS simulator disalin.'), findsOneWidget);
+  });
+
+  testWidgets('tombol sandbox mengambil lalu menyalin URL QRIS', (
+    tester,
+  ) async {
+    final backend = _SandboxSimulatorBackend();
+    app_backend.backend = backend;
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText =
+              (call.arguments as Map<Object?, Object?>)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final order = OrderRecord(
+      id: 'order-fetch-simulator-url',
+      bag: SampleData.bagRoti,
+      code: 'SB-FETCH-QRIS',
+      dateLabel: 'Hari ini',
+      amount: 16000,
+      status: OrderStatus.pending,
+      paymentMethod: 'QRIS',
+      paymentState: PaymentState.pending,
+      paymentSnapToken: _VerifiedSnapBackend.snapToken,
+      paymentRedirectUrl: _VerifiedSnapBackend.redirectUrl,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.theme,
+        home: ProcessingScreen(
+          bag: SampleData.bagRoti,
+          qty: 1,
+          method: 'QRIS',
+          existingOrder: order,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -760));
+    await tester.pump();
+    final copyButton = find.byKey(
+      const ValueKey('sandbox-simulator-qris-copy'),
+    );
+    if (!Env.e2eMode) {
+      expect(copyButton, findsNothing);
+      return;
+    }
+    expect(copyButton, findsOneWidget);
+    expect(find.text('Ambil & salin URL QRIS'), findsOneWidget);
+    await tester.ensureVisible(copyButton);
+    await tester.tap(copyButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(backend.statusCalls, 1);
+    expect(copiedText, _SandboxSimulatorBackend.simulatorUrl);
+    expect(find.text('URL QRIS simulator disalin.'), findsOneWidget);
+    expect(find.text('Salin URL'), findsOneWidget);
+  });
+
+  testWidgets('alat simulator QRIS tidak tampil pada profile production', (
+    tester,
+  ) async {
+    Env.resetForTesting();
+    Env.loadAssetTextForTesting('''
+SUPABASE_URL=https://mnxnwkgwiqvcgqximcvb.supabase.co
+SUPABASE_ANON_KEY=sb_publishable_test
+MIDTRANS_CLIENT_KEY=Mid-client-dVbTOwuCWngYwlGB
+MIDTRANS_ENVIRONMENT=production
+''');
+    final order = OrderRecord(
+      id: 'order-production-no-simulator',
+      bag: SampleData.bagRoti,
+      code: 'SB-PRODUCTION',
+      dateLabel: 'Hari ini',
+      amount: 16000,
+      status: OrderStatus.pending,
+      paymentMethod: 'QRIS',
+      paymentState: PaymentState.pending,
+      paymentSnapToken: _VerifiedSnapBackend.snapToken,
+      paymentRedirectUrl:
+          'https://app.midtrans.com/snap/v2/vtweb/redirectId_987654321',
+      simulatorQrImageUrl: _SandboxSimulatorBackend.simulatorUrl,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.theme,
+        home: ProcessingScreen(
+          bag: SampleData.bagRoti,
+          qty: 1,
+          method: 'QRIS',
+          existingOrder: order,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('snap-checkout-card')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('sandbox-simulator-qris-card')),
+      findsNothing,
+    );
+    expect(find.text('Ambil & salin URL QRIS'), findsNothing);
   });
 
   testWidgets('QRIS native via GoPay memakai URL gambar Midtrans resmi', (
@@ -451,8 +564,9 @@ MIDTRANS_ENVIRONMENT=sandbox
     await tester.pump();
 
     expect(find.byKey(const ValueKey('qris-image')), findsOneWidget);
-    expect(find.text(gopayQrisUrl), findsOneWidget);
-    expect(find.text('Salin URL QRIS lama'), findsOneWidget);
+    expect(find.text(gopayQrisUrl), findsNothing);
+    expect(find.text('Salin URL QRIS lama'), findsNothing);
+    expect(find.text('Muat ulang QRIS'), findsOneWidget);
   });
 
   testWidgets('QRIS menolak host di luar endpoint resmi Midtrans', (
@@ -487,7 +601,6 @@ MIDTRANS_ENVIRONMENT=sandbox
     await tester.pump();
 
     expect(find.byKey(const ValueKey('qris-image')), findsNothing);
-    expect(find.byKey(const ValueKey('qris-url-text')), findsNothing);
     expect(find.text(untrustedUrl), findsNothing);
     expect(
       find.textContaining('Halaman pembayaran belum tersedia'),
@@ -528,7 +641,8 @@ MIDTRANS_ENVIRONMENT=sandbox
     expect(backend.createCalls, 2);
     expect(backend.keys, everyElement('retry-qris-same-key'));
     expect(find.byKey(const ValueKey('qris-image')), findsOneWidget);
-    expect(find.text('Salin URL QRIS lama'), findsOneWidget);
+    expect(find.text('Salin URL QRIS lama'), findsNothing);
+    expect(find.text('Muat ulang QRIS'), findsOneWidget);
   });
 
   test('order hasil restore menyerahkan validasi stok ke server', () async {

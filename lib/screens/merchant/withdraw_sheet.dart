@@ -4,8 +4,7 @@ import 'package:flutter/services.dart';
 import '../../data/backend/backend.dart';
 import '../../sb.dart';
 
-/// Membuka formulir rekening baru. Rekening baru selalu menunggu verifikasi
-/// manual sebelum dapat digunakan untuk penarikan.
+/// Membuka formulir rekening baru.
 Future<BankAccount?> showAddBankAccountSheet(BuildContext context) {
   return showModalBottomSheet<BankAccount>(
     context: context,
@@ -16,8 +15,7 @@ Future<BankAccount?> showAddBankAccountSheet(BuildContext context) {
   );
 }
 
-/// C8 Tarik Dana. Penarikan hanya membuat permintaan payout berstatus pending;
-/// transfer eksternal diproses manual sampai provider payout tersedia.
+/// C8 Tarik Dana. Penarikan membuat permintaan payout berstatus pending.
 class WithdrawSheet extends StatefulWidget {
   const WithdrawSheet({super.key});
 
@@ -131,37 +129,7 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                 _bankCard(context, account),
                 const SizedBox(height: 16),
                 _feeSummary(amount),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    color: AppColors.neutralChip,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.info_outline_rounded,
-                        size: 18,
-                        color: AppColors.body,
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Text(
-                          'Permintaan akan berstatus menunggu dan ditinjau '
-                          'manual. Transfer otomatis belum tersedia.',
-                          style: AppText.ui(
-                            12,
-                            color: AppColors.body,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
                 PrimaryButton.merchant(
                   label: canSubmit
                       ? 'Ajukan ${formatRupiah(amount)}'
@@ -341,7 +309,7 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
     if (account != null && context.mounted) {
       AppFeedback.snack(
         context,
-        'Rekening ditambahkan dan menunggu verifikasi manual.',
+        'Rekening ditambahkan dan sedang diverifikasi.',
         icon: Icons.schedule_rounded,
       );
     }
@@ -688,20 +656,7 @@ class _AddBankAccountSheetState extends State<_AddBankAccountSheet> {
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(13),
-                decoration: BoxDecoration(
-                  color: AppColors.neutralChip,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Text(
-                  'Rekening baru tidak langsung aktif. Tim SaveBite perlu '
-                  'memverifikasi kepemilikan rekening secara manual.',
-                  style: AppText.ui(12, color: AppColors.body, height: 1.4),
-                ),
-              ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               PrimaryButton.merchant(
                 label: _busy ? 'Menyimpan…' : 'Simpan rekening',
                 onTap: _busy ? null : _save,
