@@ -343,9 +343,7 @@ MIDTRANS_ENVIRONMENT=sandbox
     },
   );
 
-  testWidgets('alat simulator QRIS hanya tampil pada mode E2E internal', (
-    tester,
-  ) async {
+  testWidgets('alat simulator QRIS hanya tampil pada sandbox', (tester) async {
     const simulatorUrl =
         'https://api.sandbox.midtrans.com/v2/qris/0d8178e1-c6c7-4ab4-81a6-893be9d924ab/qr-code';
     String? copiedText;
@@ -395,7 +393,7 @@ MIDTRANS_ENVIRONMENT=sandbox
 
     await tester.drag(find.byType(ListView), const Offset(0, -760));
     await tester.pump();
-    if (!Env.e2eMode) {
+    if (!Env.midtransSandbox) {
       expect(
         find.byKey(const ValueKey('sandbox-simulator-qris-card')),
         findsNothing,
@@ -468,7 +466,7 @@ MIDTRANS_ENVIRONMENT=sandbox
     final copyButton = find.byKey(
       const ValueKey('sandbox-simulator-qris-copy'),
     );
-    if (!Env.e2eMode) {
+    if (!Env.midtransSandbox) {
       expect(copyButton, findsNothing);
       return;
     }

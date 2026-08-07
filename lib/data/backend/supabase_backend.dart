@@ -1186,10 +1186,11 @@ class SupabaseBackend implements Backend {
         );
       }
       final order = Map<String, dynamic>.from(rawOrder);
-      // Metadata simulator hanya dipakai test E2E internal. Ia tidak boleh
-      // mencapai UI build sandbox biasa maupun production.
+      // Metadata simulator hanya dapat berasal dari helper sandbox yang
+      // sudah fail-closed di Edge Function. Build production tidak akan
+      // menerima URL ini karena server mengembalikan null di production.
       final simulatorUrl = data['simulator_qr_image_url'];
-      if (Env.e2eMode &&
+      if (Env.midtransSandbox &&
           name == 'midtrans-status' &&
           simulatorUrl is String &&
           simulatorUrl.trim().isNotEmpty &&

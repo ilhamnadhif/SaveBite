@@ -201,7 +201,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
   ).hasMatch(value);
 
   Uri? _simulatorQrUri(OrderRecord? order) {
-    if (!Env.e2eMode) return null;
+    if (!Env.midtransSandbox) return null;
     final rawUrl = order?.simulatorQrImageUrl?.trim();
     if (rawUrl == null || rawUrl.isEmpty) return null;
     final uri = Uri.tryParse(rawUrl);
@@ -406,7 +406,12 @@ class _ProcessingScreenState extends State<ProcessingScreen>
     final qrUri = _paymentQrUri(order);
     final simulatorQrUri = _simulatorQrUri(order);
     return PopScope(
-      canPop: !_creating,
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || _creating || !mounted) return;
+        _pollTimer?.cancel();
+        AppNav.toOrders(context);
+      },
       child: StatusBarStyle.light(
         child: Scaffold(
           backgroundColor: AppColors.green,
@@ -460,7 +465,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                     _snapCard(snapSession)
                   else
                     _qrisCard(order),
-                  if (snapSession != null && Env.e2eMode) ...[
+                  if (snapSession != null && Env.midtransSandbox) ...[
                     const SizedBox(height: 14),
                     _simulatorQrCard(simulatorQrUri),
                   ],

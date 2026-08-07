@@ -11,6 +11,8 @@ import 'package:savebite/data/backend/fake_backend.dart';
 import 'package:savebite/data/models.dart';
 import 'package:savebite/data/sample_data.dart';
 import 'package:savebite/screens/consumer/checkout_screen.dart';
+import 'package:savebite/screens/consumer/consumer_shell.dart';
+import 'package:savebite/screens/consumer/orders_screen.dart';
 import 'package:savebite/screens/consumer/processing_screen.dart';
 import 'package:savebite/screens/consumer/store_profile_screen.dart';
 import 'package:savebite/screens/consumer/voucher_screen.dart';
@@ -42,6 +44,38 @@ class _FlakyMerchantBagsBackend extends FakeBackend {
     }
     return super.bagsByMerchant(merchantId);
   }
+}
+
+class _PendingPaymentBackend extends FakeBackend {
+  OrderRecord? _pending;
+
+  @override
+  Future<OrderRecord> placeOrder(
+    Bag bag,
+    int qty,
+    String method, {
+    required String idempotencyKey,
+  }) async {
+    final created = await super.placeOrder(
+      bag,
+      qty,
+      method,
+      idempotencyKey: idempotencyKey,
+    );
+    _pending = created.copyWith(
+      paymentState: PaymentState.awaitingPayment,
+      paymentExpiresAt: DateTime.now().add(const Duration(minutes: 15)),
+    );
+    return _pending!;
+  }
+
+  @override
+  Future<List<OrderRecord>> activeOrders() async =>
+      _pending == null ? const [] : [_pending!];
+
+  @override
+  Future<OrderRecord> refreshPayment(OrderRecord order) async =>
+      _pending ?? order;
 }
 
 class _UnrelatedRoute extends StatelessWidget {
@@ -126,6 +160,47 @@ void main() {
       expect(find.text('Buka checkout'), findsOneWidget);
       expect(find.byType(CheckoutScreen), findsNothing);
       expect(appState.activeOrders, hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'Back dari pembayaran membuka Pesanan dengan status menunggu bayar',
+    (tester) async {
+      app_backend.backend = _PendingPaymentBackend();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.theme,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  key: const Key('open-checkout'),
+                  onPressed: () =>
+                      AppNav.toCheckout(context, SampleData.bagRoti),
+                  child: const Text('Buka checkout'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('open-checkout')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Lanjutkan ·'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProcessingScreen), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ConsumerShell), findsOneWidget);
+      expect(find.byType(OrdersScreen), findsOneWidget);
+      expect(find.text('Menunggu bayar'), findsOneWidget);
+      expect(find.text('Lanjutkan pembayaran'), findsOneWidget);
+      expect(find.byType(CheckoutScreen), findsNothing);
     },
   );
 

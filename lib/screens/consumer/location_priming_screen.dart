@@ -50,6 +50,13 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
       );
       final permission = await Geolocator.checkPermission();
       if (!mounted) return;
+      if (located && appState.locationPrimed && appState.hasValidUserLocation) {
+        // Permission may already be granted while the persisted priming flag
+        // is being restored. Do not make the user press the permission button
+        // again; continue directly to the consumer home.
+        AppNav.toConsumerHome(context);
+        return;
+      }
       setState(() {
         _permission = permission;
         _message = located ? null : _messageForLocationStatus(permission);
@@ -156,13 +163,8 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
       (!appState.locationServicesEnabled ||
           _permission == LocationPermission.deniedForever);
 
-  bool get _manualAreaRecommended =>
-      _message != null &&
-      (!appState.locationServicesEnabled || !appState.hasLocationPermission);
-
   @override
   Widget build(BuildContext context) {
-    final manualAreaRecommended = _manualAreaRecommended;
     final isPermissionIssue =
         !appState.locationServicesEnabled || !appState.hasLocationPermission;
     return StatusBarStyle.dark(
@@ -278,18 +280,8 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
                   const SizedBox(height: 6),
                 ],
                 PrimaryButton(
-                  label: manualAreaRecommended
-                      ? 'Pilih area manual'
-                      : _busy
-                      ? 'Mencari lokasimu…'
-                      : 'Izinkan akses lokasi',
-                  icon: manualAreaRecommended
-                      ? const Icon(
-                          Icons.location_on_outlined,
-                          size: 19,
-                          color: AppColors.cream,
-                        )
-                      : _busy
+                  label: _busy ? 'Mencari lokasimu…' : 'Izinkan akses lokasi',
+                  icon: _busy
                       ? const SizedBox(
                           width: 18,
                           height: 18,
@@ -303,22 +295,12 @@ class _LocationPrimingScreenState extends State<LocationPrimingScreen>
                           size: 19,
                           color: AppColors.cream,
                         ),
-                  onTap: _busy
-                      ? null
-                      : manualAreaRecommended
-                      ? _chooseManualArea
-                      : _allow,
+                  onTap: _busy ? null : _allow,
                 ),
                 const SizedBox(height: 6),
                 GhostButton(
-                  label: manualAreaRecommended
-                      ? 'Coba gunakan lokasi'
-                      : 'Pilih area manual',
-                  onTap: _busy
-                      ? null
-                      : manualAreaRecommended
-                      ? _allow
-                      : _chooseManualArea,
+                  label: 'Pilih area manual',
+                  onTap: _busy ? null : _chooseManualArea,
                 ),
               ],
             ),
