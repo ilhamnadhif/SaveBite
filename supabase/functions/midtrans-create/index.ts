@@ -12,7 +12,7 @@ import {
 import {
   assertMidtransConfigured,
   buildSnapPayload,
-  canonicalQrisPaymentMethod,
+  canonicalCheckoutPaymentMethod,
   type CheckoutItem,
   createSnapTransaction,
   MidtransApiError,
@@ -112,6 +112,9 @@ function checkoutInput(claim: Record<string, unknown>): SnapCheckoutInput {
       phone: typeof customer.phone === "string" ? customer.phone : null,
     },
     items,
+    // The reserved attempt's own method, not this request's, decides the
+    // Snap payload: an idempotent retry always reaches the same checkout.
+    paymentMethod: canonicalCheckoutPaymentMethod(claim.requested_method),
   };
 }
 
@@ -143,7 +146,7 @@ Deno.serve(async (request) => {
     ) {
       throw new HttpError(400, "invalid_quantity", "Jumlah bag tidak valid.");
     }
-    const paymentMethod = canonicalQrisPaymentMethod(body.payment_method);
+    const paymentMethod = canonicalCheckoutPaymentMethod(body.payment_method);
     const idempotencyKey = requiredString(
       body.idempotency_key,
       "idempotency_key",
@@ -231,11 +234,17 @@ Deno.serve(async (request) => {
           );
         }
         if (error instanceof MidtransApiError && error.httpStatus === 402) {
-          throw new HttpError(
-            503,
-            "midtrans_qris_not_enabled",
-            "Kanal QRIS pada Snap Midtrans belum aktif.",
-          );
+          throw paymentMethod === "QRIS"
+            ? new HttpError(
+              503,
+              "midtrans_qris_not_enabled",
+              "Kanal QRIS pada Snap Midtrans belum aktif.",
+            )
+            : new HttpError(
+              503,
+              "midtrans_channel_not_enabled",
+              "Metode pembayaran pada Snap Midtrans belum aktif.",
+            );
         }
         throw new HttpError(
           error instanceof MidtransApiError && error.httpStatus === 503

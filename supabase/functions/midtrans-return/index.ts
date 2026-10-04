@@ -6,7 +6,13 @@ function webCallback(): string {
   try {
     const url = new URL(raw);
     const isLocal = ["localhost", "127.0.0.1"].includes(url.hostname);
-    if (url.protocol !== "https:" && !(isLocal && url.protocol === "http:")) {
+    // A sandbox web deployment can still run on plain HTTP (no domain yet);
+    // production always returns over HTTPS.
+    const sandbox = Deno.env.get("MIDTRANS_ENVIRONMENT")?.trim() === "sandbox";
+    if (
+      url.protocol !== "https:" &&
+      !((isLocal || sandbox) && url.protocol === "http:")
+    ) {
       return mobileCallback;
     }
     url.searchParams.set("savebite_payment_return", "1");
