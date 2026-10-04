@@ -24,7 +24,15 @@ export interface QrisTransaction {
   payment_qr_url: string;
 }
 
-export interface SnapCheckoutInput extends QrisCheckoutInput {}
+/// `QRIS`: Snap restricted to Other QRIS (the in-app WebView checkout).
+/// `MIDTRANS`: the hosted Snap page with every payment method active on the
+/// merchant account (the web checkout).
+export type CheckoutPaymentMethod = "QRIS" | "MIDTRANS";
+
+export interface SnapCheckoutInput extends QrisCheckoutInput {
+  /// Defaults to QRIS, the original Snap contract.
+  paymentMethod?: CheckoutPaymentMethod;
+}
 
 export interface SnapTransaction {
   token: string;
@@ -180,8 +188,9 @@ function overrideNotificationUrl(): string {
   return supabaseFunctionUrl("midtrans-webhook");
 }
 
-function finishCallbackUrl(): string {
-  return supabaseFunctionUrl("midtrans-return");
+function finishCallbackUrl(target: "app" | "web" = "app"): string {
+  const url = supabaseFunctionUrl("midtrans-return");
+  return target === "web" ? `${url}?target=web` : url;
 }
 
 function config(): MidtransConfig {
@@ -251,6 +260,19 @@ export function canonicalQrisPaymentMethod(value: unknown): "QRIS" {
     );
   }
   return "QRIS";
+}
+
+export function canonicalCheckoutPaymentMethod(
+  value: unknown,
+): CheckoutPaymentMethod {
+  const method = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (method === "qris") return "QRIS";
+  if (method === "midtrans") return "MIDTRANS";
+  throw new HttpError(
+    400,
+    "invalid_payment_method",
+    "Metode pembayaran tidak didukung.",
+  );
 }
 
 export function buildQrisChargePayload(
@@ -353,8 +375,8 @@ export function buildQrisChargePayload(
 }
 
 /// Build the server-owned Snap contract used by SaveBite. The payment list is
-/// deliberately constant: clients can request QRIS, but can never widen the
-/// hosted checkout to another payment rail.
+/// owned by the server: a QRIS checkout can never be widened to another rail,
+/// and a MIDTRANS checkout offers every method active on the merchant account.
 export function buildSnapPayload(
   input: SnapCheckoutInput,
   now = new Date(),
@@ -366,6 +388,10 @@ export function buildSnapPayload(
     throw new HttpError(500, "invalid_checkout", "ID checkout tidak valid.");
   }
   const grossAmount = integer(input.grossAmount, "Total");
+  const paymentMethod = input.paymentMethod ?? "QRIS";
+  if (paymentMethod !== "QRIS" && paymentMethod !== "MIDTRANS") {
+    throw new HttpError(500, "invalid_checkout", "Metode checkout tidak valid.");
+  }
   if (!Array.isArray(input.items) || input.items.length === 0) {
     throw new HttpError(500, "invalid_checkout", "Item checkout tidak valid.");
   }
@@ -433,15 +459,20 @@ export function buildSnapPayload(
       ? { customer_details: customerDetails }
       : {}),
     // `other_qris` always renders a QR instead of choosing a wallet deeplink
-    // based on the device form factor.
-    enabled_payments: ["other_qris"],
+    // based on the device form factor. Without a list, Snap shows every
+    // method active on the merchant account.
+    ...(paymentMethod === "QRIS" ? { enabled_payments: ["other_qris"] } : {}),
     expiry: {
       start_time: now.toISOString().replace("T", " ")
         .replace(/\.\d{3}Z$/, " +0000"),
       duration: Math.min(15, remainingMinutes),
       unit: "minutes",
     },
-    callbacks: { finish: finishCallbackUrl() },
+    // The hosted checkout leaves the web app, so it returns there; the QRIS
+    // WebView checkout returns to the mobile app.
+    callbacks: {
+      finish: finishCallbackUrl(paymentMethod === "MIDTRANS" ? "web" : "app"),
+    },
   };
 }
 

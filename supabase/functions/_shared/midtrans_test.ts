@@ -2,6 +2,7 @@ import {
   assertMidtransConfigured,
   buildQrisChargePayload,
   buildSnapPayload,
+  canonicalCheckoutPaymentMethod,
   canonicalQrisPaymentMethod,
   configuredQrisAcquirer,
   configuredQrisProviderMode,
@@ -176,6 +177,38 @@ Deno.test("Snap payload is QRIS-only with a server-owned bounded expiry", () => 
     start_time: "2030-01-01 00:00:00 +0000",
     duration: 15,
     unit: "minutes",
+  });
+});
+
+Deno.test("hosted MIDTRANS Snap payload offers every method and returns to the web app", () => {
+  const payload = buildSnapPayload(
+    { ...checkout, paymentMethod: "MIDTRANS" },
+    new Date("2030-01-01T00:00:00.000Z"),
+  );
+  assert(!Object.hasOwn(payload, "enabled_payments"));
+  assertEquals(payload.callbacks, {
+    finish:
+      "https://test-project.supabase.co/functions/v1/midtrans-return?target=web",
+  });
+  assertEquals(payload.expiry, {
+    start_time: "2030-01-01 00:00:00 +0000",
+    duration: 15,
+    unit: "minutes",
+  });
+  assertEquals(payload.transaction_details, {
+    order_id: checkout.providerOrderId,
+    gross_amount: checkout.grossAmount,
+  });
+  assert(!Object.hasOwn(payload, "payment_type"));
+
+  // An explicit QRIS checkout keeps the Other-QRIS-only app contract.
+  const qrisPayload = buildSnapPayload(
+    { ...checkout, paymentMethod: "QRIS" },
+    new Date("2030-01-01T00:00:00.000Z"),
+  );
+  assertEquals(qrisPayload.enabled_payments, ["other_qris"]);
+  assertEquals(qrisPayload.callbacks, {
+    finish: "https://test-project.supabase.co/functions/v1/midtrans-return",
   });
 });
 
@@ -537,6 +570,25 @@ Deno.test("checkout accepts only QRIS and returns the canonical DB value", () =>
         "code" in error && error.code === "invalid_payment_method";
     }
     assert(rejected);
+  }
+});
+
+Deno.test("checkout accepts QRIS or the hosted MIDTRANS checkout", () => {
+  assertEquals(canonicalCheckoutPaymentMethod("qris"), "QRIS");
+  assertEquals(canonicalCheckoutPaymentMethod("  QRIS  "), "QRIS");
+  assertEquals(canonicalCheckoutPaymentMethod("Midtrans"), "MIDTRANS");
+  assertEquals(canonicalCheckoutPaymentMethod(" MIDTRANS "), "MIDTRANS");
+  for (
+    const method of ["GoPay", "other_qris", "bank_transfer", "", null, 1]
+  ) {
+    let rejected = false;
+    try {
+      canonicalCheckoutPaymentMethod(method);
+    } catch (error) {
+      rejected = error instanceof HttpError && error.status === 400 &&
+        error.code === "invalid_payment_method";
+    }
+    assert(rejected, String(method));
   }
 });
 
